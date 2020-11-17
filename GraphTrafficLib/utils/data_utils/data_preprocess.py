@@ -38,4 +38,4 @@ def add_temporal_bins(df, dt):
 
     # due to the time indexing we have some values that gets outside the bins - here is a temporary fix
     df = df.dropna()
-    return df
+    return df, n_bins_dt
