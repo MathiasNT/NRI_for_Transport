@@ -43,19 +43,15 @@ def add_temporal_bins(df, dt):
 
 def create_binned_matrix(df):
     # Group the data based on the spatial bins. Note that the temporal order is in the data already
-    location_groups = [
-        x for _, x in demand_df.groupby(["longitude_bins", "latitude_bins"])
-    ]
-    group_idx = [
-        idx for idx, _ in demand_df.groupby(["longitude_bins", "latitude_bins"])
-    ]
+    location_groups = [x for _, x in df.groupby(["longitude_bins", "latitude_bins"])]
+    group_idx = [idx for idx, _ in df.groupby(["longitude_bins", "latitude_bins"])]
 
     # Create matrix with data of sie [lat, lon, time]
-    demand_matrix = np.zeros((n_lat_bins, n_lon_bins, n_bins_dt))
+    binned_matrix = np.zeros((n_lat_bins, n_lon_bins, n_bins_dt))
     for i in range(len(location_groups)):
         location_time_series = location_groups[i].time_bins.value_counts().sort_index()
         lon, lat = group_idx[i]
-        demand_matrix[lat, lon, :] = location_time_series.values
+        binned_matrix[lat, lon, :] = location_time_series.values
 
-    return demand_matrix
+    return binned_matrix
 
