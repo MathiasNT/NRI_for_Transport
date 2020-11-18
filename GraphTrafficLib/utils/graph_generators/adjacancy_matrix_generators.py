@@ -19,3 +19,4 @@ def dtw_adj_generator(demand_vector, n_lat_bins, n_lon_bins, end_index):
             )
             adjacancy_matrix[i, j] = distance
 
+    return adjacancy_matrix
