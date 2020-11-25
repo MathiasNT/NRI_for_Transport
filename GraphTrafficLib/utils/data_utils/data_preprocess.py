@@ -17,7 +17,7 @@ def add_spatial_bins(df, n_lat_bins, n_lon_bins):
     return df
 
 
-def add_temporal_bins(df, dt):
+def add_temporal_bins(df, time_col_name, dt):
     # This function adds temporal bins to a dataframe with timestamps
 
     min_date = df.pickup_time.min()
@@ -28,7 +28,7 @@ def add_temporal_bins(df, dt):
     bins_dt = pd.date_range(start=min_date, end=max_date, freq=dt)
     n_bins_dt = len(bins_dt) - 1
     df.loc[:, "time_bins"] = pd.cut(
-        df["pickup_time"], bins=bins_dt, labels=range(n_bins_dt)
+        df[time_col_name], bins=bins_dt, labels=range(n_bins_dt)
     )
 
     # due to the time indexing we have some values that gets outside the bins - here is a temporary fix
