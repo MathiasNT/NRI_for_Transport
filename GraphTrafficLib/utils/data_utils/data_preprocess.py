@@ -17,12 +17,14 @@ def add_spatial_bins(df, n_lat_bins, n_lon_bins):
     return df
 
 
-def add_temporal_bins(df, time_col_name, dt):
+def add_temporal_bins(df, time_col_name, dt, year, month):
     # This function adds temporal bins to a dataframe with timestamps
 
-    min_date = df.pickup_time.min()
-    max_date = df.pickup_time.max()
-    print(f"from {min_date} to {max_date}")
+    min_date = pd.Timestamp(year=year, month=month, day=1)
+    if month + 1 > 12:
+        max_date = pd.Timestamp(year=year + 1, month=1, day=1)
+    else:
+        max_date = pd.Timestamp(year=year, month=month + 1, day=1)
 
     # Note that this misses a bit from the beginning but this will not be a big problem when we index finer
     bins_dt = pd.date_range(start=min_date, end=max_date, freq=dt)
@@ -49,3 +51,23 @@ def create_binned_matrix(df, n_lat_bins, n_lon_bins, n_bins_dt):
         binned_matrix[lat, lon, :] = location_time_series.values
 
     return binned_matrix
+
+
+def create_binned_vector(
+    df, n_spatial_bins, n_bins_dt, spatial_bins_name, temporal_bins_name
+):
+    # Group the data based on the spatial bins. Note that the temporal order is in the data already
+    location_groups = [x for _, x in df.groupby(spatial_bins_name)]
+    group_idx = [idx for idx, _ in df.groupby(spatial_bins_name)]
+
+    # Create matrix with data of size [lat, lon, time]
+    output_vector = np.zeros((n_spatial_bins, n_bins_dt))
+    for i in range(len(location_groups)):
+        location_index = location_groups[i].PULocationID.iloc[0]
+        vector_index = group_idx.index(location_index)
+        location_time_series = (
+            location_groups[i][temporal_bins_name].value_counts().sort_index()
+        )
+        output_vector[vector_index, :] = location_time_series.values
+
+    return output_vector, group_idx
