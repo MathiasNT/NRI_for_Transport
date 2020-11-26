@@ -20,8 +20,8 @@ def dtw_adj_generator(demand_vector, end_index, coordinate_version=False, **kwar
         dists, _ = zip(
             *Parallel(n_jobs=-1)(
                 delayed(fastdtw)(
-                    demand_vector[0][:500],
-                    demand_vector[j][:500],
+                    demand_vector[0][:end_index],
+                    demand_vector[j][:end_index],
                     dist=euclidean,
                     radius=1,
                 )
