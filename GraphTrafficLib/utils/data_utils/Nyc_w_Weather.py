@@ -1,5 +1,6 @@
 from torch.utils.data import Dataset
 
+
 class Nyc_w_Weather(Dataset):
     def __init__(self, timeseries, weather, list_IDs):
         super(Nyc_w_Weather, self).__init__()
@@ -16,8 +17,8 @@ class Nyc_w_Weather(Dataset):
 
         # Load data
         time_data = self.timeseries[ID]
-        X = time_data[:-1,:]
-        y = time_data[-1:,:]
+        X = time_data[:-1, :]
+        y = time_data[-1:, :]
         weather = self.weatherseries[ID]
 
-        return X, y, weather[:-1,:]
+        return X, y, weather[:-1, :]
