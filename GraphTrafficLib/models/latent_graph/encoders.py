@@ -6,7 +6,7 @@ from .modules import MLP
 # TODO add in weight initialization to see if it improves the performance
 # TODO add in batchnormalization to see it if improves the performance
 class MLPEncoder(nn.Module):
-    """[summary]
+    """[summary]m
 
     Parameters
     ----------
@@ -23,7 +23,7 @@ class MLPEncoder(nn.Module):
         self.mlp1 = MLP(n_in=n_in, n_hid=n_hid, n_out=n_hid)
 
         # MLP for v->e, hence input is double size
-        self.mlp2 = MLP(n_in=n_in * 2, n_hid=n_hid, n_out=n_hid)
+        self.mlp2 = MLP(n_in=n_hid * 2, n_hid=n_hid, n_out=n_hid)
 
         # MLP for e->v, so dimensions should be straight forward
         self.mlp3 = MLP(n_in=n_hid, n_hid=n_hid, n_out=n_hid)
@@ -54,19 +54,31 @@ class MLPEncoder(nn.Module):
         """This is the forward pass
         """
         # TODO maybe add dim permutation / view
-
+        # print(inputs.shape)
         x = self.mlp1(inputs)
+        # print(x.shape)
 
         x = self.node2edge(x, rel_rec, rel_send)
+        # print(x.shape)
+
         x = self.mlp2(x)
+        # print(x.shape)
 
         x = self.edge2node(x, rel_rec)
+        # print(x.shape)
+
         x = self.mlp3(x)
+        # print(x.shape)
 
         # TODO add in skip connection to see if that improves the performance
 
         x = self.node2edge(x, rel_rec, rel_send)
+        # print(x.shape)
+
         x = self.mlp4(x)
+        # print(x.shape)
 
         x = self.fc(x)
+        # print(x.shape)
+
         return x

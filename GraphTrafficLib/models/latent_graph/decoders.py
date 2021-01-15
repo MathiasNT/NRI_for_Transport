@@ -10,8 +10,6 @@ import torch.nn.functional as F
 #  care of it like it is here
 # TODO Add in doing multiple steps ahead - right now I implement it as a single step in the forward but that could lead
 # to the model ignoring the latent code (??)
-
-
 class MLPDecoder(nn.Module):
     """ empty
     """
@@ -49,20 +47,23 @@ class MLPDecoder(nn.Module):
         return edges
 
     def forward(self, inputs, rel_rec, rel_send, rel_types):
-
+        """[summary]
+        """
         # TODO fix the dimension to match what we want
         # So according to their implementation we want
         # input shape [batch_size, num_timesteps, num_atoms, num_dims]
         # rel_types [batch_size, num_timesteps, num_atoms*(num_atoms-1), num_edge_types]
+        # print(f"inputs: {inputs.shape}")
         pre_msg = self.node2edge(inputs, rel_rec, rel_send)
-
+        # print(f"pre_msg: {pre_msg.shape}")
         # Create variable to aggregate the messages in
         # TODO double check why we need this torch.autograd variable
         all_msgs = Variable(
-            torch.zeros(
-                pre_msg.size(0), pre_msg.size(1), pre_msg.size(2), self.msg_out_shape
-            )
+            torch.zeros(pre_msg.size(0), pre_msg.size(1), self.msg_out_shape)
         )
+        if inputs.is_cuda:
+            all_msgs = all_msgs.cuda()
+        # print(f"all_msgs: {all_msgs.shape}")
 
         # Go over the different edge types and compute their contribution to the overall messages
         # TODO change to be able to handle multiple edge types
@@ -70,8 +71,9 @@ class MLPDecoder(nn.Module):
             msg = F.relu(self.msg_fc1(pre_msg))
             msg = F.relu(self.msg_fc2(msg))
             msg = (
-                msg * rel_types[:, :, :, i : i + 1]
+                msg * rel_types[:, :, i : i + 1]
             )  # This is the magic line that enforces 0 to be no edge
+            # print(f"msg: {msg.shape}")
             all_msgs += msg
 
         # Aggregate all msgs to receiver
@@ -79,7 +81,7 @@ class MLPDecoder(nn.Module):
         agg_msgs = (
             all_msgs.transpose(-2, -1).matmul(rel_rec).transpose(-2, -1)
         )  # This is simillar to the edge2node and could potentially be moved there
-        agg_msgs = agg_msgs.contigous()
+        agg_msgs = agg_msgs.contiguous()
 
         # Output MLP
         pred = F.relu(self.out_fc1(agg_msgs))
