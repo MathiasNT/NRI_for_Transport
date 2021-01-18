@@ -91,8 +91,8 @@ class MLPDecoder(nn.Module):
         pred = F.relu(self.out_fc2(pred))
         pred = self.out_fc3(pred)
 
-        # TODO fix the output dimensions
-        return pred
+        # TODO double check the wished output dimensions
+        return pred.permute(0, 2, 1)
 
 
 class GRUDecoder(nn.Module):
