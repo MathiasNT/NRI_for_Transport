@@ -53,7 +53,9 @@ class MLPEncoder(nn.Module):
     def forward(self, inputs, rel_rec, rel_send):
         """This is the forward pass
         """
-        # TODO maybe add dim permutation / view
+        # permute to match the wanted [B, N, T, F] (which is a bit weird)
+        inputs = inputs.permute(0, 2, 1)
+
         # print(inputs.shape)
         x = self.mlp1(inputs)
         # print(x.shape)

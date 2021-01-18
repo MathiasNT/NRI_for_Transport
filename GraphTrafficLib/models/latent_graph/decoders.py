@@ -10,6 +10,7 @@ import torch.nn.functional as F
 #  care of it like it is here
 # TODO Add in doing multiple steps ahead - right now I implement it as a single step in the forward but that could lead
 # to the model ignoring the latent code (??)
+# TODO double check the dimensions for the forward pass - it seems like it is wrong but still works
 class MLPDecoder(nn.Module):
     """ empty
     """
@@ -49,6 +50,7 @@ class MLPDecoder(nn.Module):
     def forward(self, inputs, rel_rec, rel_send, rel_types):
         """[summary]
         """
+
         # TODO fix the dimension to match what we want
         # So according to their implementation we want
         # input shape [batch_size, num_timesteps, num_atoms, num_dims]
