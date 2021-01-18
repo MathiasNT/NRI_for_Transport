@@ -55,7 +55,7 @@ class MLPDecoder(nn.Module):
         # input shape [batch_size, num_timesteps, num_atoms, num_dims]
         # rel_types [batch_size, num_timesteps, num_atoms*(num_atoms-1), num_edge_types]
         # Since we do a simplified version timesteps here are considered dims so permute to get [B, N, T/F]
-        inputs = inputs.permute(1, 2)
+        inputs = inputs.permute(0, 1, 2)
 
         pre_msg = self.node2edge(inputs, rel_rec, rel_send)
         # print(f"pre_msg: {pre_msg.shape}")
