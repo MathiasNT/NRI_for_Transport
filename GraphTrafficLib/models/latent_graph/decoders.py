@@ -13,10 +13,11 @@ class MLPDecoder(nn.Module):
     """ empty
     """
 
-    def __init__(self, n_in, n_hid, n_out, msg_hid, msg_out, edge_types):
+    def __init__(self, n_in, n_hid, n_out, msg_hid, msg_out, edge_types, dropout_prob):
         super().__init__()
 
         self.edge_types = edge_types
+        self.dropout_prob = dropout_prob
 
         # FC layers to compute messages
         # TODO check if we can save some ram by doing the no edge smarter
@@ -34,14 +35,12 @@ class MLPDecoder(nn.Module):
         )
 
         # FC for generating the output
-        self.out_fc1 = nn.Linear(in_features=msg_out, out_features=n_hid)
+        self.out_fc1 = nn.Linear(in_features=msg_out + n_in, out_features=n_hid)
         self.out_fc2 = nn.Linear(in_features=n_hid, out_features=n_hid)
         self.out_fc3 = nn.Linear(in_features=n_hid, out_features=n_out)
 
-        # TODO figure out what determines the shape that we want
         self.msg_out_shape = msg_out
 
-    # TODO add in normalization and see how it improve
     def edge2node(self, x, rel_rec):
         """This function makes the aggregation over the incomming edge embeddings
         """
@@ -53,7 +52,7 @@ class MLPDecoder(nn.Module):
         """
         receivers = torch.matmul(rel_rec, x)
         senders = torch.matmul(rel_send, x)
-        edges = torch.cat([senders, receivers], dim=2)  # TODO double check dim
+        edges = torch.cat([senders, receivers], dim=2)
         return edges
 
     def forward(self, inputs, rel_rec, rel_send, rel_types):
@@ -67,15 +66,13 @@ class MLPDecoder(nn.Module):
         inputs = inputs.permute(0, 2, 1)
 
         pre_msg = self.node2edge(inputs, rel_rec, rel_send)
-        # print(f"pre_msg: {pre_msg.shape}")
+
         # Create variable to aggregate the messages in
-        # TODO double check why we need this torch.autograd variable
         all_msgs = Variable(
             torch.zeros(pre_msg.size(0), pre_msg.size(1), self.msg_out_shape)
         )
         if inputs.is_cuda:
             all_msgs = all_msgs.cuda()
-        # print(f"all_msgs: {all_msgs.shape}")
 
         # Go over the different edge types and compute their contribution to the overall messages
         for i in range(0, self.edge_types):
@@ -85,19 +82,21 @@ class MLPDecoder(nn.Module):
             all_msgs += msg
 
         # Aggregate all msgs to receiver
-        agg_msgs = (
-            all_msgs.transpose(-2, -1).matmul(rel_rec).transpose(-2, -1)
-        )  # TODO This is simillar to the edge2node and could potentially be moved there
+        agg_msgs = all_msgs.transpose(-2, -1).matmul(rel_rec).transpose(-2, -1)
         agg_msgs = agg_msgs.contiguous()
 
-        # TODO add skip connection
+        # Skip connection
+        aug_msgs = torch.cat([inputs, agg_msgs], dim=-1)
 
         # Output MLP
-        pred = F.relu(self.out_fc1(agg_msgs))
-        pred = F.relu(self.out_fc2(pred))
+        pred = F.dropout(
+            F.relu(self.out_fc1(aug_msgs)), p=self.dropout_prob, training=self.training
+        )
+        pred = F.dropout(
+            F.relu(self.out_fc2(pred)), p=self.dropout_prob, training=self.training
+        )
         pred = self.out_fc3(pred)
 
-        # TODO double check the wished output dimensions
         return pred.permute(0, 2, 1)
 
 
