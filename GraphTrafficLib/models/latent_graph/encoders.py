@@ -14,23 +14,23 @@ class MLPEncoder(nn.Module):
         [description]
     """
 
-    def __init__(self, n_in, n_hid, n_out):
+    def __init__(self, n_in, n_hid, n_out, do_prob):
         super().__init__()
 
         # We need 4 MLPs to implement the model from NRI
 
         # MLP for embedding the input, hence dimensions are straight forward
-        self.mlp1 = MLP(n_in=n_in, n_hid=n_hid, n_out=n_hid)
+        self.mlp1 = MLP(n_in=n_in, n_hid=n_hid, n_out=n_hid, dropout_prob=do_prob)
 
         # MLP for v->e, hence input is double size
-        self.mlp2 = MLP(n_in=n_hid * 2, n_hid=n_hid, n_out=n_hid)
+        self.mlp2 = MLP(n_in=n_hid * 2, n_hid=n_hid, n_out=n_hid, dropout_prob=do_prob)
 
         # MLP for e->v, so dimensions should be straight forward
-        self.mlp3 = MLP(n_in=n_hid, n_hid=n_hid, n_out=n_hid)
+        self.mlp3 = MLP(n_in=n_hid, n_hid=n_hid, n_out=n_hid, dropout_prob=do_prob)
 
         # MLP for second v->e, so dimensions should be straight foward
         # TODO look into the factor graph stuff - I think it is somekind of residual link
-        self.mlp4 = MLP(n_in=n_hid * 2, n_hid=n_hid, n_out=n_hid)
+        self.mlp4 = MLP(n_in=n_hid * 2, n_hid=n_hid, n_out=n_hid, dropout_prob=do_prob)
 
         # FC layer for going from the edge embeddings to the edge mean in the latent code
         self.fc = nn.Linear(in_features=n_hid, out_features=n_out)
