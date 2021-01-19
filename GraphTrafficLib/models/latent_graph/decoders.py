@@ -13,14 +13,25 @@ class MLPDecoder(nn.Module):
     """ empty
     """
 
-    def __init__(self, n_in, n_hid, n_out, msg_hid, msg_out):
+    def __init__(self, n_in, n_hid, n_out, msg_hid, msg_out, edge_types):
         super().__init__()
 
+        self.edge_types = edge_types
+
         # FC layers to compute messages
-        # TODO Do not know why they do not use the MLP module here
-        # TODO Fix this for multiple types of edges.
-        self.msg_fc1 = nn.Linear(in_features=n_in * 2, out_features=msg_hid)
-        self.msg_fc2 = nn.Linear(in_features=msg_hid, out_features=msg_out)
+        # TODO check if we can save some ram by doing the no edge smarter
+        self.msg_fc1 = nn.ModuleList(
+            [
+                nn.Linear(in_features=n_in * 2, out_features=msg_hid)
+                for _ in range(edge_types)
+            ]
+        )
+        self.msg_fc2 = nn.ModuleList(
+            [
+                nn.Linear(in_features=msg_hid, out_features=msg_out)
+                for _ in range(edge_types)
+            ]
+        )
 
         # FC for generating the output
         self.out_fc1 = nn.Linear(in_features=msg_out, out_features=n_hid)
@@ -35,7 +46,7 @@ class MLPDecoder(nn.Module):
         """This function makes the aggregation over the incomming edge embeddings
         """
         incoming = torch.matmul(rel_rec.t(), x)
-        return incoming
+        return incoming / incoming.size(1)
 
     def node2edge(self, x, rel_rec, rel_send):
         """This function makes a matrix of [node_i, node_j] rows for the edge embeddings
@@ -67,22 +78,19 @@ class MLPDecoder(nn.Module):
         # print(f"all_msgs: {all_msgs.shape}")
 
         # Go over the different edge types and compute their contribution to the overall messages
-        # TODO change to be able to handle multiple edge types
-        for i in range(0, 2):
-            msg = F.relu(self.msg_fc1(pre_msg))
-            msg = F.relu(self.msg_fc2(msg))
-            msg = (
-                msg * rel_types[:, :, i : i + 1]
-            )  # This is the magic line that enforces 0 to be no edge
-            # print(f"msg: {msg.shape}")
+        for i in range(0, self.edge_types):
+            msg = F.relu(self.msg_fc1[i](pre_msg))
+            msg = F.relu(self.msg_fc2[i](msg))
+            msg = msg * rel_types[:, :, i : i + 1]
             all_msgs += msg
 
         # Aggregate all msgs to receiver
-        # TODO doulbe check the dimensions of the messages
         agg_msgs = (
             all_msgs.transpose(-2, -1).matmul(rel_rec).transpose(-2, -1)
-        )  # This is simillar to the edge2node and could potentially be moved there
+        )  # TODO This is simillar to the edge2node and could potentially be moved there
         agg_msgs = agg_msgs.contiguous()
+
+        # TODO add skip connection
 
         # Output MLP
         pred = F.relu(self.out_fc1(agg_msgs))
