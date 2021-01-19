@@ -79,8 +79,6 @@ class MLPEncoder(nn.Module):
             x = self.edge2node(x, rel_rec)
             x = self.mlp3(x)
             x = self.node2edge(x, rel_rec, rel_send)
-            print(f"x {x.shape}")
-            print(f"x_skip {x_skip.shape}")
             x = torch.cat((x, x_skip), dim=-1)
             x = self.mlp4(x)
         else:
