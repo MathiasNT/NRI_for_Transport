@@ -54,14 +54,16 @@ class MLPEncoder(nn.Module):
         """This function makes the aggregation over the incomming edge embeddings
         """
         incoming = torch.matmul(rel_rec.t(), x)
-        return incoming
+        return incoming / incoming.size(1)
 
     def node2edge(self, x, rel_rec, rel_send):
         """This function makes a matrix of [node_i, node_j] rows for the edge embeddings
         """
         receivers = torch.matmul(rel_rec, x)
         senders = torch.matmul(rel_send, x)
-        edges = torch.cat([senders, receivers], dim=2)  # TODO double check dim
+        edges = torch.cat(
+            [senders, receivers], dim=2
+        )  # TODO double check dim - pretty sure it is right, could do -1 instead
         return edges
 
     def forward(self, inputs, rel_rec, rel_send):

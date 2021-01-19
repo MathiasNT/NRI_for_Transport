@@ -6,11 +6,9 @@ import torch.nn.functional as F
 
 # TODO add in dropout
 # TODO Add in skip connections
-# TODO Figure out how to enforce no edge - might have to look at the amortized paper - maybe the latent code can take
-#  care of it like it is here
 # TODO Add in doing multiple steps ahead - right now I implement it as a single step in the forward but that could lead
 # to the model ignoring the latent code (??)
-# TODO double check the dimensions for the forward pass - it seems like it is wrong but still works
+# TODO I probably could remove the no edge network for all of the decoders. However, will the multiplication with 0 kill the gradient???
 class MLPDecoder(nn.Module):
     """ empty
     """
