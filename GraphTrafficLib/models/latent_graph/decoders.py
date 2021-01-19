@@ -104,9 +104,7 @@ class GRUDecoder(nn.Module):
     """summary
     """
 
-    def __init__(
-        self, n_in, n_hid, n_out, f_in, msg_hid, msg_out, gru_hid, gru_out, edge_types
-    ):
+    def __init__(self, n_hid, n_out, f_in, msg_hid, msg_out, gru_hid, edge_types):
         super().__init__()
 
         self.edge_types = edge_types
@@ -176,14 +174,16 @@ class GRUDecoder(nn.Module):
             msg = F.relu(self.msg_fc1[i](pre_msg))
             msg = F.relu(self.msg_fc2[i](msg))
             msg = msg * rel_types[:, :, i : i + 1]
-            all_msgs += msg
+            all_msgs += msg  # / float(self.edge_types)
             # TODO test with normalization like they do here - note that they only do it in the GRU implementation
             # They normalize with the amount of different edgetypes - why??
 
         # Aggregate all msgs to receiver
         # TODO doulbe check the dimensions of the messages
         agg_msgs = all_msgs.transpose(-2, -1).matmul(rel_rec).transpose(-2, -1)
-        agg_msgs = agg_msgs.contiguous()
+        agg_msgs = (
+            agg_msgs.contiguous()
+        )  # TODO is this necessary? - might be a speed thing
 
         # Send through GRU network
         # TODO check if this could be done with the torch implementation or maybe at least move it out as a module
@@ -198,6 +198,9 @@ class GRUDecoder(nn.Module):
         pred = F.relu(self.out_fc1(hidden))
         pred = F.relu(self.out_fc2(pred))
         pred = self.out_fc3(pred)
+
+        # Do a skip connection
+        pred = inputs + pred
 
         # TODO fix the output dimensions and test with skip connection
         return pred, hidden
