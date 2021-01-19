@@ -2,8 +2,6 @@ from torch import nn
 import torch.nn.functional as F
 
 
-# TODO add in weight initialization to see if it improves the performance
-# TODO add in batchnormalization to see it if improves the performance
 class MLP(nn.Module):
     """The standard MLP module w. batchnorm, initializationa and dropout
     """

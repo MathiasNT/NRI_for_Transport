@@ -14,26 +14,40 @@ class MLPEncoder(nn.Module):
         [description]
     """
 
-    def __init__(self, n_in, n_hid, n_out, do_prob):
+    def __init__(self, n_in, n_hid, n_out, do_prob, factor):
         super().__init__()
 
-        # We need 4 MLPs to implement the model from NRI
+        self.factor = factor
 
+        # We need 4 MLPs to implement the model from NRI
         # MLP for embedding the input, hence dimensions are straight forward
         self.mlp1 = MLP(n_in=n_in, n_hid=n_hid, n_out=n_hid, dropout_prob=do_prob)
-
         # MLP for v->e, hence input is double size
         self.mlp2 = MLP(n_in=n_hid * 2, n_hid=n_hid, n_out=n_hid, dropout_prob=do_prob)
-
         # MLP for e->v, so dimensions should be straight forward
         self.mlp3 = MLP(n_in=n_hid, n_hid=n_hid, n_out=n_hid, dropout_prob=do_prob)
-
         # MLP for second v->e, so dimensions should be straight foward
-        # TODO look into the factor graph stuff - I think it is somekind of residual link
-        self.mlp4 = MLP(n_in=n_hid * 2, n_hid=n_hid, n_out=n_hid, dropout_prob=do_prob)
+
+        if self.factor:
+            # If we do factor graph we need to increase the input size
+            self.mlp4 = MLP(
+                n_in=n_hid * 3, n_hid=n_hid, n_out=n_hid, dropout_prob=do_prob
+            )
+        else:
+            self.mlp4 = MLP(
+                n_in=n_hid * 2, n_hid=n_hid, n_out=n_hid, dropout_prob=do_prob
+            )
 
         # FC layer for going from the edge embeddings to the edge mean in the latent code
         self.fc = nn.Linear(in_features=n_hid, out_features=n_out)
+
+        self.init_weights()
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_normal_(m.weight.data)
+                m.bias.data.fill_(0.1)
 
     # TODO add in normalization and see how it improve
     def edge2node(self, x, rel_rec):
@@ -56,31 +70,27 @@ class MLPEncoder(nn.Module):
         # permute to match the wanted [B, N, T, F] (which is a bit weird)
         inputs = inputs.permute(0, 2, 1)
 
-        # print(inputs.shape)
         x = self.mlp1(inputs)
-        # print(x.shape)
 
         x = self.node2edge(x, rel_rec, rel_send)
-        # print(x.shape)
-
         x = self.mlp2(x)
-        # print(x.shape)
-
-        x = self.edge2node(x, rel_rec)
-        # print(x.shape)
-
-        x = self.mlp3(x)
-        # print(x.shape)
-
-        # TODO add in skip connection to see if that improves the performance
-
-        x = self.node2edge(x, rel_rec, rel_send)
-        # print(x.shape)
-
-        x = self.mlp4(x)
-        # print(x.shape)
+        if self.factor:
+            x_skip = x
+            x = self.edge2node(x, rel_rec)
+            x = self.mlp3(x)
+            x = self.node2edge(x, rel_rec, rel_send)
+            print(f"x {x.shape}")
+            print(f"x_skip {x_skip.shape}")
+            x = torch.cat((x, x_skip), dim=-1)
+            x = self.mlp4(x)
+        else:
+            # Note that my no factor differs from the paper as they value the
+            # skip connection over the graph for some reason
+            x = self.edge2node(x, rel_rec)
+            x = self.mlp3(x)
+            x = self.node2edge(x, rel_rec, rel_send)
+            x = self.mlp4(x)
 
         x = self.fc(x)
-        # print(x.shape)
 
         return x
