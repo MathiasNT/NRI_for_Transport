@@ -205,18 +205,14 @@ class GRUDecoder(nn.Module):
 
     def forward(self, inputs, rel_rec, rel_send, rel_types):
         # Inputs should be [B, T, N, F]
-        # print(f"inputs {inputs.shape}")
         pred_all = []
 
         hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid))
         if inputs.is_cuda:
             hidden = hidden.cuda()
 
-        # print(f"hidden shape: {hidden.shape}")
-
         for step in range(0, inputs.size(1) - 1):
             ins = inputs[:, step, :, :]
-            # print(f"ins: {ins.shape}")
             pred, hidden = self.do_single_step_forward(
                 ins, rel_rec, rel_send, rel_types, hidden
             )
@@ -332,25 +328,20 @@ class GRUDecoder_multistep(nn.Module):
 
     def forward(self, inputs, rel_rec, rel_send, rel_types, burn_in, burn_in_steps):
         # Inputs should be [B, T, N, F]
-        # print(f"inputs {inputs.shape}")
+
         pred_all = []
 
         hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid))
         if inputs.is_cuda:
             hidden = hidden.cuda()
 
-        # print(f"hidden shape: {hidden.shape}")
-
         for step in range(0, inputs.size(1) - 1):
             if burn_in:
                 if step < burn_in_steps - 1:
                     ins = inputs[:, step, :, :]
-                    print(ins.shape)
                 else:
                     ins = pred_all[step - 1]
-                    print(f"pred step: {ins.shape}")
 
-            # print(f"ins: {ins.shape}")
             pred, hidden = self.do_single_step_forward(
                 ins, rel_rec, rel_send, rel_types, hidden
             )
