@@ -42,4 +42,4 @@ class Nyc_w_Weather2(Dataset):
         time_data = self.timeseries[ID]
         weather = self.weatherseries[ID]
 
-        return time_data, weather[:-1, :]
+        return time_data, weather
