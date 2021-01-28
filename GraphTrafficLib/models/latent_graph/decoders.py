@@ -171,19 +171,17 @@ class GRUDecoder(nn.Module):
 
         # Go over the different edge types and compute their contribution to the overall messages
         for i in range(0, self.edge_types):
-            msg = F.relu(self.msg_fc1[i](pre_msg))
-            msg = F.relu(self.msg_fc2[i](msg))
+            msg = F.tanh(self.msg_fc1[i](pre_msg))
+            msg = F.tanh(self.msg_fc2[i](msg))
             msg = msg * rel_types[:, :, i : i + 1]
-            all_msgs += msg  # / float(self.edge_types)
+            all_msgs += msg / float(self.edge_types)
             # TODO test with normalization like they do here - note that they only do it in the GRU implementation
+            # TODO they use tanh instead of ReLu - what difference would that make?
             # They normalize with the amount of different edgetypes - why??
 
-        # Aggregate all msgs to receiver
-        # TODO doulbe check the dimensions of the messages
+        # Aggregate all msgs to receiver, we use mean as the permutation invariance
         agg_msgs = all_msgs.transpose(-2, -1).matmul(rel_rec).transpose(-2, -1)
-        agg_msgs = (
-            agg_msgs.contiguous()
-        )  # TODO is this necessary? - might be a speed thing
+        agg_msgs = agg_msgs / agg_msgs.shape[1]
 
         # Send through GRU network
         # TODO check if this could be done with the torch implementation or maybe at least move it out as a module
