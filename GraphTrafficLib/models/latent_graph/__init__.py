@@ -1,5 +1,5 @@
-from .decoders import MLPDecoder, GRUDecoder
+from .decoders import MLPDecoder, GRUDecoder, GRUDecoder_multistep
 from .encoders import MLPEncoder
 from .modules import MLP
 
-__all__ = ["MLPDecoder", "MLPEncoder", "MLP", "GRUDecoder"]
+__all__ = ["MLPDecoder", "MLPEncoder", "MLP", "GRUDecoder", "GRUDecoder_multistep"]

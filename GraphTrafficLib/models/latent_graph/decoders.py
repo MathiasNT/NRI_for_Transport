@@ -225,3 +225,137 @@ class GRUDecoder(nn.Module):
         preds = torch.stack(pred_all, dim=1)
 
         return preds
+
+
+class GRUDecoder_multistep(nn.Module):
+    """summary
+    """
+
+    def __init__(self, n_hid, n_out, f_in, msg_hid, msg_out, gru_hid, edge_types):
+        super().__init__()
+
+        self.edge_types = edge_types
+
+        # FC layers to compute messages
+        self.msg_fc1 = nn.ModuleList(
+            [
+                nn.Linear(in_features=gru_hid * 2, out_features=msg_hid)
+                for _ in range(self.edge_types)
+            ]
+        )
+        self.msg_fc2 = nn.ModuleList(
+            [
+                nn.Linear(in_features=msg_hid, out_features=msg_out)
+                for _ in range(self.edge_types)
+            ]
+        )
+
+        self.msg_out_shape = msg_out
+
+        # GRU network
+        # TODO consider whether it makes sense to try the torch implementation - would need a bit of massaging probably
+        self.gru_ir = nn.Linear(in_features=f_in, out_features=gru_hid)
+        self.gru_hr = nn.Linear(in_features=msg_out, out_features=gru_hid)
+        self.gru_ii = nn.Linear(in_features=f_in, out_features=gru_hid)
+        self.gru_hi = nn.Linear(in_features=msg_out, out_features=gru_hid)
+        self.gru_in = nn.Linear(in_features=f_in, out_features=gru_hid)
+        self.gru_hn = nn.Linear(in_features=msg_out, out_features=gru_hid)
+
+        # FC for generating the output
+        self.out_fc1 = nn.Linear(in_features=gru_hid, out_features=n_hid)
+        self.out_fc2 = nn.Linear(in_features=n_hid, out_features=n_hid)
+        self.out_fc3 = nn.Linear(in_features=n_hid, out_features=n_out)
+
+        self.gru_hid = gru_hid
+
+    def edge2node(self, x, rel_rec):
+        """This function makes the aggregation over the incomming edge embeddings
+        """
+        incoming = torch.matmul(rel_rec.t(), x)
+        return incoming / incoming.size(1)
+
+    def node2edge(self, x, rel_rec, rel_send):
+        """This function makes a matrix of [node_i, node_j] rows for the edge embeddings
+        """
+        receivers = torch.matmul(rel_rec, x)
+        senders = torch.matmul(rel_send, x)
+        edges = torch.cat([senders, receivers], dim=2)  # TODO double check dim
+        return edges
+
+    def do_single_step_forward(self, inputs, rel_rec, rel_send, rel_types, hidden):
+
+        # So according to their implementation we want
+        # input shape [batch_size, num_timesteps, num_atoms, num_dims]
+        # rel_types [batch_size, num_timesteps, num_atoms*(num_atoms-1), num_edge_types]
+        pre_msg = self.node2edge(hidden, rel_rec, rel_send)
+
+        # Create variable to aggregate the messages in
+        all_msgs = Variable(
+            torch.zeros(pre_msg.size(0), pre_msg.size(1), self.msg_out_shape)
+        )
+        if inputs.is_cuda:
+            all_msgs = all_msgs.cuda()
+
+        # Go over the different edge types and compute their contribution to the overall messages
+        for i in range(0, self.edge_types):
+            msg = torch.tanh(self.msg_fc1[i](pre_msg))
+            msg = torch.tanh(self.msg_fc2[i](msg))
+            msg = msg * rel_types[:, :, i : i + 1]
+            all_msgs += msg / float(self.edge_types)
+            # TODO test with normalization like they do here - note that they only do it in the GRU implementation
+            # TODO they use tanh instead of ReLu - what difference would that make?
+            # They normalize with the amount of different edgetypes - why??
+
+        # Aggregate all msgs to receiver
+        agg_msgs = all_msgs.transpose(-2, -1).matmul(rel_rec).transpose(-2, -1)
+        agg_msgs = agg_msgs / agg_msgs.shape[1]
+
+        # Send through GRU network
+        # TODO check if this could be done with the torch implementation or maybe at least move it out as a module
+
+        r = torch.sigmoid(self.gru_ir(inputs) + self.gru_hr(agg_msgs))
+        i = torch.sigmoid(self.gru_ii(inputs) + self.gru_hi(agg_msgs))
+        n = torch.tanh(self.gru_in(inputs) + r * self.gru_hn(agg_msgs))
+
+        hidden = (1 - i) * n + i * hidden
+
+        # Output MLP
+        pred = F.relu(self.out_fc1(hidden))
+        pred = F.relu(self.out_fc2(pred))
+        pred = self.out_fc3(pred)
+
+        # Do a skip connection
+        pred = inputs + pred
+
+        # TODO fix the output dimensions and test with skip connection
+        return pred, hidden
+
+    def forward(self, inputs, rel_rec, rel_send, rel_types, burn_in, burn_in_steps):
+        # Inputs should be [B, T, N, F]
+        # print(f"inputs {inputs.shape}")
+        pred_all = []
+
+        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid))
+        if inputs.is_cuda:
+            hidden = hidden.cuda()
+
+        # print(f"hidden shape: {hidden.shape}")
+
+        for step in range(0, inputs.size(1) - 1):
+            if burn_in:
+                if step < burn_in_steps - 1:
+                    ins = inputs[:, step, :, :]
+                    print(ins.shape)
+                else:
+                    ins = pred_all[step - 1]
+                    print(f"pred step: {ins.shape}")
+
+            # print(f"ins: {ins.shape}")
+            pred, hidden = self.do_single_step_forward(
+                ins, rel_rec, rel_send, rel_types, hidden
+            )
+            pred_all.append(pred)
+
+        preds = torch.stack(pred_all, dim=1)
+
+        return preds
