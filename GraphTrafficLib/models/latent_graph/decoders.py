@@ -302,7 +302,7 @@ class GRUDecoder_multistep(nn.Module):
             # TODO they use tanh instead of ReLu - what difference would that make?
             # They normalize with the amount of different edgetypes - why??
 
-        # Aggregate all msgs to receiver
+        # mean all msgs to receiver
         agg_msgs = all_msgs.transpose(-2, -1).matmul(rel_rec).transpose(-2, -1)
         agg_msgs = agg_msgs / agg_msgs.shape[1]
 
