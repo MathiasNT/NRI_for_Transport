@@ -128,11 +128,11 @@ class GRUDecoder(nn.Module):
         # GRU network
         # TODO consider whether it makes sense to try the torch implementation - would need a bit of massaging probably
         self.gru_ir = nn.Linear(in_features=f_in, out_features=gru_hid)
-        self.gru_hr = nn.Linear(in_features=msg_out, out_features=gru_hid)
+        self.gru_hr = nn.Linear(in_features=msg_out, out_features=gru_hid, bias=False)
         self.gru_ii = nn.Linear(in_features=f_in, out_features=gru_hid)
-        self.gru_hi = nn.Linear(in_features=msg_out, out_features=gru_hid)
+        self.gru_hi = nn.Linear(in_features=msg_out, out_features=gru_hid, bias=False)
         self.gru_in = nn.Linear(in_features=f_in, out_features=gru_hid)
-        self.gru_hn = nn.Linear(in_features=msg_out, out_features=gru_hid)
+        self.gru_hn = nn.Linear(in_features=msg_out, out_features=gru_hid, bias=False)
 
         # FC for generating the output
         self.out_fc1 = nn.Linear(in_features=gru_hid, out_features=n_hid)
