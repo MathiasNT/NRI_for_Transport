@@ -83,7 +83,13 @@ def create_test_train_split2(
 
 
 def create_test_train_split2_no_weather(
-    data, split_len, batch_size, normalize=False, train_frac=0.8
+    data,
+    split_len,
+    batch_size,
+    normalize=False,
+    train_frac=0.8,
+    shuffle_train=True,
+    shuffle_test=False,
 ):
     demand_tensor = torch.Tensor(data).permute(1, 0)
 
@@ -103,12 +109,12 @@ def create_test_train_split2_no_weather(
     list_ids = range(len(train_splits))
     train_data = Nyc_no_Weather2(train_splits, list_ids)
     train_dataloader = DataLoader(
-        train_data, batch_size=batch_size, pin_memory=True, shuffle=True
+        train_data, batch_size=batch_size, pin_memory=True, shuffle=shuffle_train
     )
 
     test_list_ids = range(len(test_splits))
     test_data = Nyc_no_Weather2(test_splits, test_list_ids)
     test_dataloader = DataLoader(
-        test_data, batch_size=batch_size, pin_memory=True, shuffle=False
+        test_data, batch_size=batch_size, pin_memory=True, shuffle=shuffle_test
     )
     return (train_dataloader, test_dataloader, mean, std)
