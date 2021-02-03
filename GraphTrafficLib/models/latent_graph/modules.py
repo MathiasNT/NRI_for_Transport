@@ -36,4 +36,4 @@ class MLP(nn.Module):
         x = F.elu(self.fc1(inputs))
         x = F.dropout(x, self.dropout_prob, training=self.training)
         x = F.elu(self.fc2(x))
-        return self.batch_norm(x)
+        return x  # self.batch_norm(x)
