@@ -321,6 +321,9 @@ class GRUDecoder_multistep(nn.Module):
         pred = self.out_fc3(pred)
 
         # Do a skip connection
+        assert (
+            inputs.shape == pred.shape
+        ), "Input feature dim should match dec_n_out dim"
         pred = inputs + pred
 
         # TODO fix the output dimensions and test with skip connection
