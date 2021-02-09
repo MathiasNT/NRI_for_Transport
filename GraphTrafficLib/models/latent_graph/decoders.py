@@ -326,7 +326,9 @@ class GRUDecoder_multistep(nn.Module):
         # TODO fix the output dimensions and test with skip connection
         return pred, hidden
 
-    def forward(self, inputs, rel_rec, rel_send, rel_types, burn_in, burn_in_steps):
+    def forward(
+        self, inputs, rel_rec, rel_send, rel_types, burn_in, burn_in_steps, split_len
+    ):
         # Inputs should be [B, T, N, F]
 
         pred_all = []
@@ -335,7 +337,7 @@ class GRUDecoder_multistep(nn.Module):
         if inputs.is_cuda:
             hidden = hidden.cuda()
 
-        for step in range(0, inputs.size(1) - 1):
+        for step in range(0, split_len - 1):
             if burn_in:
                 if step < burn_in_steps - 1:
                     ins = inputs[:, step, :, :]
