@@ -62,14 +62,14 @@ class MLPEncoder(nn.Module):
         receivers = torch.matmul(rel_rec, x)
         senders = torch.matmul(rel_send, x)
         edges = torch.cat(
-            [senders, receivers], dim=2
+            [senders, receivers], dim=-1
         )  # TODO double check dim - pretty sure it is right, could do -1 instead
         return edges
 
     def forward(self, inputs, rel_rec, rel_send):
         """This is the forward pass
         """
-        # permute to match the wanted [B, N, T, F] (which is a bit weird)
+        # permute to match the wanted [B, N, T * F] (which is a bit weird)
         # TODO fix the normal data such that this here might be unnecessary
         if len(inputs.shape) == 3:
             inputs = inputs.permute(0, 2, 1)
