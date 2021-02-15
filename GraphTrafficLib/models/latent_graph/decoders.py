@@ -252,27 +252,22 @@ class GRUDecoder_multistep(nn.Module):
 
         # GRU network
         # TODO consider whether it makes sense to try the torch implementation - would need a bit of massaging probably
-        self.gru_hr = nn.Linear(
-            in_features=msg_out, out_features=gru_hid
-        )  # They have n_hid, n_hid for all of these
-        self.gru_hi = nn.Linear(in_features=msg_out, out_features=gru_hid)
-        self.gru_hn = nn.Linear(in_features=msg_out, out_features=gru_hid)
+        # They have n_hid, n_hid for all of these
+        self.gru_hr = nn.Linear(in_features=msg_out, out_features=gru_hid, bias=False)
+        self.gru_hi = nn.Linear(in_features=msg_out, out_features=gru_hid, bias=False)
+        self.gru_hn = nn.Linear(in_features=msg_out, out_features=gru_hid, bias=False)
 
-        self.gru_ir = nn.Linear(
-            in_features=f_in, out_features=gru_hid
-        )  # They have n_in_node, n_hid for all of these
+        # They have n_in_node, n_hid for all of these
+        self.gru_ir = nn.Linear(in_features=f_in, out_features=gru_hid)
         self.gru_ii = nn.Linear(in_features=f_in, out_features=gru_hid)
         self.gru_in = nn.Linear(in_features=f_in, out_features=gru_hid)
 
         # FC for generating the output
-        self.out_fc1 = nn.Linear(
-            in_features=gru_hid, out_features=n_hid
-        )  # n_hid, n_hid
+        # n_hid, n_hid
+        self.out_fc1 = nn.Linear(in_features=gru_hid, out_features=n_hid)
         self.out_fc2 = nn.Linear(in_features=n_hid, out_features=n_hid)  # n_hid, n_hid
-        self.out_fc3 = nn.Linear(
-            in_features=n_hid, out_features=f_in
-        )  # n_hid, n_in_node
-
+        # n_hid,n_in_node
+        self.out_fc3 = nn.Linear(in_features=n_hid, out_features=f_in)
         self.gru_hid = gru_hid
 
     def edge2node(self, x, rel_rec):
@@ -286,9 +281,7 @@ class GRUDecoder_multistep(nn.Module):
         """
         receivers = torch.matmul(rel_rec, x)
         senders = torch.matmul(rel_send, x)
-        edges = torch.cat(
-            [senders, receivers], dim=-1
-        )  # TODO double check dim I changed it from 2 to -1 to match NRI
+        edges = torch.cat([senders, receivers], dim=-1)
         return edges
 
     def do_single_step_forward(self, inputs, rel_rec, rel_send, rel_types, hidden):
@@ -296,10 +289,7 @@ class GRUDecoder_multistep(nn.Module):
         # input shape [batch_size, num_timesteps, num_atoms, num_dims]
         # rel_types [batch_size, num_timesteps, num_atoms*(num_atoms-1), num_edge_types]
         # TODO check the dims of the input here
-        # print(f"hidden shape {hidden.shape}")
         pre_msg = self.node2edge(hidden, rel_rec, rel_send)
-        # print(f"pre_msg shape {pre_msg.shape}")
-        # print(f"input shape {inputs.shape}")
 
         # Create variable to aggregate the messages in
         all_msgs = Variable(
@@ -307,7 +297,6 @@ class GRUDecoder_multistep(nn.Module):
         )
         if inputs.is_cuda:
             all_msgs = all_msgs.cuda()
-        # print(f"all_msgs shape {all_msgs.shape}")
 
         # Go over the different edge types and compute their contribution to the overall messages
         for i in range(0, self.edge_types):
@@ -315,18 +304,13 @@ class GRUDecoder_multistep(nn.Module):
             msg = torch.tanh(self.msg_fc2[i](msg))
             msg = msg * rel_types[:, :, i : i + 1]
             all_msgs += msg / float(self.edge_types)
-            # TODO test with normalization like they do here - note that they only do it in the GRU implementation
-            # TODO they use tanh instead of ReLu - what difference would that make?
             # They normalize with the amount of different edgetypes - why??
 
         # mean all msgs to receiver
         agg_msgs = all_msgs.transpose(-2, -1).matmul(rel_rec).transpose(-2, -1)
         agg_msgs = agg_msgs / agg_msgs.shape[1]
-        # print(f"agg_msgs shape {agg_msgs.shape}")
 
         # Send through GRU network
-        # TODO check if this could be done with the torch implementation or maybe at least move it out as a module
-
         r = torch.sigmoid(self.gru_ir(inputs) + self.gru_hr(agg_msgs))
         i = torch.sigmoid(self.gru_ii(inputs) + self.gru_hi(agg_msgs))
         n = torch.tanh(self.gru_in(inputs) + r * self.gru_hn(agg_msgs))
