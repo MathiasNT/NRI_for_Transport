@@ -296,7 +296,10 @@ class GRUDecoder_multistep(nn.Module):
         # input shape [batch_size, num_timesteps, num_atoms, num_dims]
         # rel_types [batch_size, num_timesteps, num_atoms*(num_atoms-1), num_edge_types]
         # TODO check the dims of the input here
+        # print(f"hidden shape {hidden.shape}")
         pre_msg = self.node2edge(hidden, rel_rec, rel_send)
+        # print(f"pre_msg shape {pre_msg.shape}")
+        # print(f"input shape {inputs.shape}")
 
         # Create variable to aggregate the messages in
         all_msgs = Variable(
@@ -304,6 +307,7 @@ class GRUDecoder_multistep(nn.Module):
         )
         if inputs.is_cuda:
             all_msgs = all_msgs.cuda()
+        # print(f"all_msgs shape {all_msgs.shape}")
 
         # Go over the different edge types and compute their contribution to the overall messages
         for i in range(0, self.edge_types):
@@ -318,6 +322,7 @@ class GRUDecoder_multistep(nn.Module):
         # mean all msgs to receiver
         agg_msgs = all_msgs.transpose(-2, -1).matmul(rel_rec).transpose(-2, -1)
         agg_msgs = agg_msgs / agg_msgs.shape[1]
+        # print(f"agg_msgs shape {agg_msgs.shape}")
 
         # Send through GRU network
         # TODO check if this could be done with the torch implementation or maybe at least move it out as a module
@@ -339,6 +344,9 @@ class GRUDecoder_multistep(nn.Module):
         ), "Input feature dim should match output feature dim"
         pred = inputs + pred
 
+        # print(f"pred shape {pred.shape}")
+        # print(f"out hidden shape {hidden.shape}")
+
         # TODO fix the output dimensions and test with skip connection
         return pred, hidden
 
@@ -353,9 +361,9 @@ class GRUDecoder_multistep(nn.Module):
         if inputs.is_cuda:
             hidden = hidden.cuda()
 
-        for step in range(0, split_len - 1):
+        for step in range(0, inputs.shape[1] - 1):
             if burn_in:
-                if step < burn_in_steps - 1:
+                if step <= burn_in_steps:
                     ins = inputs[:, step, :, :]
                 else:
                     ins = pred_all[step - 1]
@@ -368,3 +376,4 @@ class GRUDecoder_multistep(nn.Module):
         preds = torch.stack(pred_all, dim=1)
 
         return preds
+

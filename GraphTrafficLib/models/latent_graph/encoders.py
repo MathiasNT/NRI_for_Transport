@@ -71,10 +71,7 @@ class MLPEncoder(nn.Module):
         """
         # permute to match the wanted [B, N, T * F] (which is a bit weird)
         # TODO fix the normal data such that this here might be unnecessary
-        if len(inputs.shape) == 3:
-            inputs = inputs.permute(0, 2, 1)
-        else:
-            inputs = inputs.view(inputs.size(0), inputs.size(1), -1)
+        inputs = inputs.view(inputs.size(0), inputs.size(1), -1)
 
         x = self.mlp1(inputs)
 
