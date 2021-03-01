@@ -6,7 +6,7 @@ class Zone:
         Has a position and a raw timeseries
     """
 
-    def __init__(self, n_days):
+    def __init__(self, n_days, noise_mean=0, noise_std=0):
         self.pos = np.random.uniform(low=0, high=10, size=2)
         hours = n_days * 24
 
@@ -18,7 +18,7 @@ class Zone:
                     np.floor(
                         self.ts_bias
                         + self.ts_amplitude * np.cos((hour - 2) * np.pi / 12)
-                        + np.random.normal(0, 5)
+                        + np.random.normal(noise_mean, noise_std)
                     )
                     for hour in range(hours)
                 ]

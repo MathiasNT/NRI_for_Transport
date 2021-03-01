@@ -288,7 +288,6 @@ class GRUDecoder_multistep(nn.Module):
 
         # input shape [batch_size, num_timesteps, num_atoms, num_dims]
         # rel_types [batch_size, num_timesteps, num_atoms*(num_atoms-1), num_edge_types]
-        # TODO check the dims of the input here
         pre_msg = self.node2edge(hidden, rel_rec, rel_send)
 
         # Create variable to aggregate the messages in
@@ -305,6 +304,7 @@ class GRUDecoder_multistep(nn.Module):
             msg = msg * rel_types[:, :, i : i + 1]
             all_msgs += msg / float(self.edge_types)
             # They normalize with the amount of different edgetypes - why??
+            # TODO double check how the rel_types here changes the prediction - My hypothesis here is that soft gumbel samples can lead to identifiability problems.
 
         # mean all msgs to receiver
         agg_msgs = all_msgs.transpose(-2, -1).matmul(rel_rec).transpose(-2, -1)
