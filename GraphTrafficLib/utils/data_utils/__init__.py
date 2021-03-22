@@ -9,6 +9,7 @@ from .data_loader_utils import (
     create_test_train_split,
     create_test_train_split2,
     create_test_train_split2_no_weather,
+    create_test_train_split_max_min_normalize,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "create_test_train_split2",
     "Nyc_no_Weather2",
     "create_test_train_split2_no_weather",
+    "create_test_train_split_max_min_normalize",
 ]

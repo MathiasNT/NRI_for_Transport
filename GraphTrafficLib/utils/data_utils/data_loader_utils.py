@@ -4,6 +4,7 @@ Dataloader stuff
 from torch.utils.data import DataLoader
 import torch
 from .Nyc_w_Weather import Nyc_w_Weather, Nyc_w_Weather2, Nyc_no_Weather2
+from torch.utils.data.dataset import TensorDataset
 
 
 def create_test_train_split(
@@ -118,3 +119,45 @@ def create_test_train_split2_no_weather(
         test_data, batch_size=batch_size, pin_memory=True, shuffle=shuffle_test
     )
     return (train_dataloader, test_dataloader, mean, std)
+
+
+def create_test_train_split_max_min_normalize(
+    data, weather_data, split_len, batch_size, normalize=False, train_frac=0.8
+):
+    demand_tensor = torch.Tensor(data).permute(1, 0).unsqueeze(-1)
+    weather_tensor = torch.Tensor(weather_data)
+
+    # do max-min normal of data
+    train_max = demand_tensor[: int(train_frac * len(demand_tensor))].max()
+    train_min = demand_tensor[: int(train_frac * len(demand_tensor))].min()
+    if normalize:
+        demand_tensor = (demand_tensor - train_min) * 2 / (train_max - train_min) - 1
+
+    splits = []
+    weather_splits = []
+    for i in range(demand_tensor.shape[0] - split_len):
+        splits.append(demand_tensor[i : i + split_len])
+        weather_splits.append(weather_tensor[i : i + split_len])
+    splits = torch.stack(splits).transpose(1, 2)
+    weather_splits = torch.stack(weather_splits)
+    train_splits = splits[: int(train_frac * len(splits))]
+    test_splits = splits[int(train_frac * len(splits)) :]
+
+    print(f"train splits shape: {train_splits.shape}")
+    print(f"test splits shape: {test_splits.shape}")
+
+    train_weather = weather_splits[: int(train_frac * len(splits))]
+    test_weather = weather_splits[int(train_frac * len(splits)) :]
+
+    train_dataset = TensorDataset(train_splits, train_weather)
+    test_dataset = TensorDataset(test_splits, test_weather)
+
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=batch_size, pin_memory=True, shuffle=True
+    )
+
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=batch_size, pin_memory=True, shuffle=False
+    )
+
+    return (train_dataloader, test_dataloader, train_max, train_min)
