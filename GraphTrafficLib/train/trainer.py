@@ -108,15 +108,7 @@ class Trainer:
             self.train_dates,
         ) = self._load_data()
 
-        (
-            self.encoder,
-            self.decoder,
-            self.model_params,
-            self.optimizer,
-            self.rel_rec,
-            self.rel_send,
-            self.log_prior,
-        ) = self._init_model()
+        self._init_model()
 
     def _load_data(self):
         dataset_folder = "../datafolder"
@@ -183,7 +175,7 @@ class Trainer:
         )
 
     def _init_model(self):
-        encoder = MLPEncoder(
+        self.encoder = MLPEncoder(
             n_in=self.enc_n_in,
             n_hid=self.enc_n_hid,
             n_out=self.enc_n_out,
@@ -191,7 +183,7 @@ class Trainer:
             factor=self.encoder_factor,
         ).cuda()
 
-        decoder = GRUDecoder_multistep(
+        self.decoder = GRUDecoder_multistep(
             n_hid=self.dec_n_hid,
             f_in=self.dec_f_in,
             msg_hid=self.dec_msg_hid,
@@ -200,16 +192,18 @@ class Trainer:
             edge_types=self.dec_edge_types,
         ).cuda()
 
-        model_params = list(self.encoder.parameters()) + list(self.decoder.parameters())
+        self.model_params = list(self.encoder.parameters()) + list(
+            self.decoder.parameters()
+        )
 
-        optimizer = optim.Adam(self.model_params, lr=0.001)
+        self.optimizer = optim.Adam(self.model_params, lr=0.001)
 
         # Generate off-diagonal interaction graph
         off_diag = np.ones([132, 132]) - np.eye(132)
         rel_rec = np.array(encode_onehot(np.where(off_diag)[0]), dtype=np.float32)
         rel_send = np.array(encode_onehot(np.where(off_diag)[1]), dtype=np.float32)
-        rel_rec = torch.FloatTensor(rel_rec).cuda()
-        rel_send = torch.FloatTensor(rel_send).cuda()
+        self.rel_rec = torch.FloatTensor(rel_rec).cuda()
+        self.rel_send = torch.FloatTensor(rel_send).cuda()
 
         # Set up prior
         prior = np.array([0.99, 0.01])
@@ -218,9 +212,7 @@ class Trainer:
         log_prior = torch.FloatTensor(np.log(prior))
         log_prior = torch.unsqueeze(log_prior, 0)
         log_prior = torch.unsqueeze(log_prior, 0)
-        log_prior = Variable(log_prior).cuda()
-
-        return (encoder, decoder, model_params, optimizer, rel_rec, rel_send, log_prior)
+        self.log_prior = Variable(log_prior).cuda()
 
     def train(self):
         train_mse_arr = []
