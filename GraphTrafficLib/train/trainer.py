@@ -215,6 +215,7 @@ class Trainer:
         self.log_prior = Variable(log_prior).cuda()
 
     def train(self):
+        print("Starting training")
         train_mse_arr = []
         train_nll_arr = []
         train_kl_arr = []
@@ -264,7 +265,7 @@ class Trainer:
             train_kl_arr.append(train_kl)
 
     def save_model(self):
-        gru_dev_1_path = f"{self.gru_dev_file_name}.pth"
+        gru_dev_1_path = f"../models/{self.gru_dev_file_name}.pth"
 
         next_version = 2
         while os.path.exists(gru_dev_1_path):
