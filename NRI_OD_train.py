@@ -2,7 +2,7 @@ from GraphTrafficLib.train import Trainer
 
 # Training settings
 batch_size = 25
-n_epochs = 100
+n_epochs = 1
 dropout_p = 0
 shuffle_train = True
 shuffle_test = False
@@ -44,6 +44,8 @@ dec_gru_hid = 8
 dec_edge_types = 2
 
 if __name__ == "__main__":
+    print("Starting")
+    print(f"Running {n_epochs} epochs")
     trainer = Trainer(
         batch_size=batch_size,
         n_epochs=n_epochs,
@@ -68,6 +70,8 @@ if __name__ == "__main__":
         dec_gru_hid=dec_gru_hid,
         dec_edge_types=dec_edge_types,
     )
+    print("Initialized")
     trainer.train()
+    print("Training")
     trainer.save_model()
 
