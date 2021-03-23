@@ -14,7 +14,7 @@ shuffle_test = False
 encoder_factor = True
 
 # Saving settings
-gru_dev_file_name = "test"
+experiment_name = "test"
 
 # Data settings
 normalize = True
@@ -73,7 +73,7 @@ if __name__ == "__main__":
         shuffle_train=shuffle_train,
         shuffle_test=shuffle_test,
         encoder_factor=encoder_factor,
-        gru_dev_file_name=gru_dev_file_name,
+        experiment_name=experiment_name,
         normalize=normalize,
         train_frac=train_frac,
         burn_in_steps=burn_in_steps,
