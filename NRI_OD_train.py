@@ -5,7 +5,7 @@ import argparse
 
 # Training settings
 batch_size = 25
-n_epochs = 1
+n_epochs = 200
 dropout_p = 0
 shuffle_train = True
 shuffle_test = False
@@ -51,7 +51,10 @@ if __name__ == "__main__":
 
     # Parse args
     # Cuda args
-    parser.add_argument("--cuda_device", type=int, help="Which cuda device to run on")
+    parser.add_argument("--cuda_device", type=int, default=1, help="Which cuda device to run on")
+
+    # Training args
+    parser.add_argument("--epochs", type=int, default=1, help="The number of epochs")
 
     args = parser.parse_args()
 
@@ -62,10 +65,10 @@ if __name__ == "__main__":
     torch.cuda.current_device()
 
 
-    print(f"Running {n_epochs} epochs")
+    print(f"Running {args.n_epochs} epochs")
     trainer = Trainer(
         batch_size=batch_size,
-        n_epochs=n_epochs,
+        n_epochs=args.n_epochs,
         dropout_p=dropout_p,
         shuffle_train=shuffle_train,
         shuffle_test=shuffle_test,

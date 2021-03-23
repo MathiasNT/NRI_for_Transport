@@ -56,6 +56,13 @@ class Trainer:
 
         # Saving settings
         self.gru_dev_file_name = gru_dev_file_name
+        self.gru_dev_1_path = f"../models/{self.gru_dev_file_name}.pth"
+
+        next_version = 2
+        while os.path.exists(self.gru_dev_1_path):
+            new_file_name = f"{self.gru_dev_file_name}_v{next_version}"
+            self.gru_dev_1_path = f"../models/{new_file_name}.pth"
+            next_version += 1
 
         # Data settings
         self.normalize = normalize
@@ -214,6 +221,7 @@ class Trainer:
         log_prior = torch.unsqueeze(log_prior, 0)
         self.log_prior = Variable(log_prior).cuda()
 
+
     def train(self):
         print("Starting training")
         train_mse_arr = []
@@ -265,18 +273,10 @@ class Trainer:
             train_kl_arr.append(train_kl)
 
     def save_model(self):
-        gru_dev_1_path = f"../models/{self.gru_dev_file_name}.pth"
-
-        next_version = 2
-        while os.path.exists(gru_dev_1_path):
-            new_file_name = f"{self.gru_dev_file_name}_v{next_version}"
-            gru_dev_1_path = f"../models/{new_file_name}.pth"
-            next_version += 1
-
         gru_dev_1_dict = {
             "encoder": self.encoder.state_dict(),
             "decoder": self.decoder.state_dict(),
             "settings": self.model_settings,
         }
-        torch.save(gru_dev_1_dict, gru_dev_1_path)
+        torch.save(gru_dev_1_dict, self.gru_dev_1_path)
         print(f"Model saved at {gru_dev_1_path}")
