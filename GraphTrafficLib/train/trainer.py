@@ -27,7 +27,7 @@ class Trainer:
         shuffle_train=True,
         shuffle_test=False,
         encoder_factor=True,
-        gru_dev_file_name="test",
+        experiment_name="test",
         normalize=True,
         train_frac=0.8,
         burn_in_steps=30,
@@ -55,14 +55,15 @@ class Trainer:
         self.encoder_factor = encoder_factor
 
         # Saving settings
-        self.gru_dev_file_name = gru_dev_file_name
-        self.gru_dev_1_path = f"../models/{self.gru_dev_file_name}.pth"
-
+        # Set up results folder
+        self.experiment_name = experiment_name
+        self.experiment_folder_path = f"../models/{self.experiment_name}"
         next_version = 2
-        while os.path.exists(self.gru_dev_1_path):
-            new_file_name = f"{self.gru_dev_file_name}_v{next_version}"
-            self.gru_dev_1_path = f"../models/{new_file_name}.pth"
+        while os.path.exists(self.experiment_folder_path):
+            new_experiment_name = f"{self.experiment_name}_v{next_version}"
+            self.experiment_folder_path = f"../models/{new_experiment_name}"
             next_version += 1
+        os.mkdir(self.experiment_folder_path)
 
         # Data settings
         self.normalize = normalize
@@ -273,10 +274,14 @@ class Trainer:
             train_kl_arr.append(train_kl)
 
     def save_model(self):
+        model_path = f"{self.experiment_folder_path}/model_dict.pth"
+
+
         gru_dev_1_dict = {
             "encoder": self.encoder.state_dict(),
             "decoder": self.decoder.state_dict(),
             "settings": self.model_settings,
         }
-        torch.save(gru_dev_1_dict, self.gru_dev_1_path)
-        print(f"Model saved at {gru_dev_1_path}")
+        torch.save(gru_dev_1_dict, model_path)
+        print(f"Model saved at {model_path}")
+        
