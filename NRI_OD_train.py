@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
     # Parse args
     # General args
-    parser.add_argument("--experiment_name", help="Name used for saving")
+    parser.add_argument("--experiment_name", help="Name used for saving", required=True)
 
     # Cuda args
     parser.add_argument("--cuda_device", type=int, default=1, help="Which cuda device to run on")
