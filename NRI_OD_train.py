@@ -13,9 +13,6 @@ shuffle_test = False
 # Model settings
 encoder_factor = True
 
-# Saving settings
-experiment_name = "test"
-
 # Data settings
 normalize = True
 train_frac = 0.8
@@ -50,6 +47,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Parse args
+    # General args
+    parser.add_argument("--experiment_name", help="Name used for saving")
+
     # Cuda args
     parser.add_argument("--cuda_device", type=int, default=1, help="Which cuda device to run on")
 
@@ -73,7 +73,7 @@ if __name__ == "__main__":
         shuffle_train=shuffle_train,
         shuffle_test=shuffle_test,
         encoder_factor=encoder_factor,
-        experiment_name=experiment_name,
+        experiment_name=args.experiment_name,
         normalize=normalize,
         train_frac=train_frac,
         burn_in_steps=burn_in_steps,
