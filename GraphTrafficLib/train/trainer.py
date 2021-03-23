@@ -64,6 +64,8 @@ class Trainer:
             self.experiment_folder_path = f"../models/{new_experiment_name}"
             next_version += 1
         os.mkdir(self.experiment_folder_path)
+        print(f"Created {self.experiment_folder_path}")
+
 
         # Data settings
         self.normalize = normalize
