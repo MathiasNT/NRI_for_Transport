@@ -65,10 +65,10 @@ if __name__ == "__main__":
     torch.cuda.current_device()
 
 
-    print(f"Running {args.n_epochs} epochs")
+    print(f"Running {args.epochs} epochs")
     trainer = Trainer(
         batch_size=batch_size,
-        n_epochs=args.n_epochs,
+        n_epochs=args.epochs,
         dropout_p=dropout_p,
         shuffle_train=shuffle_train,
         shuffle_test=shuffle_test,
