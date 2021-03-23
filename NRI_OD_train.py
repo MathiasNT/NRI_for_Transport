@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
     print("Starting")
 
-    print("Selecting GPU {args.cuda_device}")
+    print(f"Selecting GPU {args.cuda_device}")
     torch.cuda.set_device(args.cuda_device)
     torch.cuda.current_device()
 
