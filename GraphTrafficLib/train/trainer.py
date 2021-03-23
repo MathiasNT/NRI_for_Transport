@@ -107,8 +107,7 @@ class Trainer:
             "dec_edge_types": self.dec_edge_types,
         }
 
-        (
-            self.train_dataloader,
+        (   self.train_dataloader,
             self.test_dataloader,
             self.train_max,
             self.train_min,
@@ -269,19 +268,25 @@ class Trainer:
                 print("::::::::TEST::::::::")
                 print(f"EPOCH: {i}, MSE: {test_mse}, NLL: {test_nll}, KL: {test_kl} ")
                 print("::::::::::::::::::::")
+                test_mse_arr.append(test_mse)
+                test_nll_arr.append(test_nll)
+                test_kl_arr.append(test_kl)
             train_mse_arr.append(train_mse)
             train_nll_arr.append(train_nll)
             train_kl_arr.append(train_kl)
+            self.train_dict = {"test": {"mse": test_mse_arr, "nll": test_nll_arr, "kl": test_kl_arr},
+                          "train": {"mse": train_mse_arr, "nll": train_nll_arr, "kl": train_kl_arr}}
 
     def save_model(self):
         model_path = f"{self.experiment_folder_path}/model_dict.pth"
-
 
         gru_dev_1_dict = {
             "encoder": self.encoder.state_dict(),
             "decoder": self.decoder.state_dict(),
             "settings": self.model_settings,
+            "train_res": self.train_dict
         }
+
         torch.save(gru_dev_1_dict, model_path)
         print(f"Model saved at {model_path}")
         
