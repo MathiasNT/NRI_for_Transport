@@ -1,4 +1,7 @@
 from GraphTrafficLib.train import Trainer
+import torch
+import argparse
+
 
 # Training settings
 batch_size = 25
@@ -44,7 +47,21 @@ dec_gru_hid = 8
 dec_edge_types = 2
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+
+    # Parse args
+    # Cuda args
+    parser.add_argument("--cuda_device", type=int, help="Which cuda device to run on")
+
+    args = parser.parse_args()
+
     print("Starting")
+
+    print("Selecting GPU {args.cuda_device}")
+    torch.cuda.set_device(args.cuda_device)
+    torch.cuda.current_device()
+
+
     print(f"Running {n_epochs} epochs")
     trainer = Trainer(
         batch_size=batch_size,
