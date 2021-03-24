@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 
-def print_training(train_mse_arr, train_nll_arr, train_kl_arr, train_acc_arr):
+def plot_training(train_mse_arr, train_nll_arr, train_kl_arr, train_acc_arr):
     if len(train_mse_arr) <= 5:
         return
     fig, axs = plt.subplots(3, figsize=(25, 13))
@@ -21,7 +21,6 @@ def print_training(train_mse_arr, train_nll_arr, train_kl_arr, train_acc_arr):
     # axs[3].plot(train_acc_arr[5:])
     # axs[3].title.set_text("Edge Acc")
     plt.show()
-
 
 def train(
     encoder,
