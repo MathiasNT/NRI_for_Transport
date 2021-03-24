@@ -41,7 +41,7 @@ def visualize_all_graph_adj(graph_list, rel_send, rel_rec):
                     rec = rel_rec[i].argmax().item()
                     adj_matrix[send, rec] = 1
             axs[k].imshow(adj_matrix)
-            axs[k].set_title(f"{j}")
+            axs[k].set_title(f"{k}")
 
 
 def visualize_mean_graph_adj(graph_list, rel_send, rel_rec):
@@ -55,3 +55,4 @@ def visualize_mean_graph_adj(graph_list, rel_send, rel_rec):
             mean_adj_matrix[send, rec] = 1
     plt.figure(figsize=(10, 10))
     plt.imshow(mean_adj_matrix)
+    return mean_adj_matrix
