@@ -4,6 +4,7 @@ import time
 import os
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 
 import torch
@@ -240,7 +241,7 @@ class Trainer:
         test_nll_arr = []
         test_kl_arr = []
 
-        for i in range(self.n_epochs):
+        for i in tqdm(range(self.n_epochs)):
             t = time.time()
 
             train_mse, train_nll, train_kl = train(
@@ -259,9 +260,9 @@ class Trainer:
             self.writer.add_scalar("Train_NLL", train_nll, i)
             self.writer.add_scalar("Train_KL", train_kl, i)
 
-            print(
-                f"EPOCH: {i}, TIME: {time.time() - t}, MSE: {train_mse}, NLL: {train_nll}, KL: {train_kl} "
-            )
+            # print(
+            #    f"EPOCH: {i}, TIME: {time.time() - t}, MSE: {train_mse}, NLL: {train_nll}, KL: {train_kl} "
+            # )
             if i % 10 == 0:
                 test_mse, test_nll, test_kl = test(
                     encoder=self.encoder,
@@ -279,9 +280,9 @@ class Trainer:
                 self.writer.add_scalar("Test_NLL", test_nll, i)
                 self.writer.add_scalar("Test_KL", test_kl, i)
 
-                print("::::::::TEST::::::::")
-                print(f"EPOCH: {i}, MSE: {test_mse}, NLL: {test_nll}, KL: {test_kl} ")
-                print("::::::::::::::::::::")
+                # print("::::::::TEST::::::::")
+                # print(f"EPOCH: {i}, MSE: {test_mse}, NLL: {test_nll}, KL: {test_kl} ")
+                # print("::::::::::::::::::::")
                 test_mse_arr.append(test_mse)
                 test_nll_arr.append(test_nll)
                 test_kl_arr.append(test_kl)
