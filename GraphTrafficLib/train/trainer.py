@@ -2,12 +2,14 @@
 """
 import time
 import os
+import numpy as np
+import pandas as pd
+
 
 import torch
 from torch import optim
 from torch.autograd import Variable
-import numpy as np
-import pandas as pd
+from torch.utils.tensorboard import SummaryWriter
 
 from ..utils.data_utils import create_test_train_split_max_min_normalize
 from ..utils import encode_onehot
@@ -58,6 +60,8 @@ class Trainer:
         # Set up results folder
         self.experiment_name = experiment_name
         self.experiment_folder_path = f"../models/{self.experiment_name}"
+        self.experiment_log_path = f"{self.experiment_folder_path}/runs"
+        self.writer = SummaryWriter(log_dir=self.experiment_log_path)
         next_version = 2
         while os.path.exists(self.experiment_folder_path):
             new_experiment_name = f"{self.experiment_name}_v{next_version}"
@@ -65,7 +69,6 @@ class Trainer:
             next_version += 1
         os.mkdir(self.experiment_folder_path)
         print(f"Created {self.experiment_folder_path}")
-
 
         # Data settings
         self.normalize = normalize
@@ -109,7 +112,8 @@ class Trainer:
             "dec_edge_types": self.dec_edge_types,
         }
 
-        (   self.train_dataloader,
+        (
+            self.train_dataloader,
             self.test_dataloader,
             self.train_max,
             self.train_min,
@@ -223,7 +227,6 @@ class Trainer:
         log_prior = torch.unsqueeze(log_prior, 0)
         self.log_prior = Variable(log_prior).cuda()
 
-
     def train(self):
         print("Starting training")
         train_mse_arr = []
@@ -249,6 +252,9 @@ class Trainer:
                 split_len=self.split_len,
                 log_prior=self.log_prior,
             )
+            self.writer.add_scalar("Train_MSE", train_mse, i)
+            self.writer.add_scalar("Train_NLL", train_NLL, i)
+            self.writer.add_scalar("Train_KL", train_KL, i)
 
             print(
                 f"EPOCH: {i}, TIME: {time.time() - t}, MSE: {train_mse}, NLL: {train_nll}, KL: {train_kl} "
@@ -266,6 +272,9 @@ class Trainer:
                     split_len=self.split_len,
                     log_prior=self.log_prior,
                 )
+                self.writer.add_scalar("Test_MSE", test_mse, i)
+                self.writer.add_scalar("Test_NLL", test_NLL, i)
+                self.writer.add_scalar("Test_KL", test_KL, i)
 
                 print("::::::::TEST::::::::")
                 print(f"EPOCH: {i}, MSE: {test_mse}, NLL: {test_nll}, KL: {test_kl} ")
@@ -276,8 +285,14 @@ class Trainer:
             train_mse_arr.append(train_mse)
             train_nll_arr.append(train_nll)
             train_kl_arr.append(train_kl)
-            self.train_dict = {"test": {"mse": test_mse_arr, "nll": test_nll_arr, "kl": test_kl_arr},
-                          "train": {"mse": train_mse_arr, "nll": train_nll_arr, "kl": train_kl_arr}}
+            self.train_dict = {
+                "test": {"mse": test_mse_arr, "nll": test_nll_arr, "kl": test_kl_arr},
+                "train": {
+                    "mse": train_mse_arr,
+                    "nll": train_nll_arr,
+                    "kl": train_kl_arr,
+                },
+            }
 
     def save_model(self):
         model_path = f"{self.experiment_folder_path}/model_dict.pth"
@@ -286,9 +301,9 @@ class Trainer:
             "encoder": self.encoder.state_dict(),
             "decoder": self.decoder.state_dict(),
             "settings": self.model_settings,
-            "train_res": self.train_dict
+            "train_res": self.train_dict,
         }
 
         torch.save(gru_dev_1_dict, model_path)
         print(f"Model saved at {model_path}")
-        
+

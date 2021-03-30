@@ -51,7 +51,9 @@ if __name__ == "__main__":
     parser.add_argument("--experiment_name", help="Name used for saving", required=True)
 
     # Cuda args
-    parser.add_argument("--cuda_device", type=int, default=1, help="Which cuda device to run on")
+    parser.add_argument(
+        "--cuda_device", type=int, default=1, help="Which cuda device to run on"
+    )
 
     # Training args
     parser.add_argument("--epochs", type=int, default=1, help="The number of epochs")
@@ -63,7 +65,6 @@ if __name__ == "__main__":
     print(f"Selecting GPU {args.cuda_device}")
     torch.cuda.set_device(args.cuda_device)
     torch.cuda.current_device()
-
 
     print(f"Running {args.epochs} epochs")
     trainer = Trainer(
