@@ -253,8 +253,8 @@ class Trainer:
                 log_prior=self.log_prior,
             )
             self.writer.add_scalar("Train_MSE", train_mse, i)
-            self.writer.add_scalar("Train_NLL", train_NLL, i)
-            self.writer.add_scalar("Train_KL", train_KL, i)
+            self.writer.add_scalar("Train_NLL", train_nll, i)
+            self.writer.add_scalar("Train_KL", train_kl, i)
 
             print(
                 f"EPOCH: {i}, TIME: {time.time() - t}, MSE: {train_mse}, NLL: {train_nll}, KL: {train_kl} "
@@ -273,8 +273,8 @@ class Trainer:
                     log_prior=self.log_prior,
                 )
                 self.writer.add_scalar("Test_MSE", test_mse, i)
-                self.writer.add_scalar("Test_NLL", test_NLL, i)
-                self.writer.add_scalar("Test_KL", test_KL, i)
+                self.writer.add_scalar("Test_NLL", test_nll, i)
+                self.writer.add_scalar("Test_KL", test_kl, i)
 
                 print("::::::::TEST::::::::")
                 print(f"EPOCH: {i}, MSE: {test_mse}, NLL: {test_nll}, KL: {test_kl} ")
