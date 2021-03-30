@@ -11,10 +11,13 @@ import torch
 from torch import optim
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
+from torch.profiler import tensorboard_trace_handler
+import torch.nn.functional as F
 
 from ..utils.data_utils import create_test_train_split_max_min_normalize
 from ..utils import encode_onehot
 from ..utils import test, train
+from ..utils.losses import torch_nll_gaussian, kl_categorical
 from ..models.latent_graph import MLPEncoder, GRUDecoder_multistep
 
 
@@ -311,3 +314,40 @@ class Trainer:
         torch.save(gru_dev_1_dict, model_path)
         print(f"Model saved at {model_path}")
 
+    def profile_model(self):
+        with torch.profiler.profile(
+            schedule=torch.profiler.schedule(wait=2, warmup=2, active=6, repeat=1),
+            on_trace_ready=tensorboard_trace_handler,
+            with_trace=True,
+        ) as profiler:
+            for step, (data, _) in enumerate(self.test_dataloader, 0):
+                print("step:{}".format(step))
+                data = data.cuda()
+
+                logits = self.encoder(data, self.rel_rec, self.rel_send)
+                edges = F.gumbel_softmax(
+                    logits, tau=0.5, hard=True
+                )  # RelaxedOneHotCategorical
+                edge_probs = F.softmax(logits, dim=-1)
+
+                pred_arr = self.decoder(
+                    data.transpose(1, 2),
+                    self.rel_rec,
+                    self.rel_send,
+                    edges,
+                    burn_in=self.burn_in,
+                    burn_in_steps=self.burn_in_steps,
+                    split_len=self.split_len,
+                )
+                pred = pred_arr.transpose(1, 2).contiguous()
+                target = data[:, :, 1:, :]
+
+                loss_nll = torch_nll_gaussian(pred, target, 5e-5)
+                loss_kl = kl_categorical(
+                    preds=edge_probs, log_prior=self.log_prior, num_atoms=132
+                )  # Here I chose theirs since my implementation runs out of RAM :(
+                loss = loss_nll + loss_kl
+
+                loss.backward()
+                self.optimizer.step()
+                profiler.step()
