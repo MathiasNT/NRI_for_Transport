@@ -60,8 +60,6 @@ class Trainer:
         # Set up results folder
         self.experiment_name = experiment_name
         self.experiment_folder_path = f"../models/{self.experiment_name}"
-        self.experiment_log_path = f"{self.experiment_folder_path}/runs"
-        self.writer = SummaryWriter(log_dir=self.experiment_log_path)
         next_version = 2
         while os.path.exists(self.experiment_folder_path):
             new_experiment_name = f"{self.experiment_name}_v{next_version}"
@@ -69,6 +67,11 @@ class Trainer:
             next_version += 1
         os.mkdir(self.experiment_folder_path)
         print(f"Created {self.experiment_folder_path}")
+
+        # Setup logger
+        self.experiment_log_path = f"{self.experiment_folder_path}/runs"
+        self.writer = SummaryWriter(log_dir=self.experiment_log_path)
+        print(f"Logging at {self.experiment_log_path}")
 
         # Data settings
         self.normalize = normalize
