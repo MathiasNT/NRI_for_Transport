@@ -316,8 +316,9 @@ class Trainer:
 
     def profile_model(self):
         with torch.profiler.profile(
-            schedule=torch.profiler.schedule(wait=2, warmup=2, active=6, repeat=1),
-            on_trace_ready=tensorboard_trace_handler,
+            schedule=torch.profiler.schedule(wait=2, warmup=2, active=6),
+            on_trace_ready=tensorboard_trace_handler(self.experiment_log_path),
+            record_shapes=True,
         ) as profiler:
             for step, (data, _) in enumerate(self.test_dataloader, 0):
                 print("step:{}".format(step))
