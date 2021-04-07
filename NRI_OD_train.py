@@ -61,6 +61,7 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+    print(f"Args are {args}")
 
     print("Starting")
 
