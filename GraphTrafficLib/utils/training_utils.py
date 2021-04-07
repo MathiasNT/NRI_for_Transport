@@ -22,6 +22,7 @@ def plot_training(train_mse_arr, train_nll_arr, train_kl_arr, train_acc_arr):
     # axs[3].title.set_text("Edge Acc")
     plt.show()
 
+
 def train(
     encoder,
     decoder,
@@ -33,6 +34,7 @@ def train(
     burn_in_steps,
     split_len,
     log_prior,
+    kl_frac,
 ):
     nll_train = []
     kl_train = []
@@ -66,7 +68,7 @@ def train(
         loss_kl = kl_categorical(
             preds=edge_probs, log_prior=log_prior, num_atoms=132
         )  # Here I chose theirs since my implementation runs out of RAM :(
-        loss = loss_nll + loss_kl
+        loss = loss_nll + kl_frac * loss_kl
 
         loss.backward()
         optimizer.step()

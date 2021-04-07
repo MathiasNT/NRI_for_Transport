@@ -17,7 +17,7 @@ import torch.nn.functional as F
 from ..utils.data_utils import create_test_train_split_max_min_normalize
 from ..utils import encode_onehot
 from ..utils import test, train
-from ..utils.losses import torch_nll_gaussian, kl_categorical
+from ..utils.losses import torch_nll_gaussian, kl_categorical, cyc_anneal
 from ..models.latent_graph import MLPEncoder, GRUDecoder_multistep
 
 
@@ -40,6 +40,7 @@ class Trainer:
         split_len=40,
         burn_in=True,  # maybe remove this
         kl_frac=1,
+        kl_cyc=None,
         enc_n_hid=128,
         enc_n_out=2,
         dec_n_hid=16,
@@ -90,6 +91,7 @@ class Trainer:
 
         self.burn_in = burn_in
         self.kl_frac = kl_frac
+        self.kl_cyc = kl_cyc
 
         # Net sizes
         # Encoder
@@ -247,6 +249,10 @@ class Trainer:
         for i in tqdm(range(self.n_epochs)):
             t = time.time()
 
+            if self.kl_cyc is not None:
+                self.kl_frac = cyc_anneal(i, self.kl_cyc)
+                print(f"beta is now {self.kl_frac}")
+
             train_mse, train_nll, train_kl = train(
                 encoder=self.encoder,
                 decoder=self.decoder,
@@ -258,6 +264,7 @@ class Trainer:
                 burn_in_steps=self.burn_in_steps,
                 split_len=self.split_len,
                 log_prior=self.log_prior,
+                kl_frac=self.kl_frac,
             )
             self.writer.add_scalar("Train_MSE", train_mse, i)
             self.writer.add_scalar("Train_NLL", train_nll, i)

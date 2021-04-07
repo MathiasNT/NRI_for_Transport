@@ -25,7 +25,6 @@ encoder_steps = split_len
 
 burn_in = True
 kl_frac = 1
-kl_free_bits_bound = 5
 assert burn_in_steps + pred_steps == split_len
 
 # Net sizes
@@ -57,6 +56,9 @@ if __name__ == "__main__":
 
     # Training args
     parser.add_argument("--epochs", type=int, default=1, help="The number of epochs")
+    parser.add_argument(
+        "--kl_cyc", type=int, help="The period for the cyclical annealing"
+    )
 
     args = parser.parse_args()
 
@@ -81,6 +83,7 @@ if __name__ == "__main__":
         split_len=split_len,
         burn_in=burn_in,  # maybe remove this
         kl_frac=kl_frac,
+        kl_cyc=args.kl_cyc,
         enc_n_hid=enc_n_hid,
         enc_n_out=enc_n_out,
         dec_n_hid=dec_n_hid,
