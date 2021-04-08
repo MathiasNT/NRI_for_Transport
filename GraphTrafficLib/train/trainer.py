@@ -268,7 +268,7 @@ class Trainer:
             self.writer.add_scalar("Train_MSE", train_mse, i)
             self.writer.add_scalar("Train_NLL", train_nll, i)
             self.writer.add_scalar("Train_KL", train_kl, i)
-            self.writer.add_scaler("KL_frac", self.kl_frac, i)
+            self.writer.add_scalar("KL_frac", self.kl_frac, i)
 
             if i % 10 == 0:
                 test_mse, test_nll, test_kl = test(
