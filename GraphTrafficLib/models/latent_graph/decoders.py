@@ -295,7 +295,9 @@ class GRUDecoder_multistep(nn.Module):
             torch.zeros(pre_msg.size(0), pre_msg.size(1), self.msg_out_shape)
         )
         if inputs.is_cuda:
-            all_msgs = all_msgs.cuda()
+            all_msgs = (
+                all_msgs.cuda()
+            )  # TODO I think this here is takin quite some time
 
         # Go over the different edge types and compute their contribution to the overall messages
         for i in range(0, self.edge_types):

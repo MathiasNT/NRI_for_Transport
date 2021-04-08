@@ -251,7 +251,6 @@ class Trainer:
 
             if self.kl_cyc is not None:
                 self.kl_frac = cyc_anneal(i, self.kl_cyc)
-                print(f"beta is now {self.kl_frac}")
 
             train_mse, train_nll, train_kl = train(
                 encoder=self.encoder,
@@ -269,10 +268,8 @@ class Trainer:
             self.writer.add_scalar("Train_MSE", train_mse, i)
             self.writer.add_scalar("Train_NLL", train_nll, i)
             self.writer.add_scalar("Train_KL", train_kl, i)
+            self.writer.add_scaler("KL_frac", self.kl_frac, i)
 
-            # print(
-            #    f"EPOCH: {i}, TIME: {time.time() - t}, MSE: {train_mse}, NLL: {train_nll}, KL: {train_kl} "
-            # )
             if i % 10 == 0:
                 test_mse, test_nll, test_kl = test(
                     encoder=self.encoder,
@@ -290,9 +287,6 @@ class Trainer:
                 self.writer.add_scalar("Test_NLL", test_nll, i)
                 self.writer.add_scalar("Test_KL", test_kl, i)
 
-                # print("::::::::TEST::::::::")
-                # print(f"EPOCH: {i}, MSE: {test_mse}, NLL: {test_nll}, KL: {test_kl} ")
-                # print("::::::::::::::::::::")
                 test_mse_arr.append(test_mse)
                 test_nll_arr.append(test_nll)
                 test_kl_arr.append(test_kl)
