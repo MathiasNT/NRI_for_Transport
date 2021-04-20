@@ -133,3 +133,57 @@ def test(
         nll = np.mean(nll_test)
         kl = np.mean(kl_test)
     return mse, nll, kl
+
+
+def train_lstm(model, train_dataloader, optimizer, burn_in, burn_in_steps, split_len):
+
+    mse_train = []
+
+    model.train()
+
+    for _, (data, _) in enumerate(train_dataloader):
+        optimizer.zero_grad()
+
+        data = data.cuda()
+        burn_in_data = data[:, :, :burn_in_steps, :]
+        target = data[:, :, burn_in_steps:, :]
+        pred = model(x=burn_in_data, pred_steps=split_len - burn_in_steps).reshape(
+            target.shape
+        )
+
+        loss = F.mse_loss(pred, target)
+
+        loss.backward()
+        optimizer.step()
+
+        mse_train.append(loss.item())
+    mse = np.mean(mse_train)
+    return mse
+
+
+def test_lstm(
+    model,
+    test_dataloader,
+    optimizer,
+    burn_in,
+    burn_in_steps,
+    split_len,
+):
+
+    mse_test = []
+
+    model.eval()
+
+    for _, (data, weather) in enumerate(test_dataloader):
+        optimizer.zero_grad()
+        with torch.no_grad():
+            data = data.cuda()
+            burn_in_data = data[:, :, :burn_in_steps, :]
+            target = data[:, :, burn_in_steps:, :]
+            pred = model(x=burn_in_data, pred_steps=split_len - burn_in_steps).reshape(
+                target.shape
+            )
+
+            mse_test.append(F.mse_loss(pred, target).item())
+        mse = np.mean(mse_test)
+    return mse

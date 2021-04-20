@@ -18,10 +18,10 @@ from ..utils.data_utils import create_test_train_split_max_min_normalize
 from ..utils import encode_onehot
 from ..utils import test, train
 from ..utils.losses import torch_nll_gaussian, kl_categorical, cyc_anneal
-from ..models.latent_graph import MLPEncoder, GRUDecoder_multistep
+from ..models import SimpleLSTM
 
 
-class Trainer:
+class SimpleLSTMTrainer:
     """The trainer class"""
 
     def __init__(
@@ -31,25 +31,16 @@ class Trainer:
         dropout_p=0,
         shuffle_train=True,
         shuffle_test=False,
-        encoder_factor=True,
         experiment_name="test",
         normalize=True,
         train_frac=0.8,
         burn_in_steps=30,
         split_len=40,
         burn_in=True,  # maybe remove this
-        kl_frac=1,
-        kl_cyc=None,
-        enc_n_hid=128,
-        enc_n_out=2,
-        dec_n_hid=16,
-        dec_n_out=1,
-        dec_f_in=1,
-        dec_msg_hid=8,
-        dec_msg_out=8,
-        dec_gru_hid=8,
-        dec_edge_types=2,
+        lstm_hid=128,
+        lstm_dropout=0,
     ):
+
         # Training settings
         self.batch_size = batch_size
         self.n_epochs = n_epochs
@@ -57,10 +48,8 @@ class Trainer:
         self.shuffle_train = shuffle_train
         self.shuffle_test = shuffle_test
 
-        # Model settings
-        self.encoder_factor = encoder_factor
-
         # Saving settings
+
         # Set up results folder
         self.experiment_name = experiment_name
         self.experiment_folder_path = f"../models/{self.experiment_name}"
@@ -89,35 +78,26 @@ class Trainer:
         assert self.burn_in_steps + self.pred_steps == self.split_len
 
         self.burn_in = burn_in
-        self.kl_frac = kl_frac
-        self.kl_cyc = kl_cyc
+        self.lstm_dropout = lstm_dropout
 
         # Net sizes
-        # Encoder
-        self.enc_n_in = self.encoder_steps * 1  # TODO update this hardcode
-        self.enc_n_hid = enc_n_hid
-        self.enc_n_out = enc_n_out
-
-        # Decoder
-        self.dec_n_hid = dec_n_hid
-        self.dec_n_out = dec_n_out
-        self.dec_f_in = dec_f_in
-        self.dec_msg_hid = dec_msg_hid
-        self.dec_msg_out = dec_msg_out
-        self.dec_gru_hid = dec_gru_hid
-        self.dec_edge_types = dec_edge_types
+        self.n_in = 1  # TODO update this hardcode
+        self.lstm_hid = lstm_hid
 
         self.model_settings = {
-            "enc_n_in": self.enc_n_in,
-            "enc_n_hid": self.enc_n_hid,
-            "enc_n_out": self.enc_n_out,
-            "dec_n_hid": self.dec_n_hid,
-            "dec_n_out": self.dec_n_out,
-            "dec_f_in": self.dec_f_in,
-            "dec_msg_hid": self.dec_msg_hid,
-            "dec_msg_out": self.dec_msg_out,
-            "dec_gru_hid": self.dec_gru_hid,
-            "dec_edge_types": self.dec_edge_types,
+            "batch_size": self.batch_size,
+            "n_epochs": self.n_epochs,
+            "dropout_p": self.dropout_p,
+            "shuffle_train": self.shuffle_train,
+            "shuffle_test": self.shuffle_test,
+            "experiment_name": self.experiment_name,
+            "normalize": self.normalize,
+            "train_frac": self.train_frac,
+            "burn_in_steps": self.burn_in_steps,
+            "split_len": self.split_len,
+            "burn_in": self.burn_in,  # maybe remove this
+            "lstm_hid": self.lstm_hid,
+            "lstm_dropout": self.lstm_dropout,
         }
 
         (
@@ -196,160 +176,56 @@ class Trainer:
         )
 
     def _init_model(self):
-        self.encoder = MLPEncoder(
-            n_in=self.enc_n_in,
-            n_hid=self.enc_n_hid,
-            n_out=self.enc_n_out,
-            do_prob=self.dropout_p,
-            factor=self.encoder_factor,
-        ).cuda()
-
-        self.decoder = GRUDecoder_multistep(
-            n_hid=self.dec_n_hid,
-            f_in=self.dec_f_in,
-            msg_hid=self.dec_msg_hid,
-            msg_out=self.dec_msg_out,
-            gru_hid=self.dec_gru_hid,
-            edge_types=self.dec_edge_types,
-        ).cuda()
-
-        self.model_params = list(self.encoder.parameters()) + list(
-            self.decoder.parameters()
+        self.model = SimpleLSTM(
+            input_dims=self.n_in, hidden_dims=self.lstm_hid, dropout=self.lstm_dropout
         )
-
-        self.optimizer = optim.Adam(self.model_params, lr=0.001)
-
-        # Generate off-diagonal interaction graph
-        off_diag = np.ones([132, 132]) - np.eye(132)
-        rel_rec = np.array(encode_onehot(np.where(off_diag)[0]), dtype=np.float32)
-        rel_send = np.array(encode_onehot(np.where(off_diag)[1]), dtype=np.float32)
-        self.rel_rec = torch.FloatTensor(rel_rec).cuda()
-        self.rel_send = torch.FloatTensor(rel_send).cuda()
-
-        # Set up prior
-        prior = np.array([0.99, 0.01])
-        print("Using prior")
-        print(prior)
-        log_prior = torch.FloatTensor(np.log(prior))
-        log_prior = torch.unsqueeze(log_prior, 0)
-        log_prior = torch.unsqueeze(log_prior, 0)
-        self.log_prior = Variable(log_prior).cuda()
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
 
     def train(self):
         print("Starting training")
         train_mse_arr = []
-        train_nll_arr = []
-        train_kl_arr = []
 
         test_mse_arr = []
-        test_nll_arr = []
-        test_kl_arr = []
 
         for i in tqdm(range(self.n_epochs)):
             t = time.time()
 
-            if self.kl_cyc is not None:
-                self.kl_frac = cyc_anneal(i, self.kl_cyc)
-
-            train_mse, train_nll, train_kl = train(
-                encoder=self.encoder,
-                decoder=self.decoder,
+            train_mse = train(
+                model=self.model,
                 train_dataloader=self.train_dataloader,
                 optimizer=self.optimizer,
-                rel_rec=self.rel_rec,
-                rel_send=self.rel_send,
                 burn_in=self.burn_in,
                 burn_in_steps=self.burn_in_steps,
                 split_len=self.split_len,
-                log_prior=self.log_prior,
-                kl_frac=self.kl_frac,
             )
             self.writer.add_scalar("Train_MSE", train_mse, i)
-            self.writer.add_scalar("Train_NLL", train_nll, i)
-            self.writer.add_scalar("Train_KL", train_kl, i)
-            self.writer.add_scalar("KL_frac", self.kl_frac, i)
 
             if i % 10 == 0:
-                test_mse, test_nll, test_kl = test(
-                    encoder=self.encoder,
-                    decoder=self.decoder,
+                test_mse = test(
+                    model=self.model,
                     test_dataloader=self.test_dataloader,
                     optimizer=self.optimizer,
-                    rel_rec=self.rel_rec,
-                    rel_send=self.rel_send,
                     burn_in=self.burn_in,
                     burn_in_steps=self.burn_in_steps,
                     split_len=self.split_len,
-                    log_prior=self.log_prior,
                 )
                 self.writer.add_scalar("Test_MSE", test_mse, i)
-                self.writer.add_scalar("Test_NLL", test_nll, i)
-                self.writer.add_scalar("Test_KL", test_kl, i)
 
                 test_mse_arr.append(test_mse)
-                test_nll_arr.append(test_nll)
-                test_kl_arr.append(test_kl)
             train_mse_arr.append(train_mse)
-            train_nll_arr.append(train_nll)
-            train_kl_arr.append(train_kl)
             self.train_dict = {
-                "test": {"mse": test_mse_arr, "nll": test_nll_arr, "kl": test_kl_arr},
-                "train": {
-                    "mse": train_mse_arr,
-                    "nll": train_nll_arr,
-                    "kl": train_kl_arr,
-                },
+                "test": {"mse": test_mse_arr},
+                "train": {"mse": train_mse_arr},
             }
 
     def save_model(self):
         model_path = f"{self.experiment_folder_path}/model_dict.pth"
 
-        gru_dev_1_dict = {
-            "encoder": self.encoder.state_dict(),
-            "decoder": self.decoder.state_dict(),
+        model_dict = {
+            "model": self.model.state_dict(),
             "settings": self.model_settings,
             "train_res": self.train_dict,
         }
 
-        torch.save(gru_dev_1_dict, model_path)
+        torch.save(model_dict, model_path)
         print(f"Model saved at {model_path}")
-
-    def profile_model(self):
-        with torch.profiler.profile(
-            schedule=torch.profiler.schedule(wait=2, warmup=2, active=6),
-            on_trace_ready=tensorboard_trace_handler(self.experiment_log_path),
-            record_shapes=True,
-            with_stack=True,
-            profile_memory=True,
-        ) as profiler:
-            for step, (data, _) in enumerate(self.test_dataloader, 0):
-                print("step:{}".format(step))
-                data = data.cuda()
-
-                logits = self.encoder(data, self.rel_rec, self.rel_send)
-                edges = F.gumbel_softmax(
-                    logits, tau=0.5, hard=True
-                )  # RelaxedOneHotCategorical
-                edge_probs = F.softmax(logits, dim=-1)
-
-                pred_arr = self.decoder(
-                    data.transpose(1, 2),
-                    self.rel_rec,
-                    self.rel_send,
-                    edges,
-                    burn_in=self.burn_in,
-                    burn_in_steps=self.burn_in_steps,
-                    split_len=self.split_len,
-                )
-                pred = pred_arr.transpose(1, 2).contiguous()
-                target = data[:, :, 1:, :]
-
-                loss_nll = torch_nll_gaussian(pred, target, 5e-5)
-                loss_kl = kl_categorical(
-                    preds=edge_probs, log_prior=self.log_prior, num_atoms=132
-                )  # Here I chose theirs since my implementation runs out of RAM :(
-                loss = loss_nll + loss_kl
-
-                loss.backward()
-                self.optimizer.step()
-                profiler.step()

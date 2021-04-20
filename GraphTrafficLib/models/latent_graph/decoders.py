@@ -10,8 +10,7 @@ import torch.nn.functional as F
 # to the model ignoring the latent code (??)
 # TODO I probably could remove the no edge network for all of the decoders. However, will the multiplication with 0 kill the gradient???
 class MLPDecoder(nn.Module):
-    """ empty
-    """
+    """empty"""
 
     def __init__(self, n_in, n_hid, n_out, msg_hid, msg_out, edge_types, dropout_prob):
         super().__init__()
@@ -42,22 +41,19 @@ class MLPDecoder(nn.Module):
         self.msg_out_shape = msg_out
 
     def edge2node(self, x, rel_rec):
-        """This function makes the aggregation over the incomming edge embeddings
-        """
+        """This function makes the aggregation over the incomming edge embeddings"""
         incoming = torch.matmul(rel_rec.t(), x)
         return incoming / incoming.size(1)
 
     def node2edge(self, x, rel_rec, rel_send):
-        """This function makes a matrix of [node_i, node_j] rows for the edge embeddings
-        """
+        """This function makes a matrix of [node_i, node_j] rows for the edge embeddings"""
         receivers = torch.matmul(rel_rec, x)
         senders = torch.matmul(rel_send, x)
         edges = torch.cat([senders, receivers], dim=2)
         return edges
 
     def forward(self, inputs, rel_rec, rel_send, rel_types):
-        """[summary]
-        """
+        """[summary]"""
 
         # So according to their implementation we want
         # input shape [batch_size, num_timesteps, num_atoms, num_dims]
@@ -101,8 +97,7 @@ class MLPDecoder(nn.Module):
 
 
 class GRUDecoder(nn.Module):
-    """summary
-    """
+    """summary"""
 
     def __init__(self, n_hid, n_out, f_in, msg_hid, msg_out, gru_hid, edge_types):
         super().__init__()
@@ -142,14 +137,12 @@ class GRUDecoder(nn.Module):
         self.gru_hid = gru_hid
 
     def edge2node(self, x, rel_rec):
-        """This function makes the aggregation over the incomming edge embeddings
-        """
+        """This function makes the aggregation over the incomming edge embeddings"""
         incoming = torch.matmul(rel_rec.t(), x)
         return incoming / incoming.size(1)
 
     def node2edge(self, x, rel_rec, rel_send):
-        """This function makes a matrix of [node_i, node_j] rows for the edge embeddings
-        """
+        """This function makes a matrix of [node_i, node_j] rows for the edge embeddings"""
         receivers = torch.matmul(rel_rec, x)
         senders = torch.matmul(rel_send, x)
         edges = torch.cat([senders, receivers], dim=2)  # TODO double check dim
@@ -224,8 +217,7 @@ class GRUDecoder(nn.Module):
 
 
 class GRUDecoder_multistep(nn.Module):
-    """summary
-    """
+    """summary"""
 
     def __init__(self, n_hid, f_in, msg_hid, msg_out, gru_hid, edge_types):
         super().__init__()
@@ -271,14 +263,12 @@ class GRUDecoder_multistep(nn.Module):
         self.gru_hid = gru_hid
 
     def edge2node(self, x, rel_rec):
-        """This function makes the aggregation over the incomming edge embeddings
-        """
+        """This function makes the aggregation over the incomming edge embeddings"""
         incoming = torch.matmul(rel_rec.t(), x)
         return incoming / incoming.size(1)
 
     def node2edge(self, x, rel_rec, rel_send):
-        """This function makes a matrix of [node_i, node_j] rows for the edge embeddings
-        """
+        """This function makes a matrix of [node_i, node_j] rows for the edge embeddings"""
         receivers = torch.matmul(rel_rec, x)
         senders = torch.matmul(rel_send, x)
         edges = torch.cat([senders, receivers], dim=-1)
@@ -362,4 +352,3 @@ class GRUDecoder_multistep(nn.Module):
         preds = torch.stack(pred_all, dim=1)
 
         return preds
-
