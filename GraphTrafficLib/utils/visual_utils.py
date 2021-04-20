@@ -29,6 +29,14 @@ class Encoder_Visualizer(object):
                 graph_probs.append(edge_probs.cpu())
         return graph_list, graph_probs
 
+    def infer_max_graphs(self, data):
+        graph_list = []
+        self.encoder.evel()
+        for _, data in enumerate(data):
+            with torch.no_grad():
+                data.unsqueeze(dim=0).cuda()
+                logits = self.encoder(data, self.rel_rec, self.rel_send)
+
 
 def visualize_all_graph_adj(graph_list, rel_send, rel_rec):
     _, axs = plt.subplots(len(graph_list), 1, figsize=(50, 50))
