@@ -2,10 +2,15 @@ import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
-
 class Encoder_Visualizer(object):
     def __init__(
-        self, encoder, rel_rec, rel_send, burn_in, burn_in_steps, split_len,
+        self,
+        encoder,
+        rel_rec,
+        rel_send,
+        burn_in,
+        burn_in_steps,
+        split_len,
     ):
         super(Encoder_Visualizer, self).__init__()
         self.rel_rec = rel_rec
@@ -38,18 +43,18 @@ class Encoder_Visualizer(object):
                 logits = self.encoder(data, self.rel_rec, self.rel_send)
 
 
-def visualize_all_graph_adj(graph_list, rel_send, rel_rec):
+def visualize_all_graph_adj(graph_list, rel_send, rel_rec, dates):
     _, axs = plt.subplots(len(graph_list), 1, figsize=(50, 50))
     for k, graph in enumerate(graph_list):
         for j in range(1):
             adj_matrix = torch.zeros(132, 132)
             for i, row in enumerate(graph[j]):
-                if row[1]:
+                if row.argmax().item():
                     send = rel_send[i].argmax().item()
                     rec = rel_rec[i].argmax().item()
                     adj_matrix[send, rec] = 1
             axs[k].imshow(adj_matrix)
-            axs[k].set_title(f"{k}")
+            axs[k].set_title(f"{k} - {dates[k]}")
 
 
 def visualize_mean_graph_adj(graph_list, rel_send, rel_rec):
@@ -57,7 +62,7 @@ def visualize_mean_graph_adj(graph_list, rel_send, rel_rec):
     mean_graph = all_graphs.mean(dim=(0, 1))
     mean_adj_matrix = torch.zeros(132, 132)
     for i, row in enumerate(mean_graph):
-        if row[1]:
+        if row.argmax().item():
             send = rel_send[i].argmax().item()
             rec = rel_rec[i].argmax().item()
             mean_adj_matrix[send, rec] = 1

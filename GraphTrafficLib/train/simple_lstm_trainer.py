@@ -16,7 +16,7 @@ import torch.nn.functional as F
 
 from ..utils.data_utils import create_test_train_split_max_min_normalize
 from ..utils import encode_onehot
-from ..utils import test, train
+from ..utils import test_lstm, train_lstm
 from ..utils.losses import torch_nll_gaussian, kl_categorical, cyc_anneal
 from ..models import SimpleLSTM
 
@@ -178,7 +178,7 @@ class SimpleLSTMTrainer:
     def _init_model(self):
         self.model = SimpleLSTM(
             input_dims=self.n_in, hidden_dims=self.lstm_hid, dropout=self.lstm_dropout
-        )
+        ).cuda()
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
 
     def train(self):
@@ -190,7 +190,7 @@ class SimpleLSTMTrainer:
         for i in tqdm(range(self.n_epochs)):
             t = time.time()
 
-            train_mse = train(
+            train_mse = train_lstm(
                 model=self.model,
                 train_dataloader=self.train_dataloader,
                 optimizer=self.optimizer,
@@ -201,7 +201,7 @@ class SimpleLSTMTrainer:
             self.writer.add_scalar("Train_MSE", train_mse, i)
 
             if i % 10 == 0:
-                test_mse = test(
+                test_mse = test_lstm(
                     model=self.model,
                     test_dataloader=self.test_dataloader,
                     optimizer=self.optimizer,

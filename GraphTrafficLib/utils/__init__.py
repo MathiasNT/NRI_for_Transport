@@ -1,7 +1,7 @@
 from .data_utils import Nyc_w_Weather
 from .graph_generators import dtw_adj_generator
 from .general_utils import encode_onehot, RMSE, MAE, MAPE
-from .training_utils import test, train, plot_training
+from .training_utils import test, train, plot_training, test_lstm, train_lstm
 from .visual_utils import (
     Encoder_Visualizer,
     visualize_all_graph_adj,

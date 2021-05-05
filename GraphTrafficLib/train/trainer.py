@@ -18,7 +18,7 @@ from ..utils.data_utils import create_test_train_split_max_min_normalize
 from ..utils import encode_onehot
 from ..utils import test, train
 from ..utils.losses import torch_nll_gaussian, kl_categorical, cyc_anneal
-from ..models.latent_graph import MLPEncoder, GRUDecoder_multistep
+from ..models.latent_graph import MLPEncoder, CNNEncoder, GRUDecoder_multistep
 
 
 class Trainer:
@@ -40,6 +40,9 @@ class Trainer:
         burn_in=True,  # maybe remove this
         kl_frac=1,
         kl_cyc=None,
+        loss_type=None,
+        edge_rate=0.01,
+        encoder_type="mlp",
         enc_n_hid=128,
         enc_n_out=2,
         dec_n_hid=16,
@@ -50,6 +53,7 @@ class Trainer:
         dec_gru_hid=8,
         dec_edge_types=2,
     ):
+
         # Training settings
         self.batch_size = batch_size
         self.n_epochs = n_epochs
@@ -69,6 +73,7 @@ class Trainer:
             new_experiment_name = f"{self.experiment_name}_v{next_version}"
             self.experiment_folder_path = f"../models/{new_experiment_name}"
             next_version += 1
+        print(self.experiment_folder_path)
         os.mkdir(self.experiment_folder_path)
         print(f"Created {self.experiment_folder_path}")
 
@@ -91,10 +96,17 @@ class Trainer:
         self.burn_in = burn_in
         self.kl_frac = kl_frac
         self.kl_cyc = kl_cyc
+        self.loss_type = loss_type
+        self.edge_rate = edge_rate
 
         # Net sizes
+        self.encoder_type = encoder_type
+
         # Encoder
-        self.enc_n_in = self.encoder_steps * 1  # TODO update this hardcode
+        if self.encoder_type == "mlp":
+            self.enc_n_in = self.encoder_steps * 1
+        elif self.encoder_type == "cnn":
+            self.enc_n_in = 1  # TODO update these hardcodes?
         self.enc_n_hid = enc_n_hid
         self.enc_n_out = enc_n_out
 
@@ -107,7 +119,12 @@ class Trainer:
         self.dec_gru_hid = dec_gru_hid
         self.dec_edge_types = dec_edge_types
 
+        # init model
+        self._init_model()
+
+        # save settings
         self.model_settings = {
+            "encoder_type": self.encoder_type,
             "enc_n_in": self.enc_n_in,
             "enc_n_hid": self.enc_n_hid,
             "enc_n_out": self.enc_n_out,
@@ -118,6 +135,20 @@ class Trainer:
             "dec_msg_out": self.dec_msg_out,
             "dec_gru_hid": self.dec_gru_hid,
             "dec_edge_types": self.dec_edge_types,
+            "loss_type": self.loss_type,
+            "batch_size": self.batch_size,
+            "n_epochs": self.n_epochs,
+            "dropout_p": self.dropout_p,
+            "shuffle_train": self.shuffle_train,
+            "shuffle_test": self.shuffle_test,
+            "encoder_factor": self.encoder_factor,
+            "normalize": self.normalize,
+            "train_frac": self.train_frac,
+            "burn_in_steps": self.burn_in_steps,
+            "split_len": self.split_len,
+            "burn_in": self.burn_in,
+            "kl_frac": self.kl_frac,
+            "kl_cyc": self.kl_cyc,
         }
 
         (
@@ -128,8 +159,6 @@ class Trainer:
             self.test_dates,
             self.train_dates,
         ) = self._load_data()
-
-        self._init_model()
 
     def _load_data(self):
         dataset_folder = "../datafolder"
@@ -196,13 +225,24 @@ class Trainer:
         )
 
     def _init_model(self):
-        self.encoder = MLPEncoder(
-            n_in=self.enc_n_in,
-            n_hid=self.enc_n_hid,
-            n_out=self.enc_n_out,
-            do_prob=self.dropout_p,
-            factor=self.encoder_factor,
-        ).cuda()
+
+        if self.encoder_type == "mlp":
+            self.encoder = MLPEncoder(
+                n_in=self.enc_n_in,
+                n_hid=self.enc_n_hid,
+                n_out=self.enc_n_out,
+                do_prob=self.dropout_p,
+                factor=self.encoder_factor,
+            ).cuda()
+        elif self.encoder_type == "cnn":
+            self.enc_n_hid = 10 # Remember this hardcode
+            self.encoder = CNNEncoder(
+                n_in=self.enc_n_in,
+                n_hid=self.enc_n_hid,
+                n_out=self.enc_n_out,
+                do_prob=self.dropout_p,
+                factor=self.encoder_factor,
+            ).cuda()
 
         self.decoder = GRUDecoder_multistep(
             n_hid=self.dec_n_hid,
@@ -227,7 +267,7 @@ class Trainer:
         self.rel_send = torch.FloatTensor(rel_send).cuda()
 
         # Set up prior
-        prior = np.array([0.99, 0.01])
+        prior = np.array([1 - self.edge_rate, self.edge_rate])
         print("Using prior")
         print(prior)
         log_prior = torch.FloatTensor(np.log(prior))
@@ -263,6 +303,7 @@ class Trainer:
                 split_len=self.split_len,
                 log_prior=self.log_prior,
                 kl_frac=self.kl_frac,
+                loss_type=self.loss_type,
             )
             self.writer.add_scalar("Train_MSE", train_mse, i)
             self.writer.add_scalar("Train_NLL", train_nll, i)

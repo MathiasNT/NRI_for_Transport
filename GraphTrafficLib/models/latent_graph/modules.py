@@ -3,8 +3,7 @@ import torch.nn.functional as F
 
 
 class MLP(nn.Module):
-    """The standard MLP module w. batchnorm, initializationa and dropout
-    """
+    """The standard MLP module w. batchnorm, initializationa and dropout"""
 
     def __init__(self, n_in, n_hid, n_out, dropout_prob=0):
         super().__init__()
@@ -25,8 +24,7 @@ class MLP(nn.Module):
                 m.bias.data.zero_()
 
     def batch_norm(self, inputs):
-        """We do batch norm over batches and things so we reshape first
-        """
+        """We do batch norm over batches and things so we reshape first"""
         x = inputs.view(inputs.size(0) * inputs.size(1), -1)
         x = self.bn(x)
         return x.view(inputs.size(0), inputs.size(1), -1)
@@ -37,3 +35,35 @@ class MLP(nn.Module):
         x = F.dropout(x, self.dropout_prob, training=self.training)
         x = F.elu(self.fc2(x))
         return self.batch_norm(x)
+
+
+class CNN(nn.Module):
+    def __init__(self, n_in, n_hid, n_out, do_prob=0):
+        super(CNN, self).__init__()
+
+        self.pool = nn.MaxPool1d(
+            kernel_size=2,
+            stride=None,
+            padding=0,
+            dilation=1,
+            return_indices=False,
+            ceil_mode=False,
+        )
+
+        self.conv1 = nn.Conv1d(n_in, n_hid, kernel_size=5)
+        self.bn1 = nn.BatchNorm1d(n_hid)
+        self.conv2 = nn.Conv1d(n_hid, n_hid, kernel_size=5)
+        self.bn2 = nn.BatchNorm1d(n_hid)
+        self.conv_out = nn.Conv1d(n_hid, n_out, kernel_size=5)
+        self.conv_att = nn.Conv1d(n_hid, 1, kernel_size=5)
+
+    def forward(self, inputs):
+        x = F.relu(self.conv1(inputs))
+        x = self.bn1(x)
+        x = self.pool(x)
+        x = F.relu(self.conv2(x))
+        x = self.bn1(x)
+        val = self.conv_out(x)
+        attention = F.softmax(self.conv_att(x), dim=2)
+        out = (val * attention).mean(dim=2)
+        return out

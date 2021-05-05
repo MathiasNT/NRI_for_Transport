@@ -35,6 +35,7 @@ def train(
     split_len,
     log_prior,
     kl_frac,
+    loss_type,
 ):
     nll_train = []
     kl_train = []
@@ -66,9 +67,16 @@ def train(
 
         loss_nll = torch_nll_gaussian(pred, target, 5e-5)
         loss_kl = kl_categorical(
-            preds=edge_probs, log_prior=log_prior, num_atoms=132
+            preds=edge_probs,
+            log_prior=log_prior,
+            num_atoms=132,  # Watch out for hardcode!! TODO
         )  # Here I chose theirs since my implementation runs out of RAM :(
-        loss = loss_nll + kl_frac * loss_kl
+        loss_mse = F.mse_loss(pred, target)
+
+        if loss_type == "nll":
+            loss = loss_nll + kl_frac * loss_kl
+        elif loss_type == "mse":
+            loss = loss_mse + kl_frac * loss_kl
 
         loss.backward()
         optimizer.step()
@@ -140,12 +148,11 @@ def train_lstm(model, train_dataloader, optimizer, burn_in, burn_in_steps, split
     mse_train = []
 
     model.train()
-
     for _, (data, _) in enumerate(train_dataloader):
         optimizer.zero_grad()
 
         data = data.cuda()
-        burn_in_data = data[:, :, :burn_in_steps, :]
+        burn_in_data = data[:, :, :burn_in_steps, :].reshape(-1, burn_in_steps, 1)
         target = data[:, :, burn_in_steps:, :]
         pred = model(x=burn_in_data, pred_steps=split_len - burn_in_steps).reshape(
             target.shape
@@ -178,7 +185,7 @@ def test_lstm(
         optimizer.zero_grad()
         with torch.no_grad():
             data = data.cuda()
-            burn_in_data = data[:, :, :burn_in_steps, :]
+            burn_in_data = data[:, :, :burn_in_steps, :].reshape(-1, burn_in_steps, 1)
             target = data[:, :, burn_in_steps:, :]
             pred = model(x=burn_in_data, pred_steps=split_len - burn_in_steps).reshape(
                 target.shape

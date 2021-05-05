@@ -122,14 +122,29 @@ def create_test_train_split2_no_weather(
 
 
 def create_test_train_split_max_min_normalize(
-    data, weather_data, split_len, batch_size, normalize=False, train_frac=0.8
+    data,
+    weather_data,
+    split_len,
+    batch_size,
+    normalize=False,
+    train_frac=0.8,
+    fixed_max=None,
+    fixed_min=None,
 ):
     demand_tensor = torch.Tensor(data).permute(1, 0).unsqueeze(-1)
     weather_tensor = torch.Tensor(weather_data)
 
     # do max-min normal of data
-    train_max = demand_tensor[: int(train_frac * len(demand_tensor))].max()
-    train_min = demand_tensor[: int(train_frac * len(demand_tensor))].min()
+    if fixed_max is not None:
+        train_max = fixed_max
+    else:
+        train_max = demand_tensor[: int(train_frac * len(demand_tensor))].max()
+
+    if fixed_min is not None:
+        train_min = fixed_min
+    else:
+        train_min = demand_tensor[: int(train_frac * len(demand_tensor))].min()
+
     if normalize:
         demand_tensor = (demand_tensor - train_min) * 2 / (train_max - train_min) - 1
 
@@ -161,3 +176,7 @@ def create_test_train_split_max_min_normalize(
     )
 
     return (train_dataloader, test_dataloader, train_max, train_min)
+
+
+def renormalize_data(data, data_min, data_max):
+    return (data + 1) * (data_max - data_min) / 2 + data_min

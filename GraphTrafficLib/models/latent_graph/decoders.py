@@ -352,3 +352,31 @@ class GRUDecoder_multistep(nn.Module):
         preds = torch.stack(pred_all, dim=1)
 
         return preds
+
+    def test(
+        self, inputs, rel_rec, rel_send, rel_types, burn_in, burn_in_steps, split_len
+    ):
+        # Inputs should be [B, T, N, F]
+
+        pred_all = []
+
+        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid))
+        if inputs.is_cuda:
+            hidden = hidden.cuda()
+
+        for step in range(0, inputs.shape[1] - 1):
+            if burn_in:
+                if step <= burn_in_steps:
+                    ins = inputs[:, step, :, :]
+                else:
+                    ins = pred_all[step - 1]
+                    print(f"from index {step} is step with pred input")
+
+            pred, hidden = self.do_single_step_forward(
+                ins, rel_rec, rel_send, rel_types, hidden
+            )
+            pred_all.append(pred)
+
+        preds = torch.stack(pred_all, dim=1)
+
+        return preds
