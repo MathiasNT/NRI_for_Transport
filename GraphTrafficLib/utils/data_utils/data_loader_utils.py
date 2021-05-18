@@ -131,22 +131,31 @@ def create_test_train_split_max_min_normalize(
     fixed_max=None,
     fixed_min=None,
 ):
-    demand_tensor = torch.Tensor(data).permute(1, 0).unsqueeze(-1)
+    if len(data.shape) == 2:
+        demand_tensor = torch.Tensor(data).permute(1, 0).unsqueeze(-1)
+    elif len(data.shape) == 3:
+        demand_tensor = torch.Tensor(data).permute(1, 0, 2)
+
     weather_tensor = torch.Tensor(weather_data)
 
     # do max-min normal of data
     if fixed_max is not None:
         train_max = fixed_max
     else:
-        train_max = demand_tensor[: int(train_frac * len(demand_tensor))].max()
+        train_max = demand_tensor[: int(train_frac * len(demand_tensor))].amax(
+            dim=(0, 1)
+        )
 
     if fixed_min is not None:
         train_min = fixed_min
     else:
-        train_min = demand_tensor[: int(train_frac * len(demand_tensor))].min()
+        train_min = demand_tensor[: int(train_frac * len(demand_tensor))].amin(
+            dim=(0, 1)
+        )
 
     if normalize:
-        demand_tensor = (demand_tensor - train_min) * 2 / (train_max - train_min) - 1
+        # demand_tensor = (demand_tensor - train_min) * 2 / (train_max - train_min) - 1  // between -1 and 1
+        demand_tensor = (demand_tensor - train_min) / (train_max - train_min)
 
     splits = []
     weather_splits = []
@@ -168,11 +177,19 @@ def create_test_train_split_max_min_normalize(
     test_dataset = TensorDataset(test_splits, test_weather)
 
     train_dataloader = DataLoader(
-        train_dataset, batch_size=batch_size, pin_memory=True, shuffle=True
+        train_dataset,
+        batch_size=batch_size,
+        pin_memory=True,
+        shuffle=True,
+        num_workers=4,
     )
 
     test_dataloader = DataLoader(
-        test_dataset, batch_size=batch_size, pin_memory=True, shuffle=False
+        test_dataset,
+        batch_size=batch_size,
+        pin_memory=True,
+        shuffle=False,
+        num_workers=4,
     )
 
     return (train_dataloader, test_dataloader, train_max, train_min)

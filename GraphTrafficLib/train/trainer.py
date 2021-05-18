@@ -43,15 +43,15 @@ class Trainer:
         loss_type=None,
         edge_rate=0.01,
         encoder_type="mlp",
+        node_f_dim=1,
         enc_n_hid=128,
         enc_n_out=2,
         dec_n_hid=16,
-        dec_n_out=1,
-        dec_f_in=1,
         dec_msg_hid=8,
         dec_msg_out=8,
         dec_gru_hid=8,
         dec_edge_types=2,
+        skip_first=True,
     ):
 
         # Training settings
@@ -85,6 +85,7 @@ class Trainer:
         # Data settings
         self.normalize = normalize
         self.train_frac = train_frac
+        self.node_f_dim = node_f_dim
 
         # Model settings
         self.burn_in_steps = burn_in_steps
@@ -104,33 +105,31 @@ class Trainer:
 
         # Encoder
         if self.encoder_type == "mlp":
-            self.enc_n_in = self.encoder_steps * 1
+            self.enc_n_in = self.encoder_steps * self.node_f_dim
         elif self.encoder_type == "cnn":
-            self.enc_n_in = 1  # TODO update these hardcodes?
+            self.enc_n_in = self.node_f_dim  # TODO update these hardcodes?
         self.enc_n_hid = enc_n_hid
         self.enc_n_out = enc_n_out
 
         # Decoder
         self.dec_n_hid = dec_n_hid
-        self.dec_n_out = dec_n_out
-        self.dec_f_in = dec_f_in
         self.dec_msg_hid = dec_msg_hid
         self.dec_msg_out = dec_msg_out
         self.dec_gru_hid = dec_gru_hid
         self.dec_edge_types = dec_edge_types
+        self.skip_first = skip_first
 
         # init model
         self._init_model()
 
         # save settings
         self.model_settings = {
+            "node_f_dim": self.node_f_dim,
             "encoder_type": self.encoder_type,
             "enc_n_in": self.enc_n_in,
             "enc_n_hid": self.enc_n_hid,
             "enc_n_out": self.enc_n_out,
             "dec_n_hid": self.dec_n_hid,
-            "dec_n_out": self.dec_n_out,
-            "dec_f_in": self.dec_f_in,
             "dec_msg_hid": self.dec_msg_hid,
             "dec_msg_out": self.dec_msg_out,
             "dec_gru_hid": self.dec_gru_hid,
@@ -149,50 +148,41 @@ class Trainer:
             "burn_in": self.burn_in,
             "kl_frac": self.kl_frac,
             "kl_cyc": self.kl_cyc,
+            "skip_first": self.skip_first,
         }
 
+    def load_data(self, data_path, weather_data_path, dropoff_data_path=None):
+
+        # Load data
+        data = np.load(data_path)
+
+        if dropoff_data_path is not None:
+            dropoff_data = np.load(dropoff_data_path)
+
+            # Create data tensor
+            pickup_tensor = torch.Tensor(data)
+            dropoff_tensor = torch.Tensor(dropoff_data)
+
+            # Stack data tensor
+            data_tensor = torch.cat([pickup_tensor, dropoff_tensor], dim=0)
+        else:
+            data_tensor = torch.Tensor(data)
+
+        # load weather data
+        weather_df = pd.read_csv(weather_data_path, parse_dates=[0, 7])
+        # temp fix for na temp
+        weather_df.loc[weather_df.temperature.isna(), "temperature"] = 0
+        sum(weather_df.temperature.isna())
+        # Create weather vector
+        weather_vector = weather_df.loc[:, ("temperature", "precipDepth")].values
+        weather_tensor = torch.Tensor(weather_vector)
+
+        # Create data loader with max min normalization
         (
             self.train_dataloader,
             self.test_dataloader,
             self.train_max,
             self.train_min,
-            self.test_dates,
-            self.train_dates,
-        ) = self._load_data()
-
-    def _load_data(self):
-        dataset_folder = "../datafolder"
-        proc_folder = f"{dataset_folder}/procdata"
-
-        # Load data
-        pickup_data_path = f"{proc_folder}/full_year_manhattan_vector_pickup.npy"
-        pickup_data = np.load(pickup_data_path)
-        dropoff_data_path = f"{proc_folder}/full_year_manhattan_vector_dropoff.npy"
-        dropoff_data = np.load(dropoff_data_path)
-        weather_data_path = f"{proc_folder}/LGA_weather_full_2019.csv"
-        weather_df = pd.read_csv(weather_data_path, parse_dates=[0, 7])
-
-        # temp fix for na temp
-        weather_df.loc[weather_df.temperature.isna(), "temperature"] = 0
-        sum(weather_df.temperature.isna())
-
-        # Create weather vector
-        weather_vector = weather_df.loc[:, ("temperature", "precipDepth")].values
-
-        # Create data tensor
-        pickup_tensor = torch.Tensor(pickup_data)
-        dropoff_tensor = torch.Tensor(dropoff_data)
-        weather_tensor = torch.Tensor(weather_vector)
-
-        # Stack data tensor
-        data_tensor = torch.cat([pickup_tensor, dropoff_tensor], dim=0)
-
-        # Create data loader with max min normalization
-        (
-            train_dataloader,
-            test_dataloader,
-            train_max,
-            train_min,
         ) = create_test_train_split_max_min_normalize(
             data=data_tensor,
             weather_data=weather_tensor,
@@ -209,20 +199,11 @@ class Trainer:
         bins_dt = pd.date_range(start=min_date, end=max_date, freq="1H")
         split_bins_dt = bins_dt[: -(self.split_len + 1)]
 
-        test_dates = split_bins_dt[int(self.train_frac * len(split_bins_dt)) :]
-        train_dates = split_bins_dt[: int(self.train_frac * len(split_bins_dt))]
+        self.test_dates = split_bins_dt[int(self.train_frac * len(split_bins_dt)) :]
+        self.train_dates = split_bins_dt[: int(self.train_frac * len(split_bins_dt))]
 
-        print(f"train_dates len: {len(train_dates)}")
-        print(f"test_dates len: {len(test_dates)}")
-
-        return (
-            train_dataloader,
-            test_dataloader,
-            train_max,
-            train_min,
-            test_dates,
-            train_dates,
-        )
+        print(f"train_dates len: {len(self.train_dates)}")
+        print(f"test_dates len: {len(self.test_dates)}")
 
     def _init_model(self):
 
@@ -235,7 +216,7 @@ class Trainer:
                 factor=self.encoder_factor,
             ).cuda()
         elif self.encoder_type == "cnn":
-            self.enc_n_hid = 10 # Remember this hardcode
+            self.enc_n_hid = 10  # Remember this hardcode
             self.encoder = CNNEncoder(
                 n_in=self.enc_n_in,
                 n_hid=self.enc_n_hid,
@@ -246,11 +227,12 @@ class Trainer:
 
         self.decoder = GRUDecoder_multistep(
             n_hid=self.dec_n_hid,
-            f_in=self.dec_f_in,
+            f_in=self.node_f_dim,
             msg_hid=self.dec_msg_hid,
             msg_out=self.dec_msg_out,
             gru_hid=self.dec_gru_hid,
             edge_types=self.dec_edge_types,
+            skip_first=self.skip_first,
         ).cuda()
 
         self.model_params = list(self.encoder.parameters()) + list(
@@ -258,13 +240,6 @@ class Trainer:
         )
 
         self.optimizer = optim.Adam(self.model_params, lr=0.001)
-
-        # Generate off-diagonal interaction graph
-        off_diag = np.ones([132, 132]) - np.eye(132)
-        rel_rec = np.array(encode_onehot(np.where(off_diag)[0]), dtype=np.float32)
-        rel_send = np.array(encode_onehot(np.where(off_diag)[1]), dtype=np.float32)
-        self.rel_rec = torch.FloatTensor(rel_rec).cuda()
-        self.rel_send = torch.FloatTensor(rel_send).cuda()
 
         # Set up prior
         prior = np.array([1 - self.edge_rate, self.edge_rate])
@@ -285,6 +260,14 @@ class Trainer:
         test_nll_arr = []
         test_kl_arr = []
 
+        # Generate off-diagonal interaction graph
+        n_nodes = self.train_dataloader.dataset[0][0].shape[0]
+        off_diag = np.ones([n_nodes, n_nodes]) - np.eye(n_nodes)
+        rel_rec = np.array(encode_onehot(np.where(off_diag)[0]), dtype=np.float32)
+        rel_send = np.array(encode_onehot(np.where(off_diag)[1]), dtype=np.float32)
+        self.rel_rec = torch.FloatTensor(rel_rec).cuda()
+        self.rel_send = torch.FloatTensor(rel_send).cuda()
+
         for i in tqdm(range(self.n_epochs)):
             t = time.time()
 
@@ -304,6 +287,8 @@ class Trainer:
                 log_prior=self.log_prior,
                 kl_frac=self.kl_frac,
                 loss_type=self.loss_type,
+                pred_steps=self.pred_steps,
+                skip_first=self.skip_first,
             )
             self.writer.add_scalar("Train_MSE", train_mse, i)
             self.writer.add_scalar("Train_NLL", train_nll, i)

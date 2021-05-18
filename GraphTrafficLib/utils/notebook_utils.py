@@ -8,6 +8,7 @@ from tqdm import tqdm
 from GraphTrafficLib.models.latent_graph import MLPEncoder, GRUDecoder_multistep, CNNEncoder
 from GraphTrafficLib.models import SimpleLSTM
 from GraphTrafficLib.utils import encode_onehot
+from GraphTrafficLib.utils.data_utils import create_test_train_split_max_min_normalize
 
 
 def load_model(experiment_path, device, encoder_type):
@@ -15,6 +16,11 @@ def load_model(experiment_path, device, encoder_type):
     model_dict = torch.load(f"{experiment_path}/model_dict.pth", map_location=device)
     model_settings = model_dict["settings"]
     train_res = model_dict["train_res"]
+
+    # temp legacy fix
+    if 'node_f_dim' not in model_dict['settings'].keys():
+        model_dict['settings']['node_f_dim'] = model_dict['settings']['dec_f_in']
+    
     print(f"Model settings are: {model_settings}")
 
     dropout_p = 0
@@ -38,11 +44,12 @@ def load_model(experiment_path, device, encoder_type):
     
     decoder = GRUDecoder_multistep(
         n_hid=model_settings["dec_n_hid"],
-        f_in=model_settings["dec_f_in"],
+        f_in=model_settings["node_f_dim"],
         msg_hid=model_settings["dec_msg_hid"],
         msg_out=model_settings["dec_msg_out"],
         gru_hid=model_settings["dec_gru_hid"],
         edge_types=model_settings["dec_edge_types"],
+        skip_first=model_settings["skip_first"]
     ).to(device)
     encoder.load_state_dict(model_dict["encoder"])
     decoder.load_state_dict(model_dict["decoder"])
@@ -90,6 +97,63 @@ def load_data(dataset_folder, zone):
     # Stack data tensor
     data_tensor = torch.cat([pickup_tensor, dropoff_tensor], dim=0)
     return data_tensor, weather_tensor
+
+
+def load_data2(data_path, weather_data_path, split_len, batch_size, normalize, train_frac, dropoff_data_path=None):
+
+    # Load data
+    data = np.load(data_path)
+
+    if dropoff_data_path is not None:
+        dropoff_data = np.load(dropoff_data_path)
+
+        # Create data tensor
+        pickup_tensor = torch.Tensor(data)
+        dropoff_tensor = torch.Tensor(dropoff_data)
+
+        # Stack data tensor
+        data_tensor = torch.cat([pickup_tensor, dropoff_tensor], dim=0)
+    else:
+        data_tensor = torch.Tensor(data)
+
+    # load weather data
+    weather_df = pd.read_csv(weather_data_path, parse_dates=[0, 7])
+    # temp fix for na temp
+    weather_df.loc[weather_df.temperature.isna(), "temperature"] = 0
+    sum(weather_df.temperature.isna())
+    # Create weather vector
+    weather_vector = weather_df.loc[:, ("temperature", "precipDepth")].values
+    weather_tensor = torch.Tensor(weather_vector)
+
+    # Create data loader with max min normalization
+    (
+        train_dataloader,
+        test_dataloader,
+        train_max,
+        train_min,
+    ) = create_test_train_split_max_min_normalize(
+        data=data_tensor,
+        weather_data=weather_tensor,
+        split_len=split_len,
+        batch_size=batch_size,
+        normalize=normalize,
+        train_frac=train_frac,
+    )
+
+    min_date = pd.Timestamp(year=2019, month=1, day=1)
+    max_date = pd.Timestamp(year=2019 + 1, month=1, day=1)
+
+    # Note that this misses a bit from the beginning but this will not be a big problem when we index finer
+    bins_dt = pd.date_range(start=min_date, end=max_date, freq="1H")
+    split_bins_dt = bins_dt[: -(split_len + 1)]
+
+    test_dates = split_bins_dt[int(train_frac * len(split_bins_dt)) :]
+    train_dates = split_bins_dt[: int(train_frac * len(split_bins_dt))]
+
+    print(f"train_dates len: {len(train_dates)}")
+    print(f"test_dates len: {len(test_dates)}")
+
+    return data_tensor, train_dataloader, test_dataloader, train_max, train_min
 
 
 def plot_training(train_res, test_res, graph_model=True):

@@ -12,7 +12,7 @@ class Encoder_Visualizer(object):
         burn_in_steps,
         split_len,
     ):
-        super(Encoder_Visualizer, self).__init__()
+        super().__init__()
         self.rel_rec = rel_rec
         self.rel_send = rel_send
         self.encoder = encoder
@@ -47,7 +47,7 @@ def visualize_all_graph_adj(graph_list, rel_send, rel_rec, dates):
     _, axs = plt.subplots(len(graph_list), 1, figsize=(50, 50))
     for k, graph in enumerate(graph_list):
         for j in range(1):
-            adj_matrix = torch.zeros(132, 132)
+            adj_matrix = torch.zeros(rel_rec.shape[1], rel_rec.shape[1])
             for i, row in enumerate(graph[j]):
                 if row.argmax().item():
                     send = rel_send[i].argmax().item()
@@ -60,7 +60,7 @@ def visualize_all_graph_adj(graph_list, rel_send, rel_rec, dates):
 def visualize_mean_graph_adj(graph_list, rel_send, rel_rec):
     all_graphs = torch.stack(graph_list[:-1])
     mean_graph = all_graphs.mean(dim=(0, 1))
-    mean_adj_matrix = torch.zeros(132, 132)
+    mean_adj_matrix = torch.zeros(rel_rec.shape[1], rel_rec.shape[1])
     for i, row in enumerate(mean_graph):
         if row.argmax().item():
             send = rel_send[i].argmax().item()

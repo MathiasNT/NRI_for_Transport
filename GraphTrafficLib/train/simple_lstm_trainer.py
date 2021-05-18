@@ -58,6 +58,7 @@ class SimpleLSTMTrainer:
             new_experiment_name = f"{self.experiment_name}_v{next_version}"
             self.experiment_folder_path = f"../models/{new_experiment_name}"
             next_version += 1
+        print(self.experiment_folder_path)
         os.mkdir(self.experiment_folder_path)
         print(f"Created {self.experiment_folder_path}")
 
@@ -100,50 +101,40 @@ class SimpleLSTMTrainer:
             "lstm_dropout": self.lstm_dropout,
         }
 
+        self._init_model()
+
+    def load_data(self, data_path, weather_data_path, dropoff_data_path=None):
+
+        # Load data
+        data = np.load(data_path)
+
+        if dropoff_data_path is not None:
+            dropoff_data = np.load(dropoff_data_path)
+
+            # Create data tensor
+            pickup_tensor = torch.Tensor(data)
+            dropoff_tensor = torch.Tensor(dropoff_data)
+
+            # Stack data tensor
+            data_tensor = torch.cat([pickup_tensor, dropoff_tensor], dim=0)
+        else:
+            data_tensor = torch.Tensor(data)
+
+        # load weather data
+        weather_df = pd.read_csv(weather_data_path, parse_dates=[0, 7])
+        # temp fix for na temp
+        weather_df.loc[weather_df.temperature.isna(), "temperature"] = 0
+        sum(weather_df.temperature.isna())
+        # Create weather vector
+        weather_vector = weather_df.loc[:, ("temperature", "precipDepth")].values
+        weather_tensor = torch.Tensor(weather_vector)
+
+        # Create data loader with max min normalization
         (
             self.train_dataloader,
             self.test_dataloader,
             self.train_max,
             self.train_min,
-            self.test_dates,
-            self.train_dates,
-        ) = self._load_data()
-
-        self._init_model()
-
-    def _load_data(self):
-        dataset_folder = "../datafolder"
-        proc_folder = f"{dataset_folder}/procdata"
-
-        # Load data
-        pickup_data_path = f"{proc_folder}/full_year_manhattan_vector_pickup.npy"
-        pickup_data = np.load(pickup_data_path)
-        dropoff_data_path = f"{proc_folder}/full_year_manhattan_vector_dropoff.npy"
-        dropoff_data = np.load(dropoff_data_path)
-        weather_data_path = f"{proc_folder}/LGA_weather_full_2019.csv"
-        weather_df = pd.read_csv(weather_data_path, parse_dates=[0, 7])
-
-        # temp fix for na temp
-        weather_df.loc[weather_df.temperature.isna(), "temperature"] = 0
-        sum(weather_df.temperature.isna())
-
-        # Create weather vector
-        weather_vector = weather_df.loc[:, ("temperature", "precipDepth")].values
-
-        # Create data tensor
-        pickup_tensor = torch.Tensor(pickup_data)
-        dropoff_tensor = torch.Tensor(dropoff_data)
-        weather_tensor = torch.Tensor(weather_vector)
-
-        # Stack data tensor
-        data_tensor = torch.cat([pickup_tensor, dropoff_tensor], dim=0)
-
-        # Create data loader with max min normalization
-        (
-            train_dataloader,
-            test_dataloader,
-            train_max,
-            train_min,
         ) = create_test_train_split_max_min_normalize(
             data=data_tensor,
             weather_data=weather_tensor,
@@ -160,20 +151,11 @@ class SimpleLSTMTrainer:
         bins_dt = pd.date_range(start=min_date, end=max_date, freq="1H")
         split_bins_dt = bins_dt[: -(self.split_len + 1)]
 
-        test_dates = split_bins_dt[int(self.train_frac * len(split_bins_dt)) :]
-        train_dates = split_bins_dt[: int(self.train_frac * len(split_bins_dt))]
+        self.test_dates = split_bins_dt[int(self.train_frac * len(split_bins_dt)) :]
+        self.train_dates = split_bins_dt[: int(self.train_frac * len(split_bins_dt))]
 
-        print(f"train_dates len: {len(train_dates)}")
-        print(f"test_dates len: {len(test_dates)}")
-
-        return (
-            train_dataloader,
-            test_dataloader,
-            train_max,
-            train_min,
-            test_dates,
-            train_dates,
-        )
+        print(f"train_dates len: {len(self.train_dates)}")
+        print(f"test_dates len: {len(self.test_dates)}")
 
     def _init_model(self):
         self.model = SimpleLSTM(

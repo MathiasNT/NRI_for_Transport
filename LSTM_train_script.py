@@ -32,6 +32,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Parse args
+    # Data args
+    parser.add_argument(
+        "--pickup_data_name", help="path from datafolder to pickupdata", required=True
+    )
+    parser.add_argument(
+        "--dropoff_data_name", help="path from datafolder to dropoffdata"
+    )
+    parser.add_argument(
+        "--weather_data_name", help="path from datafolder to weaher data", required=True
+    )
+
     # General args
     parser.add_argument("--experiment_name", help="Name used for saving", required=True)
 
@@ -44,6 +55,17 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=1, help="The number of epochs")
 
     args = parser.parse_args()
+
+    dataset_folder = "../datafolder"
+    proc_folder = f"{dataset_folder}/procdata"
+
+    pickup_data_path = f"{proc_folder}/{args.pickup_data_name}"
+    if args.dropoff_data_name is not None:
+        dropoff_data_path = f"{proc_folder}/{args.dropoff_data_name}"
+    else:
+        dropoff_data_path = args.dropoff_data_name
+    weather_data_path = f"{proc_folder}/{args.weather_data_name}"
+
     print(f"Args are {args}")
 
     print("Starting")
@@ -69,6 +91,12 @@ if __name__ == "__main__":
         lstm_dropout=lstm_dropout,
     )
     print("Initialized")
+    trainer.load_data(
+        data_path=pickup_data_path,
+        dropoff_data_path=dropoff_data_path,
+        weather_data_path=weather_data_path,
+    )
+    print("Data loaded")
     trainer.train()
     print("Training")
     trainer.save_model()

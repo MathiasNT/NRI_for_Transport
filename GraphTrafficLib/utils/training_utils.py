@@ -36,6 +36,8 @@ def train(
     log_prior,
     kl_frac,
     loss_type,
+    pred_steps,
+    skip_first,
 ):
     nll_train = []
     kl_train = []
@@ -62,8 +64,8 @@ def train(
             burn_in_steps=burn_in_steps,
             split_len=split_len,
         )
-        pred = pred_arr.transpose(1, 2).contiguous()
-        target = data[:, :, 1:, :]
+        pred = pred_arr.transpose(1, 2)[:, :, -pred_steps:, :]  # TODO .contiguous?
+        target = data[:, :, -pred_steps:, :]
 
         loss_nll = torch_nll_gaussian(pred, target, 5e-5)
         loss_kl = kl_categorical(

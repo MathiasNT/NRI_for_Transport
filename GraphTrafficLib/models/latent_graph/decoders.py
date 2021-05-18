@@ -219,7 +219,7 @@ class GRUDecoder(nn.Module):
 class GRUDecoder_multistep(nn.Module):
     """summary"""
 
-    def __init__(self, n_hid, f_in, msg_hid, msg_out, gru_hid, edge_types):
+    def __init__(self, n_hid, f_in, msg_hid, msg_out, gru_hid, edge_types, skip_first):
         super().__init__()
 
         self.edge_types = edge_types
@@ -262,6 +262,8 @@ class GRUDecoder_multistep(nn.Module):
         self.out_fc3 = nn.Linear(in_features=n_hid, out_features=f_in)
         self.gru_hid = gru_hid
 
+        self.skip_first = skip_first
+
     def edge2node(self, x, rel_rec):
         """This function makes the aggregation over the incomming edge embeddings"""
         incoming = torch.matmul(rel_rec.t(), x)
@@ -285,18 +287,20 @@ class GRUDecoder_multistep(nn.Module):
             torch.zeros(pre_msg.size(0), pre_msg.size(1), self.msg_out_shape)
         )
         if inputs.is_cuda:
-            all_msgs = (
-                all_msgs.cuda()
-            )  # TODO I think this here is takin quite some time
+            all_msgs = all_msgs.cuda()
 
+        if self.skip_first:
+            start_idx = 1
+        else:
+            start_idx = 0
         # Go over the different edge types and compute their contribution to the overall messages
-        for i in range(0, self.edge_types):
+        for i in range(start_idx, self.edge_types):
             msg = torch.tanh(self.msg_fc1[i](pre_msg))
             msg = torch.tanh(self.msg_fc2[i](msg))
             msg = msg * rel_types[:, :, i : i + 1]
             all_msgs += msg / float(self.edge_types)
             # They normalize with the amount of different edgetypes - why??
-            # TODO double check how the rel_types here changes the prediction - My hypothesis here is that soft gumbel samples can lead to identifiability problems.
+            # TODO Check the norm here
 
         # mean all msgs to receiver
         agg_msgs = all_msgs.transpose(-2, -1).matmul(rel_rec).transpose(-2, -1)
@@ -327,7 +331,14 @@ class GRUDecoder_multistep(nn.Module):
         return pred, hidden
 
     def forward(
-        self, inputs, rel_rec, rel_send, rel_types, burn_in, burn_in_steps, split_len
+        self,
+        inputs,
+        rel_rec,
+        rel_send,
+        rel_types,
+        burn_in,
+        burn_in_steps,
+        split_len,
     ):
         # Inputs should be [B, T, N, F]
 
@@ -354,7 +365,14 @@ class GRUDecoder_multistep(nn.Module):
         return preds
 
     def test(
-        self, inputs, rel_rec, rel_send, rel_types, burn_in, burn_in_steps, split_len
+        self,
+        inputs,
+        rel_rec,
+        rel_send,
+        rel_types,
+        burn_in,
+        burn_in_steps,
+        split_len,
     ):
         # Inputs should be [B, T, N, F]
 
