@@ -71,7 +71,7 @@ def train(
         loss_kl = kl_categorical(
             preds=edge_probs,
             log_prior=log_prior,
-            num_atoms=132,  # Watch out for hardcode!! TODO
+            num_atoms=132,  # Watch out for hardcode!! TODO test
         )  # Here I chose theirs since my implementation runs out of RAM :(
         loss_mse = F.mse_loss(pred, target)
 

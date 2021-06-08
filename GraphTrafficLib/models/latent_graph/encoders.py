@@ -1,6 +1,9 @@
 import torch
+import torch.nn.functional as F
+import numpy as np
 from torch import nn
 from .modules import MLP, CNN
+from GraphTrafficLib.utils import encode_onehot
 
 
 # TODO add in weight initialization to see if it improves the performance
@@ -168,3 +171,19 @@ class CNNEncoder(nn.Module):
             x = self.mlp3(x)  # [B, E, F']
 
         return self.fc_out(x)
+
+class FixedEncoder(nn.Module):
+    def __init__(self, adj_matrix):
+        super(FixedEncoder, self).__init__()
+        self.adj_matrix = adj_matrix
+        
+    def forward(self, inputs, rel_rec, rel_send):
+        edge_types = torch.zeros(rel_rec.shape[0], device=inputs.device)
+        for edge_idx in range(rel_rec.shape[0]):
+            rec_idx = torch.where(rel_rec[edge_idx])
+            send_idx = torch.where(rel_send[edge_idx])
+            if self.adj_matrix[send_idx, rec_idx]:
+                edge_types[edge_idx] = 1
+        edge_types = F.one_hot(edge_types.long())
+        edge_types = edge_types.unsqueeze(0).repeat(inputs.shape[0],1,1)
+        return edge_types.float()

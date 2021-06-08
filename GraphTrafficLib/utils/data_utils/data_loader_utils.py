@@ -133,7 +133,7 @@ def create_test_train_split_max_min_normalize(
 ):
     if len(data.shape) == 2:
         demand_tensor = torch.Tensor(data).permute(1, 0).unsqueeze(-1)
-    elif len(data.shape) == 3:
+    else:
         demand_tensor = torch.Tensor(data).permute(1, 0, 2)
 
     weather_tensor = torch.Tensor(weather_data)
@@ -195,5 +195,59 @@ def create_test_train_split_max_min_normalize(
     return (train_dataloader, test_dataloader, train_max, train_min)
 
 
-def renormalize_data(data, data_min, data_max):
-    return (data + 1) * (data_max - data_min) / 2 + data_min
+def create_test_train_split_max_min_normalize_no_split(
+    data,
+    weather_data,
+    normalize=False,
+    train_frac=0.8,
+    fixed_max=None,
+    fixed_min=None,
+):
+    if len(data.shape) == 2:
+        demand_tensor = torch.Tensor(data).permute(1, 0).unsqueeze(-1)
+    else:
+        demand_tensor = torch.Tensor(data).permute(1, 0, 2)
+
+    weather_tensor = torch.Tensor(weather_data)
+
+    # do max-min normal of data
+    if fixed_max is not None:
+        train_max = fixed_max
+    else:
+        train_max = demand_tensor[: int(train_frac * len(demand_tensor))].amax(
+            dim=(0, 1)
+        )
+
+    if fixed_min is not None:
+        train_min = fixed_min
+    else:
+        train_min = demand_tensor[: int(train_frac * len(demand_tensor))].amin(
+            dim=(0, 1)
+        )
+
+    if normalize:
+        # demand_tensor = (demand_tensor - train_min) * 2 / (train_max - train_min) - 1  // between -1 and 1
+        demand_tensor = (demand_tensor - train_min) / (train_max - train_min)
+
+
+    train_weather = weather_tensor[: int(train_frac * len(weather_tensor))]
+    test_weather = weather_tensor[int(train_frac * len(weather_tensor)) :]
+
+    train_demand = demand_tensor[: int(train_frac * len(demand_tensor))]
+    test_demand = demand_tensor[int(train_frac * len(demand_tensor)) :]
+
+
+    train_dataset = TensorDataset(train_demand, train_weather)
+    test_dataset = TensorDataset(test_demand, test_weather)
+
+    return (train_dataset, test_dataset, train_max, train_min)
+
+
+
+def renormalize_data(data, data_min, data_max, new_way=True):
+    if new_way:
+        return data * (data_max - data_min) + data_min
+    else:
+        return (data + 1) * (data_max - data_min) / 2 + data_min
+
+

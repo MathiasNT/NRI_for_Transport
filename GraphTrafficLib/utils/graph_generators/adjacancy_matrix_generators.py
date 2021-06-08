@@ -3,6 +3,7 @@ from tqdm import tqdm
 from fastdtw import fastdtw
 from scipy.spatial.distance import euclidean
 from joblib import Parallel, delayed
+import torch
 
 
 def dtw_adj_generator(demand_vector, end_index, coordinate_version=False, **kwargs):
@@ -29,3 +30,15 @@ def dtw_adj_generator(demand_vector, end_index, coordinate_version=False, **kwar
         )
         adjacancy_matrix[i, :] = dists
     return adjacancy_matrix
+
+def get_local_adj_matrix(shp):
+    adj_matrix = torch.zeros([len(shp), len(shp)])
+
+    for zone_idx, zone in shp.iterrows():
+        neighbours = shp[~shp.geometry.disjoint(zone.geometry)].index
+        for neighbour_idx in neighbours:
+            adj_matrix[zone_idx, neighbour_idx] = 1
+
+    adj_matrix = adj_matrix - torch.eye(len(shp))
+
+    return adj_matrix

@@ -1,5 +1,5 @@
 from .decoders import MLPDecoder, GRUDecoder, GRUDecoder_multistep
-from .encoders import MLPEncoder, CNNEncoder
+from .encoders import MLPEncoder, CNNEncoder, FixedEncoder
 from .modules import MLP
 
 __all__ = [
@@ -9,4 +9,5 @@ __all__ = [
     "GRUDecoder",
     "GRUDecoder_multistep",
     "CNNEncoder",
+    "FixedEncoder"
 ]

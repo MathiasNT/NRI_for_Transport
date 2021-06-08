@@ -13,6 +13,7 @@ from .data_loader_utils import (
     create_test_train_split2_no_weather,
     create_test_train_split_max_min_normalize,
     renormalize_data,
+    create_test_train_split_max_min_normalize_no_split
 )
 
 __all__ = [
@@ -29,5 +30,6 @@ __all__ = [
     "create_test_train_split_max_min_normalize",
     "renormalize_data",
     "preprocess_NYC_borough_dropoff",
-    "preprocess_NYC_borough_pickup"
+    "preprocess_NYC_borough_pickup",
+    "create_test_train_split_max_min_normalize_no_split"
 ]

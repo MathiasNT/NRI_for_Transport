@@ -61,11 +61,21 @@ if __name__ == "__main__":
         "--kl_cyc", type=int, help="The period for the cyclical annealing"
     )
     parser.add_argument("--batch_size", type=int, help="The batch size, default 25")
+    parser.add_argument("--lr", type=float, help="Learning rate", default=0.001)
+    parser.add_argument("--lr_decay_step", help="How often to do lr decay", default=100)
+    parser.add_argument("--lr_decay_gamma", help="Factor to decay lr with", default=0.5)
+
 
     # Model args
     parser.add_argument(
         "--encoder_type", help="which encoder type to use (cnn or mlp)", required=True
     )
+    parser.add_argument(
+        "--fixed_adj_matrix_path", help="Path to fixed adjacancy matrix for fixed encoder", required=False
+    )
+
+
+
     parser.add_argument(
         "--loss_type",
         help="Which loss to use 'nll' or 'mse' (both use KL aswell)",
@@ -106,6 +116,8 @@ if __name__ == "__main__":
         dropoff_data_path = args.dropoff_data_name
         node_f_dim = 2
     weather_data_path = f"{proc_folder}/{args.weather_data_name}"
+    if args.fixed_adj_matrix_path is not None:
+        args.fixed_adj_matrix_path = f"{proc_folder}/{args.fixed_adj_matrix_path}"
 
     print(f"Args are {args}")
 
@@ -116,33 +128,36 @@ if __name__ == "__main__":
     torch.cuda.current_device()
 
     print(f"Running {args.epochs} epochs")
-    trainer = Trainer(
-        batch_size=args.batch_size,
-        n_epochs=args.epochs,
-        dropout_p=dropout_p,
-        shuffle_train=shuffle_train,
-        shuffle_test=shuffle_test,
-        encoder_factor=encoder_factor,
-        experiment_name=args.experiment_name,
-        normalize=normalize,
-        train_frac=train_frac,
-        burn_in_steps=args.burn_in_steps,
-        split_len=args.split_len,
-        burn_in=burn_in,  # maybe remove this
-        kl_frac=kl_frac,
-        kl_cyc=args.kl_cyc,
-        loss_type=args.loss_type,
-        edge_rate=args.edge_rate,
-        encoder_type=args.encoder_type,
-        node_f_dim=node_f_dim,
-        enc_n_hid=enc_n_hid,
-        enc_n_out=enc_n_out,
-        dec_n_hid=dec_n_hid,
-        dec_msg_hid=dec_msg_hid,
-        dec_msg_out=dec_msg_out,
-        dec_gru_hid=dec_gru_hid,
-        dec_edge_types=dec_edge_types,
-    )
+    trainer = Trainer(batch_size=args.batch_size,
+                      n_epochs=args.epochs,
+                      dropout_p=dropout_p,
+                      shuffle_train=shuffle_train,
+                      shuffle_test=shuffle_test,
+                      lr=args.lr,
+                      lr_decay_step=args.lr_decay_step,
+                      lr_decay_gamma=args.lr_decay_gamma,
+                      encoder_factor=encoder_factor,
+                      experiment_name=args.experiment_name,
+                      normalize=normalize,
+                      train_frac=train_frac,
+                      burn_in_steps=args.burn_in_steps,
+                      split_len=args.split_len,
+                      burn_in=burn_in,
+                      kl_frac=kl_frac,
+                      kl_cyc=args.kl_cyc,
+                      loss_type=args.loss_type,
+                      edge_rate=args.edge_rate,
+                      encoder_type=args.encoder_type,
+                      node_f_dim=node_f_dim,
+                      enc_n_hid=enc_n_hid,
+                      enc_n_out=enc_n_out,
+                      dec_n_hid=dec_n_hid,
+                      dec_msg_hid=dec_msg_hid,
+                      dec_msg_out=dec_msg_out,
+                      dec_gru_hid=dec_gru_hid,
+                      dec_edge_types=dec_edge_types,
+                      fixed_adj_matrix_path=args.fixed_adj_matrix_path)
+
     print("Initialized")
 
     print(f"Loading data at {pickup_data_path}")

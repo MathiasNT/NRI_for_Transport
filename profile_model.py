@@ -67,30 +67,12 @@ if __name__ == "__main__":
     torch.cuda.current_device()
 
     print(f"Running {args.epochs} epochs")
-    trainer = Trainer(
-        batch_size=batch_size,
-        n_epochs=args.epochs,
-        dropout_p=dropout_p,
-        shuffle_train=shuffle_train,
-        shuffle_test=shuffle_test,
-        encoder_factor=encoder_factor,
-        experiment_name=args.experiment_name,
-        normalize=normalize,
-        train_frac=train_frac,
-        burn_in_steps=burn_in_steps,
-        split_len=split_len,
-        burn_in=burn_in,  # maybe remove this
-        kl_frac=kl_frac,
-        enc_n_hid=enc_n_hid,
-        enc_n_out=enc_n_out,
-        dec_n_hid=dec_n_hid,
-        dec_n_out=dec_n_out,
-        dec_f_in=dec_f_in,
-        dec_msg_hid=dec_msg_hid,
-        dec_msg_out=dec_msg_out,
-        dec_gru_hid=dec_gru_hid,
-        dec_edge_types=dec_edge_types,
-    )
+    trainer = Trainer(batch_size=batch_size, n_epochs=args.epochs, dropout_p=dropout_p, shuffle_train=shuffle_train,
+                      shuffle_test=shuffle_test, encoder_factor=encoder_factor, experiment_name=args.experiment_name,
+                      normalize=normalize, train_frac=train_frac, burn_in_steps=burn_in_steps, split_len=split_len,
+                      burn_in=burn_in, kl_frac=kl_frac, enc_n_hid=enc_n_hid, enc_n_out=enc_n_out, dec_n_hid=dec_n_hid,
+                      dec_msg_hid=dec_msg_hid, dec_msg_out=dec_msg_out, dec_gru_hid=dec_gru_hid,
+                      dec_edge_types=dec_edge_types)
     print("Initialized")
     print("Profiling")
     trainer.profile_model()

@@ -268,3 +268,21 @@ def create_adj_vectors(n_nodes, device):
     rel_rec = torch.FloatTensor(rel_rec).to(device)
     rel_send = torch.FloatTensor(rel_send).to(device)
     return rel_rec, rel_send
+
+def create_lag1_and_ha_predictions(
+        test_dataloader,
+        burn_in,
+        burn_in_steps,
+        split_len,
+        ha
+):
+    y_true = []
+    y_lag1 = []
+    for i, (data, weather) in tqdm(enumerate(test_dataloader)):
+        y_true.append(data[:, :, burn_in_steps, :].squeeze())
+        y_lag1.append(data[:, :, burn_in_steps - 1, :].squeeze())
+
+    y_true = torch.cat(y_true)
+    y_lag1 = torch.cat(y_lag1).squeeze().cpu().detach()
+
+    return y_lag1, y_true

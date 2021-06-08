@@ -18,41 +18,45 @@ from ..utils.data_utils import create_test_train_split_max_min_normalize
 from ..utils import encode_onehot
 from ..utils import test, train
 from ..utils.losses import torch_nll_gaussian, kl_categorical, cyc_anneal
-from ..models.latent_graph import MLPEncoder, CNNEncoder, GRUDecoder_multistep
+from ..models.latent_graph import MLPEncoder, CNNEncoder, GRUDecoder_multistep, FixedEncoder
 
 
 class Trainer:
     """The trainer class"""
 
     def __init__(
-        self,
-        batch_size=25,
-        n_epochs=100,
-        dropout_p=0,
-        shuffle_train=True,
-        shuffle_test=False,
-        encoder_factor=True,
-        experiment_name="test",
-        normalize=True,
-        train_frac=0.8,
-        burn_in_steps=30,
-        split_len=40,
-        burn_in=True,  # maybe remove this
-        kl_frac=1,
-        kl_cyc=None,
-        loss_type=None,
-        edge_rate=0.01,
-        encoder_type="mlp",
-        node_f_dim=1,
-        enc_n_hid=128,
-        enc_n_out=2,
-        dec_n_hid=16,
-        dec_msg_hid=8,
-        dec_msg_out=8,
-        dec_gru_hid=8,
-        dec_edge_types=2,
-        skip_first=True,
-    ):
+            self,
+            batch_size=25,
+            n_epochs=100,
+            dropout_p=0,
+            shuffle_train=True,
+            shuffle_test=False,
+            encoder_factor=True,
+            experiment_name="test",
+            normalize=True,
+            train_frac=0.8,
+            burn_in_steps=30,
+            split_len=40,
+            burn_in=True,  # maybe remove this
+            kl_frac=1,
+            kl_cyc=None,
+            loss_type=None,
+            edge_rate=0.01,
+            encoder_type="mlp",
+            node_f_dim=1,
+            enc_n_hid=128,
+            enc_n_out=2,
+            dec_n_hid=16,
+            dec_msg_hid=8,
+            dec_msg_out=8,
+            dec_gru_hid=8,
+            dec_edge_types=2,
+            skip_first=True,
+            lr=0.001,
+            lr_decay_step=100,
+            lr_decay_gamma=0.5,
+            fixed_adj_matrix_path=None
+        ):
 
         # Training settings
         self.batch_size = batch_size
@@ -60,6 +64,9 @@ class Trainer:
         self.dropout_p = dropout_p
         self.shuffle_train = shuffle_train
         self.shuffle_test = shuffle_test
+        self.lr = lr
+        self.lr_decay_step = lr_decay_step
+        self.lr_decay_gamma = lr_decay_gamma
 
         # Model settings
         self.encoder_factor = encoder_factor
@@ -108,8 +115,14 @@ class Trainer:
             self.enc_n_in = self.encoder_steps * self.node_f_dim
         elif self.encoder_type == "cnn":
             self.enc_n_in = self.node_f_dim  # TODO update these hardcodes?
+        elif self.encoder_type == "fixed":
+            assert fixed_adj_matrix_path is not None, "fixed encoder need fixed adj matrix"
+            self.fixed_adj_matrix = torch.tensor(np.load(fixed_adj_matrix_path))
+            self.enc_n_in = self.node_f_dim
         self.enc_n_hid = enc_n_hid
         self.enc_n_out = enc_n_out
+
+        
 
         # Decoder
         self.dec_n_hid = dec_n_hid
@@ -137,6 +150,9 @@ class Trainer:
             "loss_type": self.loss_type,
             "batch_size": self.batch_size,
             "n_epochs": self.n_epochs,
+            "lr": self.lr,
+            "lr_decay_step": self.lr_decay_step,
+            "lr_decay_gamma": self.lr_decay_gamma,
             "dropout_p": self.dropout_p,
             "shuffle_train": self.shuffle_train,
             "shuffle_test": self.shuffle_test,
@@ -224,6 +240,10 @@ class Trainer:
                 do_prob=self.dropout_p,
                 factor=self.encoder_factor,
             ).cuda()
+        elif self.encoder_type == "fixed":
+            self.encoder = FixedEncoder(
+                adj_matrix=self.fixed_adj_matrix
+            )
 
         self.decoder = GRUDecoder_multistep(
             n_hid=self.dec_n_hid,
@@ -240,6 +260,9 @@ class Trainer:
         )
 
         self.optimizer = optim.Adam(self.model_params, lr=0.001)
+        self.lr_scheduler = optim.lr_scheduler.StepLR(optimizer=self.optimizer,
+                                                      step_size=self.lr_decay_step,
+                                                      gamma=self.lr_decay_gamma)
 
         # Set up prior
         prior = np.array([1 - self.edge_rate, self.edge_rate])
@@ -269,7 +292,6 @@ class Trainer:
         self.rel_send = torch.FloatTensor(rel_send).cuda()
 
         for i in tqdm(range(self.n_epochs)):
-            t = time.time()
 
             if self.kl_cyc is not None:
                 self.kl_frac = cyc_anneal(i, self.kl_cyc)
@@ -290,6 +312,8 @@ class Trainer:
                 pred_steps=self.pred_steps,
                 skip_first=self.skip_first,
             )
+
+            self.lr_scheduler.step()
             self.writer.add_scalar("Train_MSE", train_mse, i)
             self.writer.add_scalar("Train_NLL", train_nll, i)
             self.writer.add_scalar("Train_KL", train_kl, i)
