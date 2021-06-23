@@ -5,12 +5,13 @@ import torch.nn.functional as F
 class MLP(nn.Module):
     """The standard MLP module w. batchnorm, initializationa and dropout"""
 
-    def __init__(self, n_in, n_hid, n_out, dropout_prob=0):
+    def __init__(self, n_in, n_hid, n_out, dropout_prob=0, use_bn=True):
         super().__init__()
         self.fc1 = nn.Linear(n_in, n_hid)
         self.fc2 = nn.Linear(n_hid, n_out)
         self.bn = nn.BatchNorm1d(n_out)
         self.dropout_prob = dropout_prob
+        self.use_bn = use_bn
 
         self.init_weights()
 
@@ -25,16 +26,20 @@ class MLP(nn.Module):
 
     def batch_norm(self, inputs):
         """We do batch norm over batches and things so we reshape first"""
-        x = inputs.view(inputs.size(0) * inputs.size(1), -1)
+        # x = inputs.view(inputs.size(0) * inputs.size(1), -1)
+        orig_shape = inputs.shape
+        x = inputs.view(-1, inputs.size(-1))
         x = self.bn(x)
-        return x.view(inputs.size(0), inputs.size(1), -1)
+        return x.view(orig_shape)
 
     def forward(self, inputs):
         # input shape [num_sims / batches, num_things, num_features]
         x = F.elu(self.fc1(inputs))
         x = F.dropout(x, self.dropout_prob, training=self.training)
         x = F.elu(self.fc2(x))
-        return self.batch_norm(x)
+        if self.use_bn:
+            x = self.batch_norm(x)
+        return x
 
 
 class CNN(nn.Module):

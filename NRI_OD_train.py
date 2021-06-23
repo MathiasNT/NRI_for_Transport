@@ -6,7 +6,7 @@ import argparse
 # Training settings
 dropout_p = 0
 shuffle_train = True
-shuffle_test = False
+shuffle_val = False
 
 # Model settings
 encoder_factor = True
@@ -21,15 +21,15 @@ kl_frac = 1
 
 # Net sizes
 # Encoder
-enc_n_hid = 128
-enc_n_out = 2
+# enc_n_hid = 128
+
 
 # Decoder
 dec_n_hid = 16
 dec_msg_hid = 8
 dec_msg_out = 8
 dec_gru_hid = 8
-dec_edge_types = 2
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -62,19 +62,39 @@ if __name__ == "__main__":
     )
     parser.add_argument("--batch_size", type=int, help="The batch size, default 25")
     parser.add_argument("--lr", type=float, help="Learning rate", default=0.001)
+    parser.add_argument(
+        "--encoder_lr_frac",
+        type=float,
+        help="The fraction with which the encoder lr should be smaller than decoder lr",
+        default=1,
+    )
     parser.add_argument("--lr_decay_step", help="How often to do lr decay", default=100)
     parser.add_argument("--lr_decay_gamma", help="Factor to decay lr with", default=0.5)
-
+    parser.add_argument(
+        "--no_bn",
+        dest="use_bn",
+        help="Whether or not to use bn in MLP modules",
+        action="store_false",
+    )
 
     # Model args
     parser.add_argument(
         "--encoder_type", help="which encoder type to use (cnn or mlp)", required=True
     )
     parser.add_argument(
-        "--fixed_adj_matrix_path", help="Path to fixed adjacancy matrix for fixed encoder", required=False
+        "--n_edge_types",
+        help="The number of different edge types to model",
+        type=int,
+        default=2,
     )
-
-
+    parser.add_argument(
+        "--enc_n_hid", help="The hidden dim of the encoder", type=int, default=128
+    )
+    parser.add_argument(
+        "--fixed_adj_matrix_path",
+        help="Path to fixed adjacancy matrix for fixed encoder",
+        required=False,
+    )
 
     parser.add_argument(
         "--loss_type",
@@ -128,35 +148,38 @@ if __name__ == "__main__":
     torch.cuda.current_device()
 
     print(f"Running {args.epochs} epochs")
-    trainer = Trainer(batch_size=args.batch_size,
-                      n_epochs=args.epochs,
-                      dropout_p=dropout_p,
-                      shuffle_train=shuffle_train,
-                      shuffle_test=shuffle_test,
-                      lr=args.lr,
-                      lr_decay_step=args.lr_decay_step,
-                      lr_decay_gamma=args.lr_decay_gamma,
-                      encoder_factor=encoder_factor,
-                      experiment_name=args.experiment_name,
-                      normalize=normalize,
-                      train_frac=train_frac,
-                      burn_in_steps=args.burn_in_steps,
-                      split_len=args.split_len,
-                      burn_in=burn_in,
-                      kl_frac=kl_frac,
-                      kl_cyc=args.kl_cyc,
-                      loss_type=args.loss_type,
-                      edge_rate=args.edge_rate,
-                      encoder_type=args.encoder_type,
-                      node_f_dim=node_f_dim,
-                      enc_n_hid=enc_n_hid,
-                      enc_n_out=enc_n_out,
-                      dec_n_hid=dec_n_hid,
-                      dec_msg_hid=dec_msg_hid,
-                      dec_msg_out=dec_msg_out,
-                      dec_gru_hid=dec_gru_hid,
-                      dec_edge_types=dec_edge_types,
-                      fixed_adj_matrix_path=args.fixed_adj_matrix_path)
+    trainer = Trainer(
+        batch_size=args.batch_size,
+        n_epochs=args.epochs,
+        dropout_p=dropout_p,
+        shuffle_train=shuffle_train,
+        shuffle_val=shuffle_val,
+        lr=args.lr,
+        lr_decay_step=args.lr_decay_step,
+        lr_decay_gamma=args.lr_decay_gamma,
+        encoder_factor=encoder_factor,
+        experiment_name=args.experiment_name,
+        normalize=normalize,
+        train_frac=train_frac,
+        burn_in_steps=args.burn_in_steps,
+        split_len=args.split_len,
+        burn_in=burn_in,
+        kl_frac=kl_frac,
+        kl_cyc=args.kl_cyc,
+        loss_type=args.loss_type,
+        edge_rate=args.edge_rate,
+        encoder_type=args.encoder_type,
+        node_f_dim=node_f_dim,
+        enc_n_hid=args.enc_n_hid,
+        n_edge_types=args.n_edge_types,
+        dec_n_hid=dec_n_hid,
+        dec_msg_hid=dec_msg_hid,
+        dec_msg_out=dec_msg_out,
+        dec_gru_hid=dec_gru_hid,
+        fixed_adj_matrix_path=args.fixed_adj_matrix_path,
+        encoder_lr_frac=args.encoder_lr_frac,
+        use_bn=args.use_bn,
+    )
 
     print("Initialized")
 

@@ -5,7 +5,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from GraphTrafficLib.models.latent_graph import MLPEncoder, GRUDecoder_multistep, CNNEncoder
+from GraphTrafficLib.models.latent_graph import (
+    MLPEncoder,
+    GRUDecoder_multistep,
+    CNNEncoder,
+    FixedEncoder,
+)
 from GraphTrafficLib.models import SimpleLSTM
 from GraphTrafficLib.utils import encode_onehot
 from GraphTrafficLib.utils.data_utils import create_test_train_split_max_min_normalize
@@ -18,9 +23,9 @@ def load_model(experiment_path, device, encoder_type):
     train_res = model_dict["train_res"]
 
     # temp legacy fix
-    if 'node_f_dim' not in model_dict['settings'].keys():
-        model_dict['settings']['node_f_dim'] = model_dict['settings']['dec_f_in']
-    
+    if "node_f_dim" not in model_dict["settings"].keys():
+        model_dict["settings"]["node_f_dim"] = model_dict["settings"]["dec_f_in"]
+
     print(f"Model settings are: {model_settings}")
 
     dropout_p = 0
@@ -41,7 +46,11 @@ def load_model(experiment_path, device, encoder_type):
             do_prob=dropout_p,
             factor=encoder_factor,
         ).to(device)
-    
+    elif encoder_type == "fixed":
+        encoder = FixedEncoder(adj_matrix=model_dict["encoder"]["adj_matrix"]).to(
+            device
+        )
+
     decoder = GRUDecoder_multistep(
         n_hid=model_settings["dec_n_hid"],
         f_in=model_settings["node_f_dim"],
@@ -49,7 +58,7 @@ def load_model(experiment_path, device, encoder_type):
         msg_out=model_settings["dec_msg_out"],
         gru_hid=model_settings["dec_gru_hid"],
         edge_types=model_settings["dec_edge_types"],
-        skip_first=model_settings["skip_first"]
+        skip_first=model_settings["skip_first"],
     ).to(device)
     encoder.load_state_dict(model_dict["encoder"])
     decoder.load_state_dict(model_dict["decoder"])
@@ -99,7 +108,15 @@ def load_data(dataset_folder, zone):
     return data_tensor, weather_tensor
 
 
-def load_data2(data_path, weather_data_path, split_len, batch_size, normalize, train_frac, dropoff_data_path=None):
+def load_data2(
+    data_path,
+    weather_data_path,
+    split_len,
+    batch_size,
+    normalize,
+    train_frac,
+    dropoff_data_path=None,
+):
 
     # Load data
     data = np.load(data_path)
@@ -269,12 +286,9 @@ def create_adj_vectors(n_nodes, device):
     rel_send = torch.FloatTensor(rel_send).to(device)
     return rel_rec, rel_send
 
+
 def create_lag1_and_ha_predictions(
-        test_dataloader,
-        burn_in,
-        burn_in_steps,
-        split_len,
-        ha
+    test_dataloader, burn_in, burn_in_steps, split_len, ha
 ):
     y_true = []
     y_lag1 = []

@@ -14,9 +14,9 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.profiler import tensorboard_trace_handler
 import torch.nn.functional as F
 
-from ..utils.data_utils import create_test_train_split_max_min_normalize
+from ..utils.data_utils import create_dataloaders
 from ..utils import encode_onehot
-from ..utils import test_lstm, train_lstm
+from ..utils import val_lstm, train_lstm
 from ..utils.losses import torch_nll_gaussian, kl_categorical, cyc_anneal
 from ..models import SimpleLSTM
 
@@ -30,7 +30,7 @@ class SimpleLSTMTrainer:
         n_epochs=100,
         dropout_p=0,
         shuffle_train=True,
-        shuffle_test=False,
+        shuffle_val=False,
         experiment_name="test",
         normalize=True,
         train_frac=0.8,
@@ -46,7 +46,7 @@ class SimpleLSTMTrainer:
         self.n_epochs = n_epochs
         self.dropout_p = dropout_p
         self.shuffle_train = shuffle_train
-        self.shuffle_test = shuffle_test
+        self.shuffle_val = shuffle_val
 
         # Saving settings
 
@@ -90,7 +90,7 @@ class SimpleLSTMTrainer:
             "n_epochs": self.n_epochs,
             "dropout_p": self.dropout_p,
             "shuffle_train": self.shuffle_train,
-            "shuffle_test": self.shuffle_test,
+            "shuffle_val": self.shuffle_val,
             "experiment_name": self.experiment_name,
             "normalize": self.normalize,
             "train_frac": self.train_frac,
@@ -132,10 +132,11 @@ class SimpleLSTMTrainer:
         # Create data loader with max min normalization
         (
             self.train_dataloader,
+            self.val_dataloader,
             self.test_dataloader,
             self.train_max,
             self.train_min,
-        ) = create_test_train_split_max_min_normalize(
+        ) = create_dataloaders(
             data=data_tensor,
             weather_data=weather_tensor,
             split_len=self.split_len,
@@ -147,15 +148,15 @@ class SimpleLSTMTrainer:
         min_date = pd.Timestamp(year=2019, month=1, day=1)
         max_date = pd.Timestamp(year=2019 + 1, month=1, day=1)
 
-        # Note that this misses a bit from the beginning but this will not be a big problem when we index finer
-        bins_dt = pd.date_range(start=min_date, end=max_date, freq="1H")
-        split_bins_dt = bins_dt[: -(self.split_len + 1)]
+        # # Note that this misses a bit from the beginning but this will not be a big problem when we index finer
+        # bins_dt = pd.date_range(start=min_date, end=max_date, freq="1H")
+        # split_bins_dt = bins_dt[: -(self.split_len + 1)]
 
-        self.test_dates = split_bins_dt[int(self.train_frac * len(split_bins_dt)) :]
-        self.train_dates = split_bins_dt[: int(self.train_frac * len(split_bins_dt))]
+        # self.test_dates = split_bins_dt[int(self.train_frac * len(split_bins_dt)) :]
+        # self.train_dates = split_bins_dt[: int(self.train_frac * len(split_bins_dt))]
 
-        print(f"train_dates len: {len(self.train_dates)}")
-        print(f"test_dates len: {len(self.test_dates)}")
+        # print(f"train_dates len: {len(self.train_dates)}")
+        # print(f"test_dates len: {len(self.test_dates)}")
 
     def _init_model(self):
         self.model = SimpleLSTM(
@@ -167,7 +168,7 @@ class SimpleLSTMTrainer:
         print("Starting training")
         train_mse_arr = []
 
-        test_mse_arr = []
+        val_mse_arr = []
 
         for i in tqdm(range(self.n_epochs)):
             t = time.time()
@@ -183,20 +184,20 @@ class SimpleLSTMTrainer:
             self.writer.add_scalar("Train_MSE", train_mse, i)
 
             if i % 10 == 0:
-                test_mse = test_lstm(
+                val_mse = val_lstm(
                     model=self.model,
-                    test_dataloader=self.test_dataloader,
+                    val_dataloader=self.val_dataloader,
                     optimizer=self.optimizer,
                     burn_in=self.burn_in,
                     burn_in_steps=self.burn_in_steps,
                     split_len=self.split_len,
                 )
-                self.writer.add_scalar("Test_MSE", test_mse, i)
+                self.writer.add_scalar("val_MSE", val_mse, i)
 
-                test_mse_arr.append(test_mse)
+                val_mse_arr.append(val_mse)
             train_mse_arr.append(train_mse)
             self.train_dict = {
-                "test": {"mse": test_mse_arr},
+                "val": {"mse": val_mse_arr},
                 "train": {"mse": train_mse_arr},
             }
 

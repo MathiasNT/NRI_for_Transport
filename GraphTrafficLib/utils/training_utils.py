@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from .losses import torch_nll_gaussian, kl_categorical
 import numpy as np
 import torch
+from tqdm import tqdm
 
 
 def plot_training(train_mse_arr, train_nll_arr, train_kl_arr, train_acc_arr):
@@ -38,6 +39,7 @@ def train(
     loss_type,
     pred_steps,
     skip_first,
+    n_nodes,
 ):
     nll_train = []
     kl_train = []
@@ -71,7 +73,7 @@ def train(
         loss_kl = kl_categorical(
             preds=edge_probs,
             log_prior=log_prior,
-            num_atoms=132,  # Watch out for hardcode!! TODO test
+            num_atoms=n_nodes,
         )  # Here I chose theirs since my implementation runs out of RAM :(
         loss_mse = F.mse_loss(pred, target)
 
@@ -92,10 +94,10 @@ def train(
     return mse, nll, kl
 
 
-def test(
+def val(
     encoder,
     decoder,
-    test_dataloader,
+    val_dataloader,
     optimizer,
     rel_rec,
     rel_send,
@@ -103,15 +105,16 @@ def test(
     burn_in_steps,
     split_len,
     log_prior,
+    n_nodes,
 ):
-    nll_test = []
-    kl_test = []
-    mse_test = []
+    nll_val = []
+    kl_val = []
+    mse_val = []
 
     encoder.eval()
     decoder.eval()
 
-    for batch_idx, (data, weather) in enumerate(test_dataloader):
+    for batch_idx, (data, weather) in enumerate(val_dataloader):
         optimizer.zero_grad()
         with torch.no_grad():
             data = data.cuda()
@@ -134,14 +137,191 @@ def test(
 
             loss_nll = torch_nll_gaussian(pred, target, 5e-5)
             loss_kl = kl_categorical(
-                preds=edge_probs, log_prior=log_prior, num_atoms=132
+                preds=edge_probs, log_prior=log_prior, num_atoms=n_nodes
             )  # Here I chose theirs since my implementation runs out of RAM :(
-        nll_test.append(loss_nll.item())
-        kl_test.append(loss_kl.item())
-        mse_test.append(F.mse_loss(pred, target).item())
-        mse = np.mean(mse_test)
-        nll = np.mean(nll_test)
-        kl = np.mean(kl_test)
+        nll_val.append(loss_nll.item())
+        kl_val.append(loss_kl.item())
+        mse_val.append(F.mse_loss(pred, target).item())
+        mse = np.mean(mse_val)
+        nll = np.mean(nll_val)
+        kl = np.mean(kl_val)
+    return mse, nll, kl
+
+
+def dnri_train(
+    encoder,
+    decoder,
+    train_dataloader,
+    optimizer,
+    rel_rec,
+    rel_send,
+    burn_in,
+    burn_in_steps,
+    split_len,
+    log_prior,
+    kl_frac,
+    loss_type,
+    pred_steps,
+    skip_first,
+    n_nodes,
+):
+    nll_train = []
+    kl_train = []
+    mse_train = []
+
+    encoder.train()
+    decoder.train()
+
+    for _, (data, _) in tqdm(enumerate(train_dataloader)):
+        optimizer.zero_grad()
+
+        data = data.cuda()
+
+        _, posterior_logits, _ = encoder(data, rel_rec, rel_send)
+        edges = F.gumbel_softmax(
+            posterior_logits, tau=0.5, hard=True
+        )  # RelaxedOneHotCategorical
+        edge_probs = F.softmax(posterior_logits, dim=-1)
+
+        pred_arr = decoder(
+            data.transpose(1, 2),
+            rel_rec,
+            rel_send,
+            edges,
+            burn_in=burn_in,
+            burn_in_steps=burn_in_steps,
+            split_len=split_len,
+        )
+        pred = pred_arr.transpose(1, 2)[:, :, -pred_steps:, :]  # TODO .contiguous?
+        target = data[:, :, -pred_steps:, :]
+
+        loss_nll = torch_nll_gaussian(pred, target, 5e-5)
+        loss_kl = kl_categorical(
+            preds=edge_probs,
+            log_prior=log_prior,
+            num_atoms=n_nodes,
+        )  # Here I chose theirs since my implementation runs out of RAM :(
+        loss_mse = F.mse_loss(pred, target)
+
+        if loss_type == "nll":
+            loss = loss_nll + kl_frac * loss_kl
+        elif loss_type == "mse":
+            loss = loss_mse + kl_frac * loss_kl
+
+        loss.backward()
+        optimizer.step()
+
+        nll_train.append(loss_nll.item())
+        kl_train.append(loss_kl.item())
+        mse_train.append(F.mse_loss(pred, target).item())
+    mse = np.mean(mse_train)
+    nll = np.mean(nll_train)
+    kl = np.mean(kl_train)
+    return mse, nll, kl
+
+
+def dnri_val(
+    encoder,
+    decoder,
+    val_dataloader,
+    optimizer,
+    rel_rec,
+    rel_send,
+    burn_in,
+    burn_in_steps,
+    split_len,
+    log_prior,
+    n_nodes,
+):
+    nll_val = []
+    kl_val = []
+    mse_val = []
+
+    encoder.eval()
+    decoder.eval()
+
+    for batch_idx, (data, weather) in enumerate(val_dataloader):
+        optimizer.zero_grad()
+        with torch.no_grad():
+            data = data.cuda()
+            target = data[:, :, 1:, :]
+
+            _, posterior_logits, prior_state = encoder(
+                data[:, :, :burn_in_steps, :], rel_rec, rel_send
+            )
+            burn_in_edges = F.gumbel_softmax(
+                posterior_logits, tau=0.5, hard=True
+            )  # RelaxedOneHotCategorical
+            burn_in_edge_probs = F.softmax(posterior_logits, dim=-1)
+
+            data = data.transpose(1, 2)
+            pred_all = []
+
+            hidden = torch.autograd.Variable(
+                torch.zeros(data.size(0), data.size(2), decoder.gru_hid)
+            )
+            edges = torch.autograd.Variable(
+                torch.zeros(
+                    burn_in_edges.size(0),
+                    burn_in_edges.size(1),
+                    data.size(1),
+                    burn_in_edges.size(3),
+                )
+            )
+            edge_probs = torch.autograd.Variable(
+                torch.zeros(
+                    burn_in_edges.size(0),
+                    burn_in_edges.size(1),
+                    data.size(1),
+                    burn_in_edges.size(3),
+                )
+            )
+
+            if data.is_cuda:
+                hidden = hidden.cuda()
+                edges = edges.cuda()
+                edge_probs = edge_probs.cuda()
+
+            edges[:, :, :burn_in_steps, :] = burn_in_edges
+            edge_probs[:, :, :burn_in_steps, :] = burn_in_edge_probs
+
+            for step in range(0, data.shape[1] - 1):
+                if burn_in:
+                    if step <= burn_in_steps - 1:
+                        ins = data[
+                            :, step, :, :
+                        ]  # obs step different here to be time dim
+                    else:
+                        ins = pred_all[step - 1]
+                        prior_logits, prior_state = encoder.single_step_forward(
+                            ins, rel_rec, rel_send, prior_state
+                        )
+                        edges[:, :, step : step + 1, :] = F.gumbel_softmax(
+                            prior_logits, tau=0.5, hard=True
+                        )  # RelaxedOneHotCategorical
+                        edge_probs[:, :, step : step + 1, :] = F.softmax(
+                            prior_logits, dim=-1
+                        )
+
+                pred, hidden = decoder.do_single_step_forward(
+                    ins, rel_rec, rel_send, edges, hidden, step
+                )
+                pred_all.append(pred)
+
+            pred_arr = torch.stack(pred_all, dim=1)
+
+            pred = pred_arr.transpose(1, 2).contiguous()
+
+            loss_nll = torch_nll_gaussian(pred, target, 5e-5)
+            loss_kl = kl_categorical(
+                preds=edge_probs, log_prior=log_prior, num_atoms=n_nodes
+            )  # Here I chose theirs since my implementation runs out of RAM :(
+        nll_val.append(loss_nll.item())
+        kl_val.append(loss_kl.item())
+        mse_val.append(F.mse_loss(pred, target).item())
+        mse = np.mean(mse_val)
+        nll = np.mean(nll_val)
+        kl = np.mean(kl_val)
     return mse, nll, kl
 
 
@@ -170,20 +350,20 @@ def train_lstm(model, train_dataloader, optimizer, burn_in, burn_in_steps, split
     return mse
 
 
-def test_lstm(
+def val_lstm(
     model,
-    test_dataloader,
+    val_dataloader,
     optimizer,
     burn_in,
     burn_in_steps,
     split_len,
 ):
 
-    mse_test = []
+    mse_val = []
 
     model.eval()
 
-    for _, (data, weather) in enumerate(test_dataloader):
+    for _, (data, weather) in enumerate(val_dataloader):
         optimizer.zero_grad()
         with torch.no_grad():
             data = data.cuda()
@@ -193,6 +373,6 @@ def test_lstm(
                 target.shape
             )
 
-            mse_test.append(F.mse_loss(pred, target).item())
-        mse = np.mean(mse_test)
+            mse_val.append(F.mse_loss(pred, target).item())
+        mse = np.mean(mse_val)
     return mse
