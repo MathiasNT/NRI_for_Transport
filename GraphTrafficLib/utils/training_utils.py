@@ -48,7 +48,7 @@ def train(
     encoder.train()
     decoder.train()
 
-    for _, (data, _) in enumerate(train_dataloader):
+    for _, (data, _) in enumerate(tqdm(train_dataloader, desc="Training", leave=False)):
         optimizer.zero_grad()
 
         data = data.cuda()
@@ -114,7 +114,7 @@ def val(
     encoder.eval()
     decoder.eval()
 
-    for batch_idx, (data, weather) in enumerate(val_dataloader):
+    for _, (data, _) in enumerate(tqdm(val_dataloader, desc="Validation", leave=False)):
         optimizer.zero_grad()
         with torch.no_grad():
             data = data.cuda()
@@ -172,7 +172,7 @@ def dnri_train(
     encoder.train()
     decoder.train()
 
-    for _, (data, _) in tqdm(enumerate(train_dataloader)):
+    for _, (data, _) in enumerate(tqdm(train_dataloader, desc="Training", leave=False)):
         optimizer.zero_grad()
 
         data = data.cuda()
@@ -240,7 +240,7 @@ def dnri_val(
     encoder.eval()
     decoder.eval()
 
-    for batch_idx, (data, weather) in enumerate(val_dataloader):
+    for _, (data, _) in enumerate(tqdm(val_dataloader, desc="Validation", leave=False)):
         optimizer.zero_grad()
         with torch.no_grad():
             data = data.cuda()
@@ -363,7 +363,7 @@ def val_lstm(
 
     model.eval()
 
-    for _, (data, weather) in enumerate(val_dataloader):
+    for _, (data, _) in enumerate(val_dataloader):
         optimizer.zero_grad()
         with torch.no_grad():
             data = data.cuda()

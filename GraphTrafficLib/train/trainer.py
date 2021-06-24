@@ -13,11 +13,14 @@ from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 from torch.profiler import tensorboard_trace_handler
 import torch.nn.functional as F
+from torchvision.utils import make_grid
+import matplotlib.pyplot as plt
 
 from ..utils.data_utils import create_dataloaders
 from ..utils import encode_onehot
 from ..utils import val, train, dnri_train, dnri_val
 from ..utils.losses import torch_nll_gaussian, kl_categorical, cyc_anneal
+from ..utils.visual_utils import visualize_prob_adj
 from ..models.latent_graph import (
     MLPEncoder,
     CNNEncoder,
@@ -347,10 +350,10 @@ class Trainer:
         self.rel_rec = torch.FloatTensor(rel_rec).cuda()
         self.rel_send = torch.FloatTensor(rel_send).cuda()
 
-        for i in tqdm(range(self.n_epochs)):
+        for epoch in range(self.n_epochs):
 
             if self.kl_cyc is not None:
-                self.kl_frac = cyc_anneal(i, self.kl_cyc)
+                self.kl_frac = cyc_anneal(epoch, self.kl_cyc)
 
             if self.encoder_type in ["gru", "lstm"]:
                 train_mse, train_nll, train_kl = dnri_train(
@@ -390,12 +393,12 @@ class Trainer:
                 )
 
             self.lr_scheduler.step()
-            self.writer.add_scalar("Train_MSE", train_mse, i)
-            self.writer.add_scalar("Train_NLL", train_nll, i)
-            self.writer.add_scalar("Train_KL", train_kl, i)
-            self.writer.add_scalar("KL_frac", self.kl_frac, i)
+            self.writer.add_scalar("Train_MSE", train_mse, epoch)
+            self.writer.add_scalar("Train_NLL", train_nll, epoch)
+            self.writer.add_scalar("Train_KL", train_kl, epoch)
+            self.writer.add_scalar("KL_frac", self.kl_frac, epoch)
 
-            if i % 5 == 0:
+            if epoch % 5 == 0:
                 if self.encoder_type in ["gru", "lstsm"]:
                     val_mse, val_nll, val_kl = dnri_val(
                         encoder=self.encoder,
@@ -424,13 +427,15 @@ class Trainer:
                         log_prior=self.log_prior,
                         n_nodes=n_nodes,
                     )
-                self.writer.add_scalar("val_MSE", val_mse, i)
-                self.writer.add_scalar("val_NLL", val_nll, i)
-                self.writer.add_scalar("val_KL", val_kl, i)
+                self.writer.add_scalar("val_MSE", val_mse, epoch)
+                self.writer.add_scalar("val_NLL", val_nll, epoch)
+                self.writer.add_scalar("val_KL", val_kl, epoch)
+                self._save_graph_examples(epoch)
 
                 val_mse_arr.append(val_mse)
                 val_nll_arr.append(val_nll)
                 val_kl_arr.append(val_kl)
+
             train_mse_arr.append(train_mse)
             train_nll_arr.append(train_nll)
             train_kl_arr.append(train_kl)
@@ -443,9 +448,15 @@ class Trainer:
                 },
             }
 
-            if self.best_mse is None or self.best_mse > val_mse:
-                self.best_mse = val_mse
-                self._checkpoint_model(i)
+            if epoch % 5 == 0:
+                if self.best_mse is None or self.best_mse >= val_mse:
+                    self.best_mse = val_mse
+                    self._checkpoint_model(epoch)
+                print(
+                    f"Epoch {epoch} Train MSE: {train_mse}, Val MSE: {val_mse}, Best MSE: {self.best_mse}, Checkpoint: {self.best_mse == val_mse}"
+                )
+            else:
+                print(f"Epoch {epoch} Train MSE: {train_mse}")
 
     def _checkpoint_model(self, epoch):
         checkpoint_path = f"{self.experiment_folder_path}/checkpoint_model_dict.pth"
@@ -461,6 +472,37 @@ class Trainer:
             },
             checkpoint_path,
         )
+
+    def _save_graph_examples(self, epoch):
+        with torch.no_grad():
+            _, (val_batch, _) = next(enumerate(self.val_dataloader))
+            batch_subset = val_batch[:10].cuda()
+            logits = self.encoder(batch_subset, self.rel_rec, self.rel_send)
+            edge_probs = F.softmax(logits, dim=-1)
+            adj_matrices = []
+            for i in range(edge_probs.shape[0]):
+                adj_matrices.append(
+                    visualize_prob_adj(
+                        edge_list=edge_probs[i],
+                        rel_send=self.rel_send,
+                        rel_rec=self.rel_rec,
+                    )
+                )
+            adj_matrices = torch.stack(adj_matrices).unsqueeze(1)
+            adj_matrices = torch.nn.functional.interpolate(
+                adj_matrices, scale_factor=5, mode="nearest"
+            ).squeeze()
+
+            fig, axs = plt.subplots(5, 2, figsize=(10, 20))
+            [axi.set_axis_off() for axi in axs.ravel()]
+            for i in range(10):
+                im = axs[i % 5][i % 2].imshow(adj_matrices[i])
+                fig.colorbar(im, ax=axs[i % 5, i % 2])
+
+            self.writer.add_figure(
+                "adj_examples_test", fig, global_step=epoch, close=True
+            )
+        return
 
     def save_model(self):
         model_path = f"{self.experiment_folder_path}/model_dict.pth"
