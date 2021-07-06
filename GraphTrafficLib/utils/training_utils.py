@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from numpy.core.fromnumeric import mean
 import torch.nn.functional as F
 from .losses import torch_nll_gaussian, kl_categorical
 import numpy as np
@@ -44,6 +45,7 @@ def train(
     nll_train = []
     kl_train = []
     mse_train = []
+    mean_edge_prob = []
 
     encoder.train()
     decoder.train()
@@ -56,6 +58,7 @@ def train(
         logits = encoder(data, rel_rec, rel_send)
         edges = F.gumbel_softmax(logits, tau=0.5, hard=True)  # RelaxedOneHotCategorical
         edge_probs = F.softmax(logits, dim=-1)
+        mean_edge_prob.append(edge_probs.mean(dim=(1, 0)).tolist())
 
         pred_arr = decoder(
             data.transpose(1, 2),
@@ -91,7 +94,8 @@ def train(
     mse = np.mean(mse_train)
     nll = np.mean(nll_train)
     kl = np.mean(kl_train)
-    return mse, nll, kl
+    mean_edge_prob = np.mean(np.array(mean_edge_prob), 0)
+    return mse, nll, kl, mean_edge_prob
 
 
 def val(
@@ -110,6 +114,7 @@ def val(
     nll_val = []
     kl_val = []
     mse_val = []
+    mean_edge_prob = []
 
     encoder.eval()
     decoder.eval()
@@ -122,6 +127,7 @@ def val(
             logits = encoder(data, rel_rec, rel_send)
             edges = F.gumbel_softmax(logits, tau=0.5, hard=True)
             edge_probs = F.softmax(logits, dim=-1)
+            mean_edge_prob.append(edge_probs.mean(dim=(1, 0)).tolist())
 
             pred_arr = decoder(
                 data.transpose(1, 2),
@@ -142,10 +148,11 @@ def val(
         nll_val.append(loss_nll.item())
         kl_val.append(loss_kl.item())
         mse_val.append(F.mse_loss(pred, target).item())
-        mse = np.mean(mse_val)
-        nll = np.mean(nll_val)
-        kl = np.mean(kl_val)
-    return mse, nll, kl
+    mse = np.mean(mse_val)
+    nll = np.mean(nll_val)
+    kl = np.mean(kl_val)
+    mean_edge_prob = np.mean(np.array(mean_edge_prob), 0)
+    return mse, nll, kl, mean_edge_prob
 
 
 def dnri_train(
@@ -168,6 +175,7 @@ def dnri_train(
     nll_train = []
     kl_train = []
     mse_train = []
+    mean_edge_prob = []
 
     encoder.train()
     decoder.train()
@@ -182,6 +190,7 @@ def dnri_train(
             posterior_logits, tau=0.5, hard=True
         )  # RelaxedOneHotCategorical
         edge_probs = F.softmax(posterior_logits, dim=-1)
+        mean_edge_prob.append(edge_probs.mean(dim=(1, 0)).tolist())
 
         pred_arr = decoder(
             data.transpose(1, 2),
@@ -217,14 +226,14 @@ def dnri_train(
     mse = np.mean(mse_train)
     nll = np.mean(nll_train)
     kl = np.mean(kl_train)
-    return mse, nll, kl
+    mean_edge_prob = np.mean(np.array(mean_edge_prob), 0)
+    return mse, nll, kl, mean_edge_prob
 
 
 def dnri_val(
     encoder,
     decoder,
     val_dataloader,
-    optimizer,
     rel_rec,
     rel_send,
     burn_in,
@@ -236,12 +245,13 @@ def dnri_val(
     nll_val = []
     kl_val = []
     mse_val = []
+    mean_edge_prob = []
 
     encoder.eval()
     decoder.eval()
 
     for _, (data, _) in enumerate(tqdm(val_dataloader, desc="Validation", leave=False)):
-        optimizer.zero_grad()
+        temp_mean_edge_probs = []
         with torch.no_grad():
             data = data.cuda()
             target = data[:, :, 1:, :]

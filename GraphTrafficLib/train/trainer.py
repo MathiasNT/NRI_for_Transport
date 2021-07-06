@@ -55,10 +55,10 @@ class Trainer:
         encoder_type="mlp",
         node_f_dim=1,
         enc_n_hid=128,
+        rnn_enc_n_hid=None,
         n_edge_types=2,
         dec_n_hid=16,
         dec_msg_hid=8,
-        dec_msg_out=8,
         dec_gru_hid=8,
         skip_first=True,
         lr=0.001,
@@ -128,6 +128,7 @@ class Trainer:
             self.enc_n_in = self.encoder_steps * self.node_f_dim
         elif self.encoder_type in ["cnn", "gru", "lstm"]:
             self.enc_n_in = self.node_f_dim  # TODO update these hardcodes?
+            self.rnn_enc_n_hid = rnn_enc_n_hid
         elif self.encoder_type == "fixed":
             assert (
                 fixed_adj_matrix_path is not None
@@ -140,7 +141,6 @@ class Trainer:
         # Decoder
         self.dec_n_hid = dec_n_hid
         self.dec_msg_hid = dec_msg_hid
-        self.dec_msg_out = dec_msg_out
         self.dec_gru_hid = dec_gru_hid
         self.skip_first = skip_first
 
@@ -148,38 +148,37 @@ class Trainer:
         self._init_model()
 
         # save settings
-        self.model_settings = {
-            "node_f_dim": self.node_f_dim,
-            "encoder_type": self.encoder_type,
-            "enc_n_in": self.enc_n_in,
-            "enc_n_hid": self.enc_n_hid,
-            "enc_n_out": self.n_edge_types,
-            "dec_n_hid": self.dec_n_hid,
-            "dec_msg_hid": self.dec_msg_hid,
-            "dec_msg_out": self.dec_msg_out,
-            "dec_gru_hid": self.dec_gru_hid,
-            "dec_edge_types": self.n_edge_types,
-            "loss_type": self.loss_type,
-            "batch_size": self.batch_size,
-            "n_epochs": self.n_epochs,
-            "lr": self.lr,
-            "lr_decay_step": self.lr_decay_step,
-            "lr_decay_gamma": self.lr_decay_gamma,
-            "dropout_p": self.dropout_p,
-            "shuffle_train": self.shuffle_train,
-            "shuffle_val": self.shuffle_val,
-            "encoder_factor": self.encoder_factor,
-            "normalize": self.normalize,
-            "train_frac": self.train_frac,
-            "burn_in_steps": self.burn_in_steps,
-            "split_len": self.split_len,
-            "burn_in": self.burn_in,
-            "kl_frac": self.kl_frac,
-            "kl_cyc": self.kl_cyc,
-            "skip_first": self.skip_first,
-            "encoder_lr_frac": self.encoder_lr_frac,
-            "use_bn": self.use_bn,
-        }
+        # self.model_settings = {
+        #     "node_f_dim": self.node_f_dim,
+        #     "encoder_type": self.encoder_type,
+        #     "enc_n_in": self.enc_n_in,
+        #     "enc_n_hid": self.enc_n_hid,
+        #     "enc_n_out": self.n_edge_types,
+        #     "dec_n_hid": self.dec_n_hid,
+        #     "dec_msg_hid": self.dec_msg_hid,
+        #     "dec_gru_hid": self.dec_gru_hid,
+        #     "dec_edge_types": self.n_edge_types,
+        #     "loss_type": self.loss_type,
+        #     "batch_size": self.batch_size,
+        #     "n_epochs": self.n_epochs,
+        #     "lr": self.lr,
+        #     "lr_decay_step": self.lr_decay_step,
+        #     "lr_decay_gamma": self.lr_decay_gamma,
+        #     "dropout_p": self.dropout_p,
+        #     "shuffle_train": self.shuffle_train,
+        #     "shuffle_val": self.shuffle_val,
+        #     "encoder_factor": self.encoder_factor,
+        #     "normalize": self.normalize,
+        #     "train_frac": self.train_frac,
+        #     "burn_in_steps": self.burn_in_steps,
+        #     "split_len": self.split_len,
+        #     "burn_in": self.burn_in,
+        #     "kl_frac": self.kl_frac,
+        #     "kl_cyc": self.kl_cyc,
+        #     "skip_first": self.skip_first,
+        #     "encoder_lr_frac": self.encoder_lr_frac,
+        #     "use_bn": self.use_bn,
+        # }
 
         # Save all parameters to txt file and add to tensorboard
         self.parameters = [x + ": " + str(y) + "\n" for x, y in locals().items()]
@@ -273,6 +272,7 @@ class Trainer:
                 n_in=self.enc_n_in,
                 n_hid=self.enc_n_hid,
                 n_out=self.n_edge_types,
+                rnn_hid=self.rnn_enc_n_hid,
                 do_prob=self.dropout_p,
                 factor=self.encoder_factor,
                 rnn_type=self.encoder_type,
@@ -286,7 +286,6 @@ class Trainer:
                 n_hid=self.dec_n_hid,
                 f_in=self.node_f_dim,
                 msg_hid=self.dec_msg_hid,
-                msg_out=self.dec_msg_out,
                 gru_hid=self.dec_gru_hid,
                 edge_types=self.n_edge_types,
                 skip_first=self.skip_first,
@@ -296,7 +295,6 @@ class Trainer:
                 n_hid=self.dec_n_hid,
                 f_in=self.node_f_dim,
                 msg_hid=self.dec_msg_hid,
-                msg_out=self.dec_msg_out,
                 gru_hid=self.dec_gru_hid,
                 edge_types=self.n_edge_types,
                 skip_first=self.skip_first,
@@ -350,13 +348,16 @@ class Trainer:
         self.rel_rec = torch.FloatTensor(rel_rec).cuda()
         self.rel_send = torch.FloatTensor(rel_send).cuda()
 
+        print("save init graph")
+        # self._save_graph_examples(-1)
+
         for epoch in range(self.n_epochs):
 
             if self.kl_cyc is not None:
                 self.kl_frac = cyc_anneal(epoch, self.kl_cyc)
 
             if self.encoder_type in ["gru", "lstm"]:
-                train_mse, train_nll, train_kl = dnri_train(
+                train_mse, train_nll, train_kl, mean_edge_prob = dnri_train(
                     encoder=self.encoder,
                     decoder=self.decoder,
                     train_dataloader=self.train_dataloader,
@@ -374,7 +375,7 @@ class Trainer:
                     n_nodes=n_nodes,
                 )
             else:
-                train_mse, train_nll, train_kl = train(
+                train_mse, train_nll, train_kl, mean_edge_prob = train(
                     encoder=self.encoder,
                     decoder=self.decoder,
                     train_dataloader=self.train_dataloader,
@@ -404,7 +405,6 @@ class Trainer:
                         encoder=self.encoder,
                         decoder=self.decoder,
                         val_dataloader=self.val_dataloader,
-                        optimizer=self.optimizer,
                         rel_rec=self.rel_rec,
                         rel_send=self.rel_send,
                         burn_in=self.burn_in,
@@ -414,7 +414,7 @@ class Trainer:
                         n_nodes=n_nodes,
                     )
                 else:
-                    val_mse, val_nll, val_kl = val(
+                    val_mse, val_nll, val_kl, mean_edge_prob = val(
                         encoder=self.encoder,
                         decoder=self.decoder,
                         val_dataloader=self.val_dataloader,
@@ -465,7 +465,7 @@ class Trainer:
                 "epoch": epoch,
                 "encoder": self.encoder.state_dict(),
                 "decoder": self.decoder.state_dict(),
-                "settings": self.model_settings,
+                # "settings": self.model_settings,
                 "train_res": self.train_dict,
                 "optimizer": self.optimizer.state_dict(),
                 "params": self.parameters,
@@ -510,7 +510,7 @@ class Trainer:
         gru_dev_1_dict = {
             "encoder": self.encoder.state_dict(),
             "decoder": self.decoder.state_dict(),
-            "settings": self.model_settings,
+            # "settings": self.model_settings,
             "train_res": self.train_dict,
         }
 

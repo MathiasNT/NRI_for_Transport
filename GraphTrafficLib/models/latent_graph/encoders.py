@@ -221,16 +221,14 @@ class RecurrentEncoder(nn.Module):
         self,
         n_in,
         n_hid,
+        rnn_hid,
         n_out,
         do_prob,
         factor,
         rnn_type="gru",
-        rnn_hidden_size=None,
         use_bn=True,
     ):
         super().__init__()
-
-        # TODO: when we do one step GNN embeddings a 128 hidden state might be overkill
 
         self.factor = factor
 
@@ -271,12 +269,12 @@ class RecurrentEncoder(nn.Module):
                 use_bn=use_bn,
             )
 
-        if rnn_hidden_size is None:
-            rnn_hidden_size = n_hid
+        if rnn_hid is None:
+            rnn_hid = n_hid
 
         if rnn_type == "gru":
-            self.forward_rnn = nn.GRU(n_hid, rnn_hidden_size, batch_first=True)
-            self.reverse_rnn = nn.GRU(n_hid, rnn_hidden_size, batch_first=True)
+            self.forward_rnn = nn.GRU(n_hid, rnn_hid, batch_first=True)
+            self.reverse_rnn = nn.GRU(n_hid, rnn_hid, batch_first=True)
         else:
             raise NotImplementedError
 

@@ -62,7 +62,7 @@ def create_binned_vector(
     location_groups = [x for _, x in df.groupby(spatial_bins_name)]
     group_idx = [idx for idx, _ in df.groupby(spatial_bins_name)]
 
-    # Create matrix with data of size [lat, lon, time]
+    # Create matrix with data of size [n_locations, n_timesteps]
     output_vector = np.zeros((n_spatial_bins, n_bins_dt))
     for i in range(len(location_groups)):
         location_index = location_groups[i][spatial_bins_name].iloc[0]
@@ -74,6 +74,21 @@ def create_binned_vector(
 
     return output_vector, group_idx
 
+def create_OD_matrix_ts(df, n_spatial_bins, n_bins_dt, pu_bins_name, do_bins_name, temporal_bins_name):
+
+    pu_location_groups = [x for _, x in df.groupby(pu_bins_name)]
+    group_idx = [idx for idx, _ in df.groupby(pu_bins_name)]
+
+    output_vector = np.zeros((n_bins_dt,n_spatial_bins,n_spatial_bins))
+    for pu_idx, pu_location_df in enumerate(pu_location_groups):
+        pu_location = pu_location_df[pu_bins_name].iloc[0]
+        do_location_groups = [x for _, x in pu_location_df.groupby(do_bins_name)]
+        for do_location_df in do_location_groups:
+            do_location = do_location_df[do_bins_name].iloc[0]
+            do_idx = group_idx.index(do_location)
+            OD_timeseries = do_location_df[temporal_bins_name].value_counts().sort_index()
+            output_vector[:, do_idx, pu_idx] = OD_timeseries.values
+    return output_vector, group_idx
 
 def preprocess_NYC_borough_dropoff(file_paths, location_ids):
 

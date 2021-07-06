@@ -1,16 +1,16 @@
-EXP_NAME=cnn_split_training_3e
+EXP_NAME=cnn_latent_viz_test
 mkdir "../models/${EXP_NAME}"
 
 
-EPOCHS=600
+EPOCHS=100
 KL_CYC=50
 CUDA_DEVICE=1
-BATCH_SIZE=400
+BATCH_SIZE=300
 BURN_IN_STEPS=30
 SPLIT_LEN=40
 EDGE_RATE=0.1
 ENCODER_LR_RATE=0.1
-N_EDGE_TYPES=3
+N_EDGE_TYPES=2
 
 PICKUP_DATA_PATH=split_manhattan/full_year_lower_manhattan_2d.npy
 WEATHER_DATA_PATH=LGA_weather_full_2019.csv

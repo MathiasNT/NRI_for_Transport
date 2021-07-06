@@ -4,8 +4,6 @@ import argparse
 
 
 # Training settings
-batch_size = 25
-n_epochs = 200
 dropout_p = 0
 shuffle_train = True
 shuffle_test = False
@@ -53,6 +51,10 @@ if __name__ == "__main__":
 
     # Training args
     parser.add_argument("--epochs", type=int, default=1, help="The number of epochs")
+    parser.add_argument("--batch_size", type=int, help="The batch size, default 25")
+
+    # Model args
+    parser.add_argument("--lstm_hid", type=int, help="The hidden size of the LSTM model")
 
     args = parser.parse_args()
 
@@ -76,18 +78,18 @@ if __name__ == "__main__":
 
     print(f"Running {args.epochs} epochs")
     trainer = SimpleLSTMTrainer(
-        batch_size=batch_size,
+        batch_size=args.batch_size,
         n_epochs=args.epochs,
         dropout_p=dropout_p,
         shuffle_train=shuffle_train,
-        shuffle_test=shuffle_test,
+        shuffle_val=shuffle_test,
         experiment_name=args.experiment_name,
         normalize=normalize,
         train_frac=train_frac,
         burn_in_steps=burn_in_steps,
         split_len=split_len,
         burn_in=burn_in,  # maybe remove this
-        lstm_hid=lstm_hid,
+        lstm_hid=args.lstm_hid,
         lstm_dropout=lstm_dropout,
     )
     print("Initialized")

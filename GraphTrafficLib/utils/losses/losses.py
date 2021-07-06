@@ -4,7 +4,7 @@ import numpy as np
 # My loss functions - these have not seemed to work earlier
 def torch_nll_gaussian(preds, target, variance):
     pred_dists = torch.distributions.Normal(target, scale=np.sqrt(variance))
-    return -pred_dists.log_prob(preds).sum() / (target.shape[0] * target.shape[1])
+    return -pred_dists.log_prob(preds).sum() / (target.shape[0] * target.shape[1]) # Mean over batch and nodes
 
 
 def kl_categorical_uniform_direct(preds, num_atoms, num_edge_types, eps=1e-16):

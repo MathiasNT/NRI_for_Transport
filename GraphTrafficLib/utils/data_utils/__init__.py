@@ -4,6 +4,7 @@ from .data_preprocess import (
     add_temporal_bins,
     create_binned_matrix,
     create_binned_vector,
+    create_OD_matrix_ts,
     preprocess_NYC_borough_dropoff,
     preprocess_NYC_borough_pickup,
 )
@@ -12,9 +13,9 @@ from .data_loader_utils import (
     # create_test_train_split,
     # create_test_train_split2,
     # create_test_train_split2_no_weather,
-    # create_test_train_split_max_min_normalize,
+    create_test_train_split_max_min_normalize,
     renormalize_data,
-    # create_test_train_split_max_min_normalize_no_split
+    create_test_train_split_max_min_normalize_no_split
 )
 
 __all__ = [
@@ -34,4 +35,5 @@ __all__ = [
     "preprocess_NYC_borough_pickup",
     "create_test_train_split_max_min_normalize_no_split",
     "create_dataloaders",
+    "create_OD_matrix_ts",
 ]

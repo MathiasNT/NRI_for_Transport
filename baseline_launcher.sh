@@ -2,7 +2,7 @@ EXP_NAME=Baselines_new
 mkdir "../models/${EXP_NAME}"
 
 
-EPOCHS=600
+EPOCHS=300
 KL_CYC=50
 CUDA_DEVICE=1
 BATCH_SIZE=1000

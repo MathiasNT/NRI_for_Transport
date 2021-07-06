@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import folium
 from folium.plugins import PolyLineTextPath
-
+import numpy as np
 
 class Encoder_Visualizer(object):
     def __init__(
@@ -151,12 +151,13 @@ def plot_directed_adj_on_map(adj_matrix, map_shp):
         fill_opacity=0.2,
     ).add_to(m)
 
-    for i, row in map_shp.iterrows():
+    for i, row in map_shp.reset_index().iterrows():
         folium.CircleMarker(
             location=[row.geometry.centroid.y, row.geometry.centroid.x],
-            popup=f"{row.LocationID}{row.zone}",
-            radius=1,
+            popup=f"{i}: {row.LocationID} {row.zone}",
+            radius=2,
         ).add_to(m)
+
 
     for idx, row in enumerate(adj_matrix):
         sender_idxs = torch.nonzero(row)
@@ -186,3 +187,83 @@ def plot_directed_adj_on_map(adj_matrix, map_shp):
     folium.LayerControl().add_to(m)
 
     return m
+
+def plot_top_bot_k_rels(adj, topk_idxs, botk_idxs=None):
+    plt.figure(figsize=(10,10))
+    plt.imshow(adj)
+
+    for i, topk_idx in enumerate(topk_idxs):
+        plt.axvline(x=topk_idx, color="red", alpha=1, linewidth=(len(topk_idxs) - i))
+        plt.axhline(y=topk_idx, color="red", alpha=1, linewidth=(len(topk_idxs) - i))
+
+    if botk_idxs is not None:
+        for i, botk_idx in enumerate(botk_idxs):
+            plt.axvline(x=botk_idx, color="green", alpha=1, linewidth=(len(botk_idxs) - i))
+            plt.axhline(y=botk_idx, color="green", alpha=1, linewidth=(len(botk_idxs) - i))
+
+def get_rels_from_topk(topk_idxs, adj):
+    rels = []
+    for i, topk_idx in enumerate(topk_idxs):
+        temp_adj = torch.zeros_like(adj)
+        temp_adj[topk_idx, :] = adj[topk_idx,:]
+        temp_adj[:, topk_idx] = adj[:, topk_idx]
+        rels.append(temp_adj)
+    return rels
+    
+def plot_adj_w_grid(adj):
+    plt.imshow(adj)
+    ax = plt.gca()
+    ax.set_aspect('equal')
+    ax.set_yticks([i for i in range(len(adj))], minor='True')
+    ax.set_xticks([i for i in range(len(adj))], minor='True')
+    ax.xaxis.grid(True, which="both", alpha=0.25)
+    ax.yaxis.grid(True, which="both", alpha=0.25)
+    return ax
+
+def plot_zone_and_map(adj, zone_idx, map_shp, text=None, timestep=None, fig=None, ax=None):
+    plt.ioff()
+    if fig is None or ax is None:
+        fig, ax = plt.subplots(1,3, figsize=(12,12),gridspec_kw={'width_ratios': [3, 1, 1]})
+
+    if timestep is not None:
+        map_shp.plot(column=f'ts_{timestep}',
+                    ax=ax[0],
+                    alpha=0.75)
+    else:    
+        map_shp.plot(column='mean_activity',
+                    ax=ax[0],
+                    alpha=0.75)
+    ax[0].axis('off')
+
+    for idx, row in enumerate(adj):
+        if idx == zone_idx.item():
+            color="red"
+            off_set = [0, 0.0002]
+        else:
+            color="green"
+            off_set = [0,0]
+        sender_idxs = torch.nonzero(row).numpy()
+        zone_centroid = [
+            map_shp.iloc[idx].geometry.centroid.y,
+            map_shp.iloc[idx].geometry.centroid.x,
+        ]
+        for sender_idx in sender_idxs:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                sender_centroid = [
+                    map_shp.iloc[sender_idx.squeeze()].geometry.centroid.y,
+                    map_shp.iloc[sender_idx.squeeze()].geometry.centroid.x,
+                ]
+                x_values = np.array([zone_centroid[1], sender_centroid[1]]) - off_set
+                y_values = np.array([zone_centroid[0], sender_centroid[0]]) + off_set
+                ax[0].plot(x_values, y_values, color=color, linewidth=2, alpha=1)
+
+    ax[1].imshow(adj)
+    ax[1].set_aspect('equal')
+    ax[1].set_yticks(range(len(adj)), minor='True')
+    ax[1].set_xticks(range(len(adj)), minor='True')
+    ax[1].xaxis.grid(True, which="both", alpha=0.25)
+    ax[1].yaxis.grid(True, which="both", alpha=0.25)
+    if text is not None:
+        fig.text(0.12, 0.8, text, color="blue", size=18)
+    return fig

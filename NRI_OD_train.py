@@ -24,12 +24,6 @@ kl_frac = 1
 # enc_n_hid = 128
 
 
-# Decoder
-dec_n_hid = 16
-dec_msg_hid = 8
-dec_msg_out = 8
-dec_gru_hid = 8
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -90,6 +84,18 @@ if __name__ == "__main__":
     parser.add_argument(
         "--enc_n_hid", help="The hidden dim of the encoder", type=int, default=128
     )
+    parser.add_argument(
+        "--dec_n_hid", help="Hidden size of out part of decoder", type=int, default=16
+    )
+    parser.add_argument(
+        "--dec_msg_hid", help="Hidden size of message in decoder", type=int, default=8
+    )
+    parser.add_argument(
+        "--dec_gru_hid", help="Hidden size of the recurrent state of the decoder", type=int, default=8
+    )
+    
+
+
     parser.add_argument(
         "--fixed_adj_matrix_path",
         help="Path to fixed adjacancy matrix for fixed encoder",
@@ -172,10 +178,9 @@ if __name__ == "__main__":
         node_f_dim=node_f_dim,
         enc_n_hid=args.enc_n_hid,
         n_edge_types=args.n_edge_types,
-        dec_n_hid=dec_n_hid,
-        dec_msg_hid=dec_msg_hid,
-        dec_msg_out=dec_msg_out,
-        dec_gru_hid=dec_gru_hid,
+        dec_n_hid=args.dec_n_hid,
+        dec_msg_hid=args.dec_msg_hid,
+        dec_gru_hid=args.dec_gru_hid,
         fixed_adj_matrix_path=args.fixed_adj_matrix_path,
         encoder_lr_frac=args.encoder_lr_frac,
         use_bn=args.use_bn,

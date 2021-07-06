@@ -219,7 +219,7 @@ class GRUDecoder(nn.Module):
 class GRUDecoder_multistep(nn.Module):
     """summary"""
 
-    def __init__(self, n_hid, f_in, msg_hid, msg_out, gru_hid, edge_types, skip_first):
+    def __init__(self, n_hid, f_in, msg_hid, gru_hid, edge_types, skip_first):
         super().__init__()
 
         self.edge_types = edge_types
@@ -235,19 +235,19 @@ class GRUDecoder_multistep(nn.Module):
         )
         self.msg_fc2 = nn.ModuleList(
             [
-                nn.Linear(in_features=msg_hid, out_features=msg_out)
+                nn.Linear(in_features=msg_hid, out_features=msg_hid)
                 for _ in range(self.edge_types)  # n_hid, n_hid is their implementation
             ]
         )
 
-        self.msg_out_shape = msg_out  # They have n_hid here
+        self.msg_out_shape = msg_hid  # They have n_hid here
 
         # GRU network
         # TODO consider whether it makes sense to try the torch implementation - would need a bit of massaging probably
         # They have n_hid, n_hid for all of these
-        self.gru_hr = nn.Linear(in_features=msg_out, out_features=gru_hid, bias=False)
-        self.gru_hi = nn.Linear(in_features=msg_out, out_features=gru_hid, bias=False)
-        self.gru_hn = nn.Linear(in_features=msg_out, out_features=gru_hid, bias=False)
+        self.gru_hr = nn.Linear(in_features=msg_hid, out_features=gru_hid, bias=False)
+        self.gru_hi = nn.Linear(in_features=msg_hid, out_features=gru_hid, bias=False)
+        self.gru_hn = nn.Linear(in_features=msg_hid, out_features=gru_hid, bias=False)
 
         # They have n_in_node, n_hid for all of these
         self.gru_ir = nn.Linear(in_features=f_in, out_features=gru_hid)
@@ -324,10 +324,6 @@ class GRUDecoder_multistep(nn.Module):
         ), "Input feature dim should match output feature dim"
         pred = inputs + pred
 
-        # print(f"pred shape {pred.shape}")
-        # print(f"out hidden shape {hidden.shape}")
-
-        # TODO fix the output dimensions and test with skip connection
         return pred, hidden
 
     def forward(
@@ -402,7 +398,7 @@ class GRUDecoder_multistep(nn.Module):
 class DynamicGRUDecoder_multistep(nn.Module):
     """summary"""
 
-    def __init__(self, n_hid, f_in, msg_hid, msg_out, gru_hid, edge_types, skip_first):
+    def __init__(self, n_hid, f_in, msg_hid, gru_hid, edge_types, skip_first):
         super().__init__()
 
         self.edge_types = edge_types
@@ -418,19 +414,19 @@ class DynamicGRUDecoder_multistep(nn.Module):
         )
         self.msg_fc2 = nn.ModuleList(
             [
-                nn.Linear(in_features=msg_hid, out_features=msg_out)
+                nn.Linear(in_features=msg_hid, out_features=msg_hid)
                 for _ in range(self.edge_types)  # n_hid, n_hid is their implementation
             ]
         )
 
-        self.msg_out_shape = msg_out  # They have n_hid here
+        self.msg_out_shape = msg_hid  # They have n_hid here
 
         # GRU network
         # TODO consider whether it makes sense to try the torch implementation - would need a bit of massaging probably
         # They have n_hid, n_hid for all of these
-        self.gru_hr = nn.Linear(in_features=msg_out, out_features=gru_hid, bias=False)
-        self.gru_hi = nn.Linear(in_features=msg_out, out_features=gru_hid, bias=False)
-        self.gru_hn = nn.Linear(in_features=msg_out, out_features=gru_hid, bias=False)
+        self.gru_hr = nn.Linear(in_features=msg_hid, out_features=gru_hid, bias=False)
+        self.gru_hi = nn.Linear(in_features=msg_hid, out_features=gru_hid, bias=False)
+        self.gru_hn = nn.Linear(in_features=msg_hid, out_features=gru_hid, bias=False)
 
         # They have n_in_node, n_hid for all of these
         self.gru_ir = nn.Linear(in_features=f_in, out_features=gru_hid)

@@ -16,7 +16,7 @@ import torch.nn.functional as F
 
 from ..utils.data_utils import create_test_train_split_max_min_normalize, create_test_train_split_max_min_normalize_no_split
 from ..utils import encode_onehot
-from ..utils import test_lstm, train_lstm
+from ..utils import val_lstm, train_lstm
 from ..utils.losses import torch_nll_gaussian, kl_categorical, cyc_anneal
 from ..models import SimpleLSTM
 
