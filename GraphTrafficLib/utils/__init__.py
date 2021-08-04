@@ -1,6 +1,6 @@
 from .data_utils import Nyc_w_Weather
 from .graph_generators import dtw_adj_generator
-from .general_utils import encode_onehot, RMSE, MAE, MAPE
+from .general_utils import encode_onehot, RMSE, MAE, MAPE, count_parameters
 from .training_utils import (
     val,
     train,
@@ -36,4 +36,5 @@ __all__ = [
     "dnri_val",
     "plot_adj_on_map",
     "plot_directed_adj_on_map",
+    "count_parameters"
 ]

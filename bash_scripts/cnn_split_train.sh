@@ -1,11 +1,11 @@
-EXP_NAME=cnn_latent_viz_test
+EXP_NAME=cnn_hid_size_test
 mkdir "../models/${EXP_NAME}"
 
 
-EPOCHS=100
+EPOCHS=400
 KL_CYC=50
 CUDA_DEVICE=1
-BATCH_SIZE=300
+BATCH_SIZE=50
 BURN_IN_STEPS=30
 SPLIT_LEN=40
 EDGE_RATE=0.1
@@ -15,8 +15,8 @@ N_EDGE_TYPES=2
 PICKUP_DATA_PATH=split_manhattan/full_year_lower_manhattan_2d.npy
 WEATHER_DATA_PATH=LGA_weather_full_2019.csv
 
-
-python NRI_OD_train.py  --experiment_name ${EXP_NAME}/cnn_2d_${EPOCHS}e50c \
+ENC_N_HID=32
+python NRI_OD_train.py  --experiment_name ${EXP_NAME}/cnn_hid${ENC_N_HID} \
                         --epochs ${EPOCHS} \
                         --kl_cyc ${KL_CYC} \
                         --encoder_type cnn \
@@ -29,5 +29,5 @@ python NRI_OD_train.py  --experiment_name ${EXP_NAME}/cnn_2d_${EPOCHS}e50c \
                         --split_len ${SPLIT_LEN} \
                         --edge_rate ${EDGE_RATE} \
                         --encoder_lr_frac ${ENCODER_LR_RATE} \
-                        --n_edge_types ${N_EDGE_TYPES}
- 
+                        --n_edge_types ${N_EDGE_TYPES} \
+                        --enc_n_hid ${ENC_N_HID}

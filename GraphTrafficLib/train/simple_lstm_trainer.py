@@ -18,6 +18,7 @@ from ..utils.data_utils import create_dataloaders
 from ..utils import encode_onehot
 from ..utils import val_lstm, train_lstm
 from ..utils.losses import torch_nll_gaussian, kl_categorical, cyc_anneal
+from ..utils.general_utils import count_parameters
 from ..models import SimpleLSTM
 
 
@@ -85,23 +86,43 @@ class SimpleLSTMTrainer:
         self.n_in = 1  # TODO update this hardcode
         self.lstm_hid = lstm_hid
 
-        self.model_settings = {
-            "batch_size": self.batch_size,
-            "n_epochs": self.n_epochs,
-            "dropout_p": self.dropout_p,
-            "shuffle_train": self.shuffle_train,
-            "shuffle_val": self.shuffle_val,
-            "experiment_name": self.experiment_name,
-            "normalize": self.normalize,
-            "train_frac": self.train_frac,
-            "burn_in_steps": self.burn_in_steps,
-            "split_len": self.split_len,
-            "burn_in": self.burn_in,  # maybe remove this
-            "lstm_hid": self.lstm_hid,
-            "lstm_dropout": self.lstm_dropout,
-        }
+        # self.model_settings = {
+        #     "batch_size": self.batch_size,
+        #     "n_epochs": self.n_epochs,
+        #     "dropout_p": self.dropout_p,
+        #     "shuffle_train": self.shuffle_train,
+        #     "shuffle_val": self.shuffle_val,
+        #     "experiment_name": self.experiment_name,
+        #     "normalize": self.normalize,
+        #     "train_frac": self.train_frac,
+        #     "burn_in_steps": self.burn_in_steps,
+        #     "split_len": self.split_len,
+        #     "burn_in": self.burn_in,  # maybe remove this
+        #     "lstm_hid": self.lstm_hid,
+        #     "lstm_dropout": self.lstm_dropout,
+        # }
+        # print(self.model_settings)
 
         self._init_model()
+        self.n_model_params = count_parameters(self.model)
+
+        
+        self.self_parameters = [x + ": " + str(y) + "\n" for x, y in vars(locals()['self']).items() if not x in (["encoder", "decoder", "model_params"])]
+        self.parameters = [x + ": " + str(y) + "\n" for x, y in locals().items()]
+        with open(
+            os.path.join(self.experiment_folder_path, "parameters.txt"), "w"
+        ) as f:
+            f.writelines(self.parameters)
+        self.writer.add_text("parameters", "\n".join(self.parameters))
+
+        with open(
+            os.path.join(self.experiment_folder_path, "self_parameters.txt"), "w"
+        ) as f:
+            f.writelines(self.self_parameters)
+        self.writer.add_text("self_parameters", "\n".join(self.self_parameters))
+
+        print("stop")
+
 
     def load_data(self, data_path, weather_data_path, dropoff_data_path=None):
 

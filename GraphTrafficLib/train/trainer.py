@@ -21,6 +21,8 @@ from ..utils import encode_onehot
 from ..utils import val, train, dnri_train, dnri_val
 from ..utils.losses import torch_nll_gaussian, kl_categorical, cyc_anneal
 from ..utils.visual_utils import visualize_prob_adj
+from ..utils.general_utils import count_parameters
+
 from ..models.latent_graph import (
     MLPEncoder,
     CNNEncoder,
@@ -146,6 +148,8 @@ class Trainer:
 
         # init model
         self._init_model()
+        self.n_encoder_params = count_parameters(self.encoder)
+        self.n_decoder_params = count_parameters(self.decoder)
 
         # save settings
         # self.model_settings = {
@@ -181,12 +185,19 @@ class Trainer:
         # }
 
         # Save all parameters to txt file and add to tensorboard
+        self.self_parameters = [x + ": " + str(y) + "\n" for x, y in vars(locals()['self']).items() if not x in (["encoder", "decoder", "model_params"])]
         self.parameters = [x + ": " + str(y) + "\n" for x, y in locals().items()]
         with open(
             os.path.join(self.experiment_folder_path, "parameters.txt"), "w"
         ) as f:
             f.writelines(self.parameters)
         self.writer.add_text("parameters", "\n".join(self.parameters))
+
+        with open(
+            os.path.join(self.experiment_folder_path, "self_parameters.txt"), "w"
+        ) as f:
+            f.writelines(self.self_parameters)
+        self.writer.add_text("self_parameters", "\n".join(self.self_parameters))
 
         # Init best loss val
         self.best_mse = None
@@ -258,7 +269,6 @@ class Trainer:
                 use_bn=self.use_bn,  # TODO not checked
             ).cuda()
         elif self.encoder_type == "cnn":
-            self.enc_n_hid = 10  # Remember this hardcode
             self.encoder = CNNEncoder(
                 n_in=self.enc_n_in,
                 n_hid=self.enc_n_hid,

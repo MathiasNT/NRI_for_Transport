@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-
+from prettytable import PrettyTable
 
 def encode_onehot(labels):
     """This function creates a onehot encoding.
@@ -23,3 +23,15 @@ def MAE(pred, target):
 def MAPE(pred, target):
     return torch.abs((target - pred) / target).mean()
 
+def count_parameters(model):
+    table = PrettyTable(["Modules", "Parameters"])
+    total_params = 0
+    table.title = model._get_name()
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad: continue
+        param = parameter.numel()
+        table.add_row([name, param])
+        total_params+=param
+    print(table)
+    print(f"Total Trainable Params: {total_params}")
+    return total_params
