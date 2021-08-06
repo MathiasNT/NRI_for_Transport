@@ -313,6 +313,7 @@ def dnri_val(
                             prior_logits, dim=-1
                         )
 
+
                 pred, hidden = decoder.do_single_step_forward(
                     ins, rel_rec, rel_send, edges, hidden, step
                 )

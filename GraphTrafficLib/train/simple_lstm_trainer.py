@@ -86,23 +86,22 @@ class SimpleLSTMTrainer:
         self.n_in = 1  # TODO update this hardcode
         self.lstm_hid = lstm_hid
 
-        # self.model_settings = {
-        #     "batch_size": self.batch_size,
-        #     "n_epochs": self.n_epochs,
-        #     "dropout_p": self.dropout_p,
-        #     "shuffle_train": self.shuffle_train,
-        #     "shuffle_val": self.shuffle_val,
-        #     "experiment_name": self.experiment_name,
-        #     "normalize": self.normalize,
-        #     "train_frac": self.train_frac,
-        #     "burn_in_steps": self.burn_in_steps,
-        #     "split_len": self.split_len,
-        #     "burn_in": self.burn_in,  # maybe remove this
-        #     "lstm_hid": self.lstm_hid,
-        #     "lstm_dropout": self.lstm_dropout,
-        # }
-        # print(self.model_settings)
-
+        self.model_settings = {
+            "batch_size": self.batch_size,
+            "n_epochs": self.n_epochs,
+            "dropout_p": self.dropout_p,
+            "shuffle_train": self.shuffle_train,
+            "shuffle_val": self.shuffle_val,
+            "experiment_name": self.experiment_name,
+            "normalize": self.normalize,
+            "train_frac": self.train_frac,
+            "burn_in_steps": self.burn_in_steps,
+            "split_len": self.split_len,
+            "burn_in": self.burn_in,  # maybe remove this
+            "lstm_hid": self.lstm_hid,
+            "lstm_dropout": self.lstm_dropout,
+        }
+        
         self._init_model()
         self.n_model_params = count_parameters(self.model)
 
@@ -202,7 +201,7 @@ class SimpleLSTMTrainer:
                 burn_in_steps=self.burn_in_steps,
                 split_len=self.split_len,
             )
-            self.writer.add_scalar("Train_MSE", train_mse, i)
+            self.writer.add_scalar("Train/MSE", train_mse, i)
 
             if i % 10 == 0:
                 val_mse = val_lstm(
@@ -213,7 +212,7 @@ class SimpleLSTMTrainer:
                     burn_in_steps=self.burn_in_steps,
                     split_len=self.split_len,
                 )
-                self.writer.add_scalar("val_MSE", val_mse, i)
+                self.writer.add_scalar("Val/MSE", val_mse, i)
 
                 val_mse_arr.append(val_mse)
             train_mse_arr.append(train_mse)

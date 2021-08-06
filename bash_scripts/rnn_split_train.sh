@@ -1,11 +1,11 @@
-EXP_NAME=rnn_long1
+EXP_NAME=rnn_debug_test
 mkdir "../models/${EXP_NAME}"
 
 
-EPOCHS=600
+EPOCHS=10
 KL_CYC=50
 CUDA_DEVICE=1
-BATCH_SIZE=35
+BATCH_SIZE=10
 BURN_IN_STEPS=30
 SPLIT_LEN=40
 EDGE_RATE=0.1
@@ -13,7 +13,7 @@ ENCODER_LR_RATE=0.1
 ENC_N_HID=32
 N_EDGE_TYPES=2
 
-PICKUP_DATA_PATH=split_manhattan/full_year_lower_manhattan_2d.npy
+PICKUP_DATA_PATH=full_manhattan/full_year_full_manhattan_2d.npy
 WEATHER_DATA_PATH=LGA_weather_full_2019.csv
 
 

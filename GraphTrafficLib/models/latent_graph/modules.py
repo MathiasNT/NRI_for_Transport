@@ -1,6 +1,6 @@
 from torch import nn
 import torch.nn.functional as F
-
+import math
 
 class MLP(nn.Module):
     """The standard MLP module w. batchnorm, initializationa and dropout"""
@@ -43,7 +43,7 @@ class MLP(nn.Module):
 
 
 class CNN(nn.Module):
-    def __init__(self, n_in, n_hid, n_out, do_prob=0):
+    def __init__(self, n_in, n_hid, n_out, do_prob=0, init_weights=False):
         super(CNN, self).__init__()
 
         self.pool = nn.MaxPool1d(
@@ -62,6 +62,9 @@ class CNN(nn.Module):
         self.conv_out = nn.Conv1d(n_hid, n_out, kernel_size=5)
         self.conv_att = nn.Conv1d(n_hid, 1, kernel_size=5)
 
+        if init_weights:
+            self.init_weights()
+
     def forward(self, inputs):
         x = F.relu(self.conv1(inputs))
         x = self.bn1(x)
@@ -72,3 +75,13 @@ class CNN(nn.Module):
         attention = F.softmax(self.conv_att(x), dim=2)
         out = (val * attention).mean(dim=2)
         return out
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv1d):
+                n = m.kernel_size[0] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.bias.data.fill_(0.1)
+            elif isinstance(m, nn.BatchNorm1d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()

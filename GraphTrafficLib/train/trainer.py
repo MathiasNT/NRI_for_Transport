@@ -69,6 +69,7 @@ class Trainer:
         fixed_adj_matrix_path=None,
         encoder_lr_frac=1,
         use_bn=True,
+        init_weights=False
     ):
 
         # Training settings
@@ -139,6 +140,7 @@ class Trainer:
             self.enc_n_in = self.node_f_dim
         self.enc_n_hid = enc_n_hid
         self.n_edge_types = n_edge_types
+        self.init_weights = init_weights
 
         # Decoder
         self.dec_n_hid = dec_n_hid
@@ -276,6 +278,7 @@ class Trainer:
                 do_prob=self.dropout_p,
                 factor=self.encoder_factor,
                 use_bn=self.use_bn,
+                init_weights=self.init_weights
             ).cuda()
         elif self.encoder_type == "gru" or self.encoder_type == "lstm":
             self.encoder = RecurrentEncoder(
@@ -384,6 +387,7 @@ class Trainer:
                     skip_first=self.skip_first,
                     n_nodes=n_nodes,
                 )
+                mean_edge_prob = np.mean(mean_edge_prob, 0)
             else:
                 train_mse, train_nll, train_kl, mean_edge_prob = train(
                     encoder=self.encoder,
@@ -404,13 +408,15 @@ class Trainer:
                 )
 
             self.lr_scheduler.step()
-            self.writer.add_scalar("Train_MSE", train_mse, epoch)
-            self.writer.add_scalar("Train_NLL", train_nll, epoch)
-            self.writer.add_scalar("Train_KL", train_kl, epoch)
+            self.writer.add_scalar("Train/MSE", train_mse, epoch)
+            self.writer.add_scalar("Train/NLL", train_nll, epoch)
+            self.writer.add_scalar("Train/KL", train_kl, epoch)
             self.writer.add_scalar("KL_frac", self.kl_frac, epoch)
+            for i, prob in enumerate(mean_edge_prob):
+                self.writer.add_scalar(f"Mean_edge_prob/train_{i}", prob, epoch)
 
             if epoch % 5 == 0:
-                if self.encoder_type in ["gru", "lstsm"]:
+                if self.encoder_type in ["gru", "lstm"]:
                     val_mse, val_nll, val_kl = dnri_val(
                         encoder=self.encoder,
                         decoder=self.decoder,
@@ -423,6 +429,7 @@ class Trainer:
                         log_prior=self.log_prior,
                         n_nodes=n_nodes,
                     )
+                    self._save_graph_examples_dnri(epoch) # Double check placement  
                 else:
                     val_mse, val_nll, val_kl, mean_edge_prob = val(
                         encoder=self.encoder,
@@ -437,10 +444,14 @@ class Trainer:
                         log_prior=self.log_prior,
                         n_nodes=n_nodes,
                     )
-                self.writer.add_scalar("val_MSE", val_mse, epoch)
-                self.writer.add_scalar("val_NLL", val_nll, epoch)
-                self.writer.add_scalar("val_KL", val_kl, epoch)
-                self._save_graph_examples(epoch)
+                    self._save_graph_examples(epoch) # Double check placement
+                self.writer.add_scalar("Val/MSE", val_mse, epoch)
+                self.writer.add_scalar("Val/NLL", val_nll, epoch)
+                self.writer.add_scalar("Val/KL", val_kl, epoch)
+                for i, prob in enumerate(mean_edge_prob):
+                    self.writer.add_scalar(f"Mean_edge_prob/val_{i}", prob, epoch)
+
+
 
                 val_mse_arr.append(val_mse)
                 val_nll_arr.append(val_nll)
@@ -485,10 +496,13 @@ class Trainer:
 
     def _save_graph_examples(self, epoch):
         with torch.no_grad():
+            # Calc edge probs
             _, (val_batch, _) = next(enumerate(self.val_dataloader))
             batch_subset = val_batch[:10].cuda()
             logits = self.encoder(batch_subset, self.rel_rec, self.rel_send)
             edge_probs = F.softmax(logits, dim=-1)
+            
+            # Create matrices
             adj_matrices = []
             for i in range(edge_probs.shape[0]):
                 adj_matrices.append(
@@ -512,6 +526,108 @@ class Trainer:
             self.writer.add_figure(
                 "adj_examples_test", fig, global_step=epoch, close=True
             )
+        return
+
+    def _save_graph_examples_dnri(self, epoch):
+        with torch.no_grad():
+            _, (val_batch, _) = next(enumerate(self.val_dataloader))
+            batch_subset = val_batch[:2].cuda()
+            _, posterior_logits, prior_state = self.encoder(
+                batch_subset[:, :, :self.burn_in_steps, :], self.rel_rec, self.rel_send
+            )
+            burn_in_edges = F.gumbel_softmax(
+                posterior_logits, tau=0.5, hard=True
+            )  # RelaxedOneHotCategorical
+            burn_in_edge_probs = F.softmax(posterior_logits, dim=-1)
+
+            batch_subset = batch_subset.transpose(1,2)
+            pred_all = []
+
+            hidden = torch.autograd.Variable(
+                torch.zeros(batch_subset.size(0), batch_subset.size(2), self.decoder.gru_hid)
+            )
+            edges = torch.autograd.Variable(
+                torch.zeros(
+                    burn_in_edges.size(0),
+                    burn_in_edges.size(1),
+                    batch_subset.size(1),
+                    burn_in_edges.size(3),
+                )
+            )
+            edge_probs = torch.autograd.Variable(
+                torch.zeros(
+                    burn_in_edges.size(0),
+                    burn_in_edges.size(1),
+                    batch_subset.size(1),
+                    burn_in_edges.size(3),
+                )
+            )
+
+            if batch_subset.is_cuda:
+                hidden = hidden.cuda()
+                edges = edges.cuda()
+                edge_probs = edge_probs.cuda()
+
+            edges[:, :, :self.burn_in_steps, :] = burn_in_edges
+            edge_probs[:, :, :self.burn_in_steps, :] = burn_in_edge_probs
+
+            for step in range(0, batch_subset.shape[1] - 1):
+                if self.burn_in:
+                    if step <= self.burn_in_steps - 1:
+                        ins = batch_subset[
+                            :, step, :, :
+                        ]  # obs step different here to be time dim
+                    else:
+                        ins = pred_all[step - 1]
+                        prior_logits, prior_state = self.encoder.single_step_forward(
+                            ins, self.rel_rec, self.rel_send, prior_state
+                        )
+                        edges[:, :, step : step + 1, :] = F.gumbel_softmax(
+                            prior_logits, tau=0.5, hard=True
+                        )  # RelaxedOneHotCategorical
+                        edge_probs[:, :, step : step + 1, :] = F.softmax(
+                            prior_logits, dim=-1
+                        )
+                    
+                pred, hidden = self.decoder.do_single_step_forward(
+                    ins, self.rel_rec, self.rel_send, edges, hidden, step
+                )
+                pred_all.append(pred)
+
+            # Create matrices
+            adj_matrices = []
+            for i in range(edge_probs.shape[0]):
+                batch_adj_matrices = []
+                for j in range(self.burn_in_steps-10, self.burn_in_steps+10):
+                    batch_adj_matrices.append(
+                        visualize_prob_adj(
+                            edge_list=edge_probs[i, :, j, :],
+                            rel_send=self.rel_send,
+                            rel_rec=self.rel_rec,
+                        )
+                    )
+                adj_matrices.append(torch.stack(batch_adj_matrices))
+            adj_matrices = torch.stack(adj_matrices)
+            adj_matrices = adj_matrices.reshape(-1, adj_matrices.shape[-2], adj_matrices.shape[-1])
+            adj_matrices = adj_matrices.unsqueeze(1)
+            
+            adj_matrices = torch.nn.functional.interpolate(
+                adj_matrices, scale_factor=5, mode="nearest"
+            ).squeeze()
+            
+            adj_matrices = adj_matrices.reshape(2, -1, adj_matrices.shape[-2], adj_matrices.shape[-1])
+
+            fig, axs = plt.subplots(20, 2, figsize=(10, 60))
+            [axi.set_axis_off() for axi in axs.ravel()]
+            for j in range(2):
+                for i in range(20):
+                    im = axs[i][j].imshow(adj_matrices[j, i])
+                    fig.colorbar(im, ax=axs[i, j])
+
+            self.writer.add_figure(
+                "adj_examples_test", fig, global_step=epoch, close=True
+            )
+
         return
 
     def save_model(self):

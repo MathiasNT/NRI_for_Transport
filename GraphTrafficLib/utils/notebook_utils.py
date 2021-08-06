@@ -285,7 +285,7 @@ def create_predictions_gru(
     graph_probs = []
     encoder.eval()
     decoder.eval()
-
+    print(decoder)
     for _, (data, _) in tqdm(enumerate(test_dataloader)):
         with torch.no_grad():
             data = data.to(device)

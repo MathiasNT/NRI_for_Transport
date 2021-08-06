@@ -2,7 +2,7 @@ EXP_NAME=cnn_hid_size_test
 mkdir "../models/${EXP_NAME}"
 
 
-EPOCHS=400
+EPOCHS=1
 KL_CYC=50
 CUDA_DEVICE=1
 BATCH_SIZE=50
@@ -12,7 +12,7 @@ EDGE_RATE=0.1
 ENCODER_LR_RATE=0.1
 N_EDGE_TYPES=2
 
-PICKUP_DATA_PATH=split_manhattan/full_year_lower_manhattan_2d.npy
+PICKUP_DATA_PATH=full_manhattan/full_year_full_manhattan_2d.npy
 WEATHER_DATA_PATH=LGA_weather_full_2019.csv
 
 ENC_N_HID=32

@@ -85,13 +85,18 @@ if __name__ == "__main__":
         "--enc_n_hid", help="The hidden dim of the encoder", type=int, default=128
     )
     parser.add_argument(
+        "--init_weights", dest="init_weights", help="Whether to use special init for CNN weights",
+        action="store_true"
+    )
+    parser.add_argument(
         "--dec_n_hid", help="Hidden size of out part of decoder", type=int, default=16
     )
     parser.add_argument(
         "--dec_msg_hid", help="Hidden size of message in decoder", type=int, default=8
     )
     parser.add_argument(
-        "--dec_gru_hid", help="Hidden size of the recurrent state of the decoder", type=int, default=8
+        "--dec_gru_hid", help="Hidden size of the recurrent state of the decoder",
+        type=int, default=8
     )
     
 
@@ -184,6 +189,7 @@ if __name__ == "__main__":
         fixed_adj_matrix_path=args.fixed_adj_matrix_path,
         encoder_lr_frac=args.encoder_lr_frac,
         use_bn=args.use_bn,
+        init_weights=args.init_weights
     )
 
     print("Initialized")

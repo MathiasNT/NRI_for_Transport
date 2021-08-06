@@ -116,13 +116,13 @@ class MLPEncoder(nn.Module):
 
 
 class CNNEncoder(nn.Module):
-    def __init__(self, n_in, n_hid, n_out, do_prob=0.0, factor=True, use_bn=True):
+    def __init__(self, n_in, n_hid, n_out, do_prob=0.0, factor=True, use_bn=True, init_weights=False):
         super(CNNEncoder, self).__init__()
         self.dropout_prob = do_prob
 
         self.factor = factor
 
-        self.cnn = CNN(n_in * 2, n_hid, n_hid, do_prob)
+        self.cnn = CNN(n_in * 2, n_hid, n_hid, do_prob, init_weights)
         self.mlp1 = MLP(n_hid, n_hid, n_hid, do_prob, use_bn=use_bn)
         self.mlp2 = MLP(n_hid, n_hid, n_hid, do_prob, use_bn=use_bn)
         self.mlp3 = MLP(n_hid * 3, n_hid, n_hid, do_prob, use_bn=use_bn)
