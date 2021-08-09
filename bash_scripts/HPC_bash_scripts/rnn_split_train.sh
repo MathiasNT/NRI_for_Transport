@@ -1,3 +1,16 @@
+#!/bin/sh
+#BSUB -J test_mlp
+#BSUB -q gpuv100
+#BSUB -gpu "num=1:mode=exclusive_process"
+#BSUB -n 4
+#BSUB -W 24:00
+#BSUB -R "span[hosts=1]"
+#BSUB -R "rusage[mem=40GB]"
+#BSUB -R "select[gpu32gb]"
+#BSUB -N
+#BSUB -o logs/%J_Output_test_mlp.out
+#BSUB -e logs/%J_Error_test_mlp.err
+
 EXP_NAME=rnn_short_run
 mkdir "../models/${EXP_NAME}"
 

@@ -16,6 +16,7 @@ from .visual_utils import (
     visualize_mean_graph_adj,
     plot_adj_on_map,
     plot_directed_adj_on_map,
+    visualize_continous_adj
 )
 
 
@@ -36,5 +37,6 @@ __all__ = [
     "dnri_val",
     "plot_adj_on_map",
     "plot_directed_adj_on_map",
-    "count_parameters"
+    "count_parameters",
+    "visualize_continous_adj"
 ]

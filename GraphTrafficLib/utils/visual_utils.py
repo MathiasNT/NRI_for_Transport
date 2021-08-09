@@ -287,3 +287,11 @@ def plot_zone_and_map(
 
     ax21.axis("off")
     return fig
+
+def visualize_continous_adj(edge_list, rel_send, rel_rec):
+    adj_matrix = torch.zeros(rel_rec.shape[1], rel_rec.shape[1])
+    for i, row in enumerate(edge_list):
+        send = rel_send[i].argmax().item()
+        rec = rel_rec[i].argmax().item()
+        adj_matrix[rec, send] = row[1]
+    return adj_matrix
