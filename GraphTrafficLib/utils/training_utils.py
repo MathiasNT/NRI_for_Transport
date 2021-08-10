@@ -45,7 +45,7 @@ def train(
     nll_train = []
     kl_train = []
     mse_train = []
-    mean_edge_prob = []
+    mean_edge_prob_train = []
 
     encoder.train()
     decoder.train()
@@ -58,8 +58,7 @@ def train(
         logits = encoder(data, rel_rec, rel_send)
         edges = F.gumbel_softmax(logits, tau=0.5, hard=True)  # RelaxedOneHotCategorical
         edge_probs = F.softmax(logits, dim=-1)
-        mean_edge_prob.append(edge_probs.mean(dim=(1, 0)).tolist())
-
+        
         pred_arr = decoder(
             data.transpose(1, 2),
             rel_rec,
@@ -91,10 +90,12 @@ def train(
         nll_train.append(loss_nll.item())
         kl_train.append(loss_kl.item())
         mse_train.append(F.mse_loss(pred, target).item())
+        mean_edge_prob_train.append(edge_probs.mean(dim=(1, 0)).tolist())
+
     mse = np.mean(mse_train)
     nll = np.mean(nll_train)
     kl = np.mean(kl_train)
-    mean_edge_prob = np.mean(np.array(mean_edge_prob), 0)
+    mean_edge_prob = np.mean(np.array(mean_edge_prob_train), 0)
     return mse, nll, kl, mean_edge_prob
 
 

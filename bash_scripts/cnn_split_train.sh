@@ -1,11 +1,11 @@
-EXP_NAME=cnn_hid_size_test
+EXP_NAME=cnn_run_1
 mkdir "../models/${EXP_NAME}"
 
 
-EPOCHS=1
+EPOCHS=300
 KL_CYC=50
-CUDA_DEVICE=1
-BATCH_SIZE=50
+CUDA_DEVICE=0
+BATCH_SIZE=20
 BURN_IN_STEPS=30
 SPLIT_LEN=40
 EDGE_RATE=0.1
@@ -15,7 +15,7 @@ N_EDGE_TYPES=2
 PICKUP_DATA_PATH=full_manhattan/full_year_full_manhattan_2d.npy
 WEATHER_DATA_PATH=LGA_weather_full_2019.csv
 
-ENC_N_HID=32
+ENC_N_HID=96
 python NRI_OD_train.py  --experiment_name ${EXP_NAME}/cnn_hid${ENC_N_HID} \
                         --epochs ${EPOCHS} \
                         --kl_cyc ${KL_CYC} \

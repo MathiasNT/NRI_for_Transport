@@ -153,7 +153,7 @@ class SimpleLSTMTrainer:
         (
             self.train_dataloader,
             self.val_dataloader,
-            self.test_dataloader,
+            _,
             self.train_max,
             self.train_min,
         ) = create_dataloaders(
