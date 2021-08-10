@@ -1,5 +1,5 @@
 #!/bin/sh
-#BSUB -J test_mlp
+#BSUB -J test_gru
 #BSUB -q gpuv100
 #BSUB -gpu "num=1:mode=exclusive_process"
 #BSUB -n 4
@@ -8,17 +8,17 @@
 #BSUB -R "rusage[mem=40GB]"
 #BSUB -R "select[gpu32gb]"
 #BSUB -N
-#BSUB -o logs/%J_Output_test_mlp.out
-#BSUB -e logs/%J_Error_test_mlp.err
+#BSUB -o ../logs/%J_Output_test_gru.out
+#BSUB -e ../logs/%J_Error_test_gru.err
 
-EXP_NAME=rnn_short_run
+EXP_NAME=rnn_long_run
 mkdir "../models/${EXP_NAME}"
 
 
-EPOCHS=100
+EPOCHS=300
 KL_CYC=50
 CUDA_DEVICE=0
-BATCH_SIZE=10
+BATCH_SIZE=30
 BURN_IN_STEPS=30
 SPLIT_LEN=40
 EDGE_RATE=0.1
@@ -30,7 +30,7 @@ PICKUP_DATA_PATH=full_manhattan/full_year_full_manhattan_2d.npy
 WEATHER_DATA_PATH=LGA_weather_full_2019.csv
 
 
-python NRI_OD_train.py  --experiment_name ${EXP_NAME}/gru_2d_${EPOCHS}e50c \
+python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/gru_2d_${EPOCHS}e50c \
                         --epochs ${EPOCHS} \
                         --kl_cyc ${KL_CYC} \
                         --encoder_type gru \
