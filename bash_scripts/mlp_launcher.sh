@@ -1,11 +1,11 @@
-EXP_NAME=mlp_test1
+EXP_NAME=mlp_run_1
 mkdir "../models/${EXP_NAME}"
 
 
-EPOCHS=600
-KL_CYC=50
-CUDA_DEVICE=0
-BATCH_SIZE=25
+EPOCHS=300
+KL_CYC=100
+CUDA_DEVICE=1
+BATCH_SIZE=150 # above 100 is possible
 BURN_IN_STEPS=30
 SPLIT_LEN=40
 PICKUP_DATA_PATH=full_manhattan/full_year_full_manhattan_2d.npy

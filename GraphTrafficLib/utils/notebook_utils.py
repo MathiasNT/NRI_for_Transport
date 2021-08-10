@@ -14,7 +14,7 @@ from GraphTrafficLib.models.latent_graph import (
 )
 from GraphTrafficLib.models import SimpleLSTM
 from GraphTrafficLib.utils import encode_onehot
-from GraphTrafficLib.utils.data_utils import create_test_train_split_max_min_normalize
+from GraphTrafficLib.utils.data_utils import create_test_train_split_max_min_normalize, create_dataloaders
 
 
 def load_model(experiment_path, device, encoder_type):
@@ -89,36 +89,61 @@ def load_lstm_model(lstm_path, device):
     lstm.load_state_dict(model_dict["model"])
     return lstm, model_settings, train_res
 
+def load_data(
+    data_path,
+    weather_data_path,
+    split_len,
+    batch_size,
+    normalize,
+    train_frac,
+    dropoff_data_path=None,
+):
+    # Load data
+    data = np.load(data_path)
+    
+    if dropoff_data_path is not None:
+        dropoff_data = np.load(dropoff_data_path)
 
-# def load_data(dataset_folder, zone):
-#     raw_folder = f"{dataset_folder}/rawdata"
-#     proc_folder = f"{dataset_folder}/procdata"
+        # Create data tensor
+        pickup_tensor = torch.Tensor(data)
+        dropoff_tensor = torch.Tensor(dropoff_data)
 
-#     # Load data
-#     pickup_data_path = f"{proc_folder}/full_year_{zone}_vector_pickup.npy"
-#     pickup_data = np.load(pickup_data_path)
-#     dropoff_data_path = f"{proc_folder}/full_year_{zone}_vector_dropoff.npy"
-#     dropoff_data = np.load(dropoff_data_path)
-#     weather_data_path = f"{proc_folder}/LGA_weather_full_2019.csv"
-#     weather_df = pd.read_csv(weather_data_path, parse_dates=[0, 7])
+        # Stack data tensor
+        data_tensor = torch.cat([pickup_tensor, dropoff_tensor], dim=0)
+    else:
+        data_tensor = torch.Tensor(data)
+    
+    
+    # load weather data
+    weather_df = pd.read_csv(weather_data_path, parse_dates=[0, 7])
+    # temp fix for na temp
+    weather_df.loc[weather_df.temperature.isna(), "temperature"] = 0
+    sum(weather_df.temperature.isna())
+    # Create weather vector
+    weather_vector = weather_df.loc[:, ("temperature", "precipDepth")].values
+    weather_tensor = torch.Tensor(weather_vector)
 
-#     # temp fix for na temp
-#     weather_df.loc[weather_df.temperature.isna(), "temperature"] = 0
-#     sum(weather_df.temperature.isna())
+    # Create data loader with max min normalization
+    (
+        train_dataloader,
+        val_dataloader,
+        test_dataloader,
+        train_max,
+        train_min,
+    ) = create_dataloaders(
+        data=data_tensor,
+        weather_data=weather_tensor,
+        split_len=split_len,
+        batch_size=batch_size,
+        normalize=normalize,
+        train_frac=train_frac,
+    )
+    
+    
+    return data_tensor, train_dataloader, val_dataloader, test_dataloader, train_max, train_min
 
-#     # Create weather vector
-#     weather_vector = weather_df.loc[:, ("temperature", "precipDepth")].values
 
-#     # Create data tensor
-#     pickup_tensor = torch.Tensor(pickup_data)
-#     dropoff_tensor = torch.Tensor(dropoff_data)
-#     weather_tensor = torch.Tensor(weather_vector)
-
-#     # Stack data tensor
-#     data_tensor = torch.cat([pickup_tensor, dropoff_tensor], dim=0)
-#     return data_tensor, weather_tensor
-
-
+# This here is actually my old dataloader currently kept for legacy reasons
 def load_data2(
     data_path,
     weather_data_path,
