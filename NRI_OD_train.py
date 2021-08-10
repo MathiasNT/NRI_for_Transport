@@ -70,6 +70,8 @@ if __name__ == "__main__":
         help="Whether or not to use bn in MLP modules",
         action="store_false",
     )
+    parser.add_argument("--gumbel_hard", action="store_true", default=False, help="Uses discrete sampling in training forward pass")
+    parser.add_argument("--gumbel_tau", type=float, help="The tau value in the gumbel distribution", default=0.5)
 
     # Model args
     parser.add_argument(
@@ -189,7 +191,9 @@ if __name__ == "__main__":
         fixed_adj_matrix_path=args.fixed_adj_matrix_path,
         encoder_lr_frac=args.encoder_lr_frac,
         use_bn=args.use_bn,
-        init_weights=args.init_weights
+        init_weights=args.init_weights,
+        gumbel_tau=args.gumbel_tau,
+        gumbel_hard=args.gumbel_hard
     )
 
     print("Initialized")

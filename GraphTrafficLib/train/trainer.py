@@ -69,7 +69,9 @@ class Trainer:
         fixed_adj_matrix_path=None,
         encoder_lr_frac=1,
         use_bn=True,
-        init_weights=False
+        init_weights=False,
+        gumbel_tau=0.5,
+        gumbel_hard=True
     ):
 
         # Training settings
@@ -83,6 +85,8 @@ class Trainer:
         self.lr_decay_step = lr_decay_step
         self.lr_decay_gamma = lr_decay_gamma
         self.use_bn = use_bn
+        self.gumbel_tau = gumbel_tau
+        self.gumbel_hard = gumbel_hard
 
         # Model settings
         self.encoder_factor = encoder_factor
@@ -386,6 +390,8 @@ class Trainer:
                     pred_steps=self.pred_steps,
                     skip_first=self.skip_first,
                     n_nodes=n_nodes,
+                    gumbel_tau=self.gumbel_tau,
+                    gumbel_hard=self.gumbel_hard,
                 )
                 mean_edge_prob = np.mean(mean_edge_prob, 0)
             else:
@@ -405,6 +411,8 @@ class Trainer:
                     pred_steps=self.pred_steps,
                     skip_first=self.skip_first,
                     n_nodes=n_nodes,
+                    gumbel_tau=self.gumbel_tau,
+                    gumbel_hard=self.gumbel_hard,
                 )
 
             self.lr_scheduler.step()
@@ -442,6 +450,7 @@ class Trainer:
                         burn_in_steps=self.burn_in_steps,
                         split_len=self.split_len,
                         log_prior=self.log_prior,
+                        pred_steps=self.pred_steps,
                         n_nodes=n_nodes,
                     )
                     self._save_graph_examples(epoch) # Double check placement

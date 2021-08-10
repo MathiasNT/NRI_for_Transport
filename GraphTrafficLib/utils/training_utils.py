@@ -41,6 +41,8 @@ def train(
     pred_steps,
     skip_first,
     n_nodes,
+    gumbel_tau,
+    gumbel_hard
 ):
     nll_train = []
     kl_train = []
@@ -56,7 +58,7 @@ def train(
         data = data.cuda()
 
         logits = encoder(data, rel_rec, rel_send)
-        edges = F.gumbel_softmax(logits, tau=0.5, hard=True)  # RelaxedOneHotCategorical
+        edges = F.gumbel_softmax(logits, tau=gumbel_tau, hard=gumbel_hard)  # RelaxedOneHotCategorical
         edge_probs = F.softmax(logits, dim=-1)
         
         pred_arr = decoder(
@@ -110,6 +112,7 @@ def val(
     burn_in_steps,
     split_len,
     log_prior,
+    pred_steps,
     n_nodes,
 ):
     nll_val = []
@@ -126,7 +129,7 @@ def val(
             data = data.cuda()
 
             logits = encoder(data, rel_rec, rel_send)
-            edges = F.gumbel_softmax(logits, tau=0.5, hard=True)
+            edges = F.gumbel_softmax(logits, tau=0.01, hard=True)
             edge_probs = F.softmax(logits, dim=-1)
             mean_edge_prob.append(edge_probs.mean(dim=(1, 0)).tolist())
 
@@ -139,8 +142,8 @@ def val(
                 burn_in_steps=burn_in_steps,
                 split_len=split_len,
             )
-            pred = pred_arr.transpose(1, 2).contiguous()
-            target = data[:, :, 1:, :]
+            pred = pred_arr.transpose(1, 2)[:, :, -pred_steps: ,:]
+            target = data[:, :, -pred_steps:, :]
 
             loss_nll = torch_nll_gaussian(pred, target, 5e-5)
             loss_kl = kl_categorical(
@@ -172,6 +175,8 @@ def dnri_train(
     pred_steps,
     skip_first,
     n_nodes,
+    gumbel_tau,
+    gumbel_hard
 ):
     nll_train = []
     kl_train = []
@@ -188,7 +193,7 @@ def dnri_train(
 
         _, posterior_logits, _ = encoder(data, rel_rec, rel_send)
         edges = F.gumbel_softmax(
-            posterior_logits, tau=0.5, hard=True
+            posterior_logits, tau=gumbel_tau, hard=gumbel_hard
         )  # RelaxedOneHotCategorical
         edge_probs = F.softmax(posterior_logits, dim=-1)
         mean_edge_prob.append(edge_probs.mean(dim=(1, 0)).tolist())
@@ -261,7 +266,7 @@ def dnri_val(
                 data[:, :, :burn_in_steps, :], rel_rec, rel_send
             )
             burn_in_edges = F.gumbel_softmax(
-                posterior_logits, tau=0.5, hard=True
+                posterior_logits, tau=0.01, hard=True
             )  # RelaxedOneHotCategorical
             burn_in_edge_probs = F.softmax(posterior_logits, dim=-1)
 
@@ -308,7 +313,7 @@ def dnri_val(
                             ins, rel_rec, rel_send, prior_state
                         )
                         edges[:, :, step : step + 1, :] = F.gumbel_softmax(
-                            prior_logits, tau=0.5, hard=True
+                            prior_logits, tau=0.01, hard=True
                         )  # RelaxedOneHotCategorical
                         edge_probs[:, :, step : step + 1, :] = F.softmax(
                             prior_logits, dim=-1
