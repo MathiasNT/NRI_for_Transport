@@ -88,7 +88,7 @@ class Trainer:
         self.use_bn = use_bn
         self.gumbel_tau = gumbel_tau
         self.gumbel_hard = gumbel_hard
-        self.gumbeL_anneal = gumbel_anneal
+        self.gumbel_anneal = gumbel_anneal
 
         # Model settings
         self.encoder_factor = encoder_factor
@@ -449,7 +449,7 @@ class Trainer:
                         log_prior=self.log_prior,
                         n_nodes=n_nodes,
                     )
-                    self._save_graph_examples_dnri(epoch) # Double check placement  
+                    self._save_graph_examples_dnri(epoch) # Double check placement
                 else:
                     val_mse, val_nll, val_kl, mean_edge_prob = val(
                         encoder=self.encoder,
