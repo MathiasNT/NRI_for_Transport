@@ -3,7 +3,7 @@ mkdir "../models/${EXP_NAME}"
 
 
 EPOCHS=300
-KL_CYC=100
+KL_CYC=150
 CUDA_DEVICE=1
 BATCH_SIZE=150 # above 100 is possible
 BURN_IN_STEPS=30

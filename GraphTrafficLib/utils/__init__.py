@@ -9,6 +9,7 @@ from .training_utils import (
     train_lstm,
     dnri_train,
     dnri_val,
+    gumbel_tau_scheduler
 )
 from .visual_utils import (
     Encoder_Visualizer,
@@ -16,7 +17,10 @@ from .visual_utils import (
     visualize_mean_graph_adj,
     plot_adj_on_map,
     plot_directed_adj_on_map,
-    visualize_continous_adj
+    visualize_continous_adj,
+    plot_adj_and_time,
+    get_rels_from_topk,
+    get_rels_from_zone_id
 )
 
 
@@ -38,5 +42,9 @@ __all__ = [
     "plot_adj_on_map",
     "plot_directed_adj_on_map",
     "count_parameters",
-    "visualize_continous_adj"
+    "visualize_continous_adj",
+    "plot_adj_and_time",
+    "get_rels_from_topk",
+    "get_rels_from_zone_id",
+    "gumbel_tau_scheduler"
 ]

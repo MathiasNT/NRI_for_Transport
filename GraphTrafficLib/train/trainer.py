@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 
 from ..utils.data_utils import create_dataloaders
 from ..utils import encode_onehot
-from ..utils import val, train, dnri_train, dnri_val
+from ..utils import val, train, dnri_train, dnri_val, gumbel_tau_scheduler
 from ..utils.losses import torch_nll_gaussian, kl_categorical, cyc_anneal
 from ..utils.visual_utils import visualize_prob_adj
 from ..utils.general_utils import count_parameters
@@ -71,7 +71,8 @@ class Trainer:
         use_bn=True,
         init_weights=False,
         gumbel_tau=0.5,
-        gumbel_hard=True
+        gumbel_hard=True,
+        gumbel_anneal=None
     ):
 
         # Training settings
@@ -87,6 +88,7 @@ class Trainer:
         self.use_bn = use_bn
         self.gumbel_tau = gumbel_tau
         self.gumbel_hard = gumbel_hard
+        self.gumbeL_anneal = gumbel_anneal
 
         # Model settings
         self.encoder_factor = encoder_factor
@@ -188,6 +190,9 @@ class Trainer:
             "skip_first": self.skip_first,
             "encoder_lr_frac": self.encoder_lr_frac,
             "use_bn": self.use_bn,
+            "gumbel_tau": self.gumbel_tau,
+            "gumbel_hard": self.gumbel_hard,
+            "gumbel_anneal": self.gumbel_anneal
         }
 
         # Save all parameters to txt file and add to tensorboard
@@ -372,6 +377,12 @@ class Trainer:
 
             if self.kl_cyc is not None:
                 self.kl_frac = cyc_anneal(epoch, self.kl_cyc)
+            
+            if self.gumbel_anneal:
+                # TODO Notice hard coded start tau
+                self.gumbel_curr_tau = gumbel_tau_scheduler(2, self.gumbel_tau, epoch, self.n_epochs)
+            else: 
+                self.gumbel_curr_tau = self.gumbel_tau
 
             if self.encoder_type in ["gru", "lstm"]:
                 train_mse, train_nll, train_kl, mean_edge_prob = dnri_train(
@@ -390,7 +401,7 @@ class Trainer:
                     pred_steps=self.pred_steps,
                     skip_first=self.skip_first,
                     n_nodes=n_nodes,
-                    gumbel_tau=self.gumbel_tau,
+                    gumbel_tau=self.gumbel_curr_tau,
                     gumbel_hard=self.gumbel_hard,
                 )
                 mean_edge_prob = np.mean(mean_edge_prob, 0)
@@ -411,7 +422,7 @@ class Trainer:
                     pred_steps=self.pred_steps,
                     skip_first=self.skip_first,
                     n_nodes=n_nodes,
-                    gumbel_tau=self.gumbel_tau,
+                    gumbel_tau=self.gumbel_curr_tau,
                     gumbel_hard=self.gumbel_hard,
                 )
 
@@ -419,6 +430,7 @@ class Trainer:
             self.writer.add_scalar("Train/MSE", train_mse, epoch)
             self.writer.add_scalar("Train/NLL", train_nll, epoch)
             self.writer.add_scalar("Train/KL", train_kl, epoch)
+            self.writer.add_scalar("Train/tau", self.gumbel_curr_tau, epoch)
             self.writer.add_scalar("KL_frac", self.kl_frac, epoch)
             for i, prob in enumerate(mean_edge_prob):
                 self.writer.add_scalar(f"Mean_edge_prob/train_{i}", prob, epoch)
