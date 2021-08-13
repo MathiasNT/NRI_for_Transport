@@ -393,3 +393,9 @@ def val_lstm(
             mse_val.append(F.mse_loss(pred, target).item())
         mse = np.mean(mse_val)
     return mse
+
+
+def gumbel_tau_scheduler(tau_0, tau_end, epoch, n_epochs):
+    slope = (tau_0 - tau_end) / n_epochs
+    tau_cur = tau_0 - epoch * slope
+    return tau_cur

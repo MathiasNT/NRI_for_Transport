@@ -217,6 +217,11 @@ def get_rels_from_topk(topk_idxs, adj):
         rels.append(temp_adj)
     return rels
 
+def get_rels_from_zone_id(zone_idx, adj):
+    temp_adj = torch.zeros_like(adj)
+    temp_adj[zone_idx, :] = adj[zone_idx, :]
+    temp_adj[:, zone_idx] = adj[:, zone_idx]
+    return temp_adj        
 
 def plot_adj_w_grid(adj):
     plt.imshow(adj)
@@ -295,3 +300,9 @@ def visualize_continous_adj(edge_list, rel_send, rel_rec):
         rec = rel_rec[i].argmax().item()
         adj_matrix[rec, send] = row[1]
     return adj_matrix
+
+def plot_adj_and_time(adj, time_str):
+    fig, ax = plt.subplots(1,figsize=(10,10))
+    ax.imshow(adj)
+    ax.set_title(time_str)
+    return fig
