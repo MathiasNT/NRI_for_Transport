@@ -72,7 +72,8 @@ class Trainer:
         init_weights=False,
         gumbel_tau=0.5,
         gumbel_hard=True,
-        gumbel_anneal=None
+        gumbel_anneal=None,
+        weight_decay=0
     ):
 
         # Training settings
@@ -89,6 +90,7 @@ class Trainer:
         self.gumbel_tau = gumbel_tau
         self.gumbel_hard = gumbel_hard
         self.gumbel_anneal = gumbel_anneal
+        self.weight_decay = weight_decay
 
         # Model settings
         self.encoder_factor = encoder_factor
@@ -192,7 +194,8 @@ class Trainer:
             "use_bn": self.use_bn,
             "gumbel_tau": self.gumbel_tau,
             "gumbel_hard": self.gumbel_hard,
-            "gumbel_anneal": self.gumbel_anneal
+            "gumbel_anneal": self.gumbel_anneal,
+            "weight_decay": self.weight_decay
         }
 
         # Save all parameters to txt file and add to tensorboard
@@ -330,7 +333,7 @@ class Trainer:
             {"params": self.decoder.parameters(), "lr": self.lr},
         ]
 
-        self.optimizer = optim.Adam(self.model_params)
+        self.optimizer = optim.Adam(self.model_params, weight_decay=self.weight_decay)
         self.lr_scheduler = optim.lr_scheduler.StepLR(
             optimizer=self.optimizer,
             step_size=self.lr_decay_step,

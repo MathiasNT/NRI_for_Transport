@@ -73,6 +73,8 @@ if __name__ == "__main__":
     parser.add_argument("--gumbel_hard", action="store_true", default=False, help="Uses discrete sampling in training forward pass")
     parser.add_argument("--gumbel_tau", type=float, help="The tau value in the gumbel distribution", default=0.5)
     parser.add_argument("--gumbel_anneal", action="store_true", default=False, help="Whether to anneal the tau value in the gumbel distribution")
+    parser.add_argument("--weight_decay", type=float, help="The L2 regularization for the optimizer (default=0)", default=0)
+
     # Model args
     parser.add_argument(
         "--encoder_type", help="which encoder type to use (cnn or mlp)", required=True
@@ -194,7 +196,8 @@ if __name__ == "__main__":
         init_weights=args.init_weights,
         gumbel_tau=args.gumbel_tau,
         gumbel_hard=args.gumbel_hard,
-        gumbel_anneal=args.gumbel_anneal
+        gumbel_anneal=args.gumbel_anneal,
+        weight_decay=args.weight_decay
     )
 
     print("Initialized")
