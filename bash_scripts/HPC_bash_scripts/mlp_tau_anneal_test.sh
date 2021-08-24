@@ -15,7 +15,7 @@ EXP_NAME=mlp_tau_test_full
 mkdir "../models/${EXP_NAME}"
 
 
-EPOCHS=10
+EPOCHS=300
 KL_CYC=50
 CUDA_DEVICE=0
 BATCH_SIZE=250

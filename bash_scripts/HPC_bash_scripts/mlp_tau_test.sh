@@ -11,7 +11,7 @@
 #BSUB -o ../logs/%J_Output_mlp_tau_test_full.out
 #BSUB -e ../logs/%J_Error_mlp_tau_test_full.err
 
-EXP_NAME=mlp_tau_test_full
+EXP_NAME=mlp_tau_test_full_no_anneal
 mkdir "../models/${EXP_NAME}"
 
 
@@ -34,9 +34,8 @@ WEATHER_DATA_PATH=LGA_weather_full_2019.csv
 
 
 GUMBEL_TAU=0.1
-python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_hard_${GUMBEL_TAU}tau \
+python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_hard_${GUMBEL_TAU}tau_no_anneal \
                         --epochs ${EPOCHS} \
-                        --kl_cyc ${KL_CYC} \
                         --encoder_type mlp \
                         --loss_type nll \
                         --cuda_device ${CUDA_DEVICE} \
@@ -55,9 +54,8 @@ python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_hard_${GUMBEL_TAU}tau
 
 
 GUMBEL_TAU=0.5
-python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_hard_${GUMBEL_TAU}tau \
+python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_hard_${GUMBEL_TAU}tau_no_anneal \
                         --epochs ${EPOCHS} \
-                        --kl_cyc ${KL_CYC} \
                         --encoder_type mlp \
                         --loss_type nll \
                         --cuda_device ${CUDA_DEVICE} \
@@ -75,9 +73,8 @@ python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_hard_${GUMBEL_TAU}tau
 			--gumbel_hard \
 
 GUMBEL_TAU=0.9
-python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_hard_${GUMBEL_TAU}tau \
+python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_hard_${GUMBEL_TAU}tau_no_anneal \
                         --epochs ${EPOCHS} \
-                        --kl_cyc ${KL_CYC} \
                         --encoder_type mlp \
                         --loss_type nll \
                         --cuda_device ${CUDA_DEVICE} \
@@ -95,9 +92,8 @@ python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_hard_${GUMBEL_TAU}tau
 			--gumbel_hard \
 
 GUMBEL_TAU=0.1
-python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_soft_${GUMBEL_TAU}tau \
+python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_soft_${GUMBEL_TAU}tau_no_anneal \
                         --epochs ${EPOCHS} \
-                        --kl_cyc ${KL_CYC} \
                         --encoder_type mlp \
                         --loss_type nll \
                         --cuda_device ${CUDA_DEVICE} \
@@ -115,9 +111,8 @@ python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_soft_${GUMBEL_TAU}tau
 
 
 GUMBEL_TAU=0.5
-python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_soft_${GUMBEL_TAU}tau \
+python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_soft_${GUMBEL_TAU}tau_no_anneal \
                         --epochs ${EPOCHS} \
-                        --kl_cyc ${KL_CYC} \
                         --encoder_type mlp \
                         --loss_type nll \
                         --cuda_device ${CUDA_DEVICE} \
@@ -134,9 +129,8 @@ python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_soft_${GUMBEL_TAU}tau
 			--gumbel_tau ${GUMBEL_TAU} \
 
 GUMBEL_TAU=0.9
-python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_soft_${GUMBEL_TAU}tau \
+python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_soft_${GUMBEL_TAU}tau_no_anneal \
                         --epochs ${EPOCHS} \
-                        --kl_cyc ${KL_CYC} \
                         --encoder_type mlp \
                         --loss_type nll \
                         --cuda_device ${CUDA_DEVICE} \

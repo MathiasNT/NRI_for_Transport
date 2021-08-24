@@ -1,5 +1,5 @@
 #!/bin/sh
-#BSUB -J test_gru
+#BSUB -J cnn_weight_decay_test
 #BSUB -q gpuv100
 #BSUB -gpu "num=1:mode=exclusive_process"
 #BSUB -n 4
@@ -8,32 +8,31 @@
 #BSUB -R "rusage[mem=40GB]"
 #BSUB -R "select[gpu32gb]"
 #BSUB -N
-#BSUB -o ../logs/%J_Output_test_gru.out
-#BSUB -e ../logs/%J_Error_test_gru.err
+#BSUB -o ../logs/%J_Output_cnn_weight_decay_test.out
+#BSUB -e ../logs/%J_Error_cnn_weight_decay_test.err
 
-EXP_NAME=rnn_long_run
+EXP_NAME=cnn__weight_decay_test
 mkdir "../models/${EXP_NAME}"
 
 
-EPOCHS=100
-KL_CYC=50
+EPOCHS=5
+WEIGHT_DECAY=0.005
 CUDA_DEVICE=0
-BATCH_SIZE=150
+BATCH_SIZE=200
 BURN_IN_STEPS=30
 SPLIT_LEN=40
 EDGE_RATE=0.1
 ENCODER_LR_RATE=0.1
-ENC_N_HID=8
 N_EDGE_TYPES=2
 
 PICKUP_DATA_PATH=full_manhattan/full_year_full_manhattan_2d.npy
 WEATHER_DATA_PATH=LGA_weather_full_2019.csv
 
 
-python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/gru_2d_${EPOCHS}e${KL_CYC}c_small \
+ENC_N_HID=96
+python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/cnn_hid${ENC_N_HID}_init_no_anneal_weight_decay${WEIGHT_DECAY} \
                         --epochs ${EPOCHS} \
-                        --kl_cyc ${KL_CYC} \
-                        --encoder_type gru \
+                        --encoder_type cnn \
                         --loss_type nll \
                         --cuda_device ${CUDA_DEVICE} \
                         --pickup_data_name  ${PICKUP_DATA_PATH}\
@@ -45,3 +44,6 @@ python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/gru_2d_${EPOCHS}e${KL_CYC
                         --encoder_lr_frac ${ENCODER_LR_RATE} \
                         --n_edge_types ${N_EDGE_TYPES} \
                         --enc_n_hid ${ENC_N_HID} \
+			--gumbel_hard \
+			--init_weights \
+			--weight_decay ${WEIGHT_DECAY}
