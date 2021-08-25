@@ -28,26 +28,8 @@ N_EDGE_TYPES=2
 PICKUP_DATA_PATH=full_manhattan/full_year_full_manhattan_2d.npy
 WEATHER_DATA_PATH=LGA_weather_full_2019.csv
 
-#ENC_N_HID=32
-#python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/cnn_hid${ENC_N_HID}_no_init \
-#                        --epochs ${EPOCHS} \
-#                        --kl_cyc ${KL_CYC} \
-#                        --encoder_type cnn \
-#                        --loss_type nll \
-#                        --cuda_device ${CUDA_DEVICE} \
-#                        --pickup_data_name  ${PICKUP_DATA_PATH}\
-#                        --weather_data_name ${WEATHER_DATA_PATH} \
-#                        --batch_size ${BATCH_SIZE} \
-#                        --burn_in_steps ${BURN_IN_STEPS} \
-#                        --split_len ${SPLIT_LEN} \
-#                        --edge_rate ${EDGE_RATE} \
-#                        --encoder_lr_frac ${ENCODER_LR_RATE} \
-#                        --n_edge_types ${N_EDGE_TYPES} \
-#                        --enc_n_hid ${ENC_N_HID} \
-#			--gumbel_hard
-
 ENC_N_HID=32
-python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/cnn_hid${ENC_N_HID}_init_no_anneal \
+python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/cnn_hid${ENC_N_HID}_no_init_no_anneal \
                         --epochs ${EPOCHS} \
                         --encoder_type cnn \
                         --loss_type nll \
@@ -61,5 +43,22 @@ python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/cnn_hid${ENC_N_HID}_init_
                         --encoder_lr_frac ${ENCODER_LR_RATE} \
                         --n_edge_types ${N_EDGE_TYPES} \
                         --enc_n_hid ${ENC_N_HID} \
-			--gumbel_hard \
-			--init_weights
+			--gumbel_hard
+
+#ENC_N_HID=32
+#python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/cnn_hid${ENC_N_HID}_init_no_anneal \
+#                        --epochs ${EPOCHS} \
+#                        --encoder_type cnn \
+#                        --loss_type nll \
+#                        --cuda_device ${CUDA_DEVICE} \
+#                        --pickup_data_name  ${PICKUP_DATA_PATH}\
+#                        --weather_data_name ${WEATHER_DATA_PATH} \
+#                        --batch_size ${BATCH_SIZE} \
+#                        --burn_in_steps ${BURN_IN_STEPS} \
+#                        --split_len ${SPLIT_LEN} \
+#                        --edge_rate ${EDGE_RATE} \
+#                        --encoder_lr_frac ${ENCODER_LR_RATE} \
+#                        --n_edge_types ${N_EDGE_TYPES} \
+#                        --enc_n_hid ${ENC_N_HID} \
+#			--gumbel_hard \
+#			--init_weights
