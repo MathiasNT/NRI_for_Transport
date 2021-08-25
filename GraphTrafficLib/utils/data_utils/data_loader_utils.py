@@ -219,6 +219,7 @@ def create_dataloaders(
         train_max = demand_tensor[: int(train_frac * len(demand_tensor))].amax(
             dim=(0, 1)
         )
+        weather_train_max = weather_tensor[: int(train_frac * len(weather_tensor))].amax(dim=0)
 
     if fixed_min is not None:
         train_min = fixed_min
@@ -226,10 +227,12 @@ def create_dataloaders(
         train_min = demand_tensor[: int(train_frac * len(demand_tensor))].amin(
             dim=(0, 1)
         )
+        weather_train_min = weather_tensor[: int(train_frac * len(weather_tensor))].amin(dim=0)
 
     if normalize:
         # demand_tensor = (demand_tensor - train_min) * 2 / (train_max - train_min) - 1  // between -1 and 1
         demand_tensor = (demand_tensor - train_min) / (train_max - train_min)
+        weather_tensor = (weather_tensor - weather_train_min) / (weather_train_max - weather_train_min)
 
     splits = []
     weather_splits = []
