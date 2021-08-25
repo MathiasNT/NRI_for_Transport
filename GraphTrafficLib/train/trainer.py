@@ -30,6 +30,7 @@ from ..models.latent_graph import (
     FixedEncoder,
     RecurrentEncoder,
     DynamicGRUDecoder_multistep,
+    MLPEncoder_weather
 )
 
 
@@ -73,7 +74,8 @@ class Trainer:
         gumbel_tau=0.5,
         gumbel_hard=True,
         gumbel_anneal=None,
-        weight_decay=0
+        weight_decay=0,
+        use_weather=False
     ):
 
         # Training settings
@@ -130,6 +132,7 @@ class Trainer:
         self.kl_cyc = kl_cyc
         self.loss_type = loss_type
         self.edge_rate = edge_rate
+        self.use_weather = use_weather
 
         # Net sizes
         self.encoder_type = encoder_type
@@ -195,7 +198,8 @@ class Trainer:
             "gumbel_tau": self.gumbel_tau,
             "gumbel_hard": self.gumbel_hard,
             "gumbel_anneal": self.gumbel_anneal,
-            "weight_decay": self.weight_decay
+            "weight_decay": self.weight_decay,
+            "use_weather": self.use_weather
         }
 
         # Save all parameters to txt file and add to tensorboard
@@ -237,7 +241,7 @@ class Trainer:
         weather_df = pd.read_csv(weather_data_path, parse_dates=[0, 7])
         # temp fix for na temp
         weather_df.loc[weather_df.temperature.isna(), "temperature"] = 0
-        sum(weather_df.temperature.isna())
+        assert sum(weather_df.temperature.isna()) == 0
         # Create weather vector
         weather_vector = weather_df.loc[:, ("temperature", "precipDepth")].values
         weather_tensor = torch.Tensor(weather_vector)
@@ -274,35 +278,51 @@ class Trainer:
     def _init_model(self):
 
         if self.encoder_type == "mlp":
-            self.encoder = MLPEncoder(
-                n_in=self.enc_n_in,
-                n_hid=self.enc_n_hid,
-                n_out=self.n_edge_types,
-                do_prob=self.dropout_p,
-                factor=self.encoder_factor,
-                use_bn=self.use_bn,  # TODO not checked
-            ).cuda()
+            if self.use_weather:
+                self.encoder = MLPEncoder_weather(
+                    n_in=self.enc_n_in,
+                    n_hid=self.enc_n_hid,
+                    n_out=self.n_edge_types,
+                    do_prob=self.dropout_p,
+                    factor=self.encoder_factor,
+                    use_bn=self.use_bn,  # TODO not checked
+                ).cuda()
+            else:
+                self.encoder = MLPEncoder(
+                    n_in=self.enc_n_in,
+                    n_hid=self.enc_n_hid,
+                    n_out=self.n_edge_types,
+                    do_prob=self.dropout_p,
+                    factor=self.encoder_factor,
+                    use_bn=self.use_bn,  # TODO not checked
+                ).cuda()
         elif self.encoder_type == "cnn":
-            self.encoder = CNNEncoder(
-                n_in=self.enc_n_in,
-                n_hid=self.enc_n_hid,
-                n_out=self.n_edge_types,
-                do_prob=self.dropout_p,
-                factor=self.encoder_factor,
-                use_bn=self.use_bn,
-                init_weights=self.init_weights
-            ).cuda()
+            if self.use_weather:
+                raise NotImplementedError
+            else:
+                self.encoder = CNNEncoder(
+                    n_in=self.enc_n_in,
+                    n_hid=self.enc_n_hid,
+                    n_out=self.n_edge_types,
+                    do_prob=self.dropout_p,
+                    factor=self.encoder_factor,
+                    use_bn=self.use_bn,
+                    init_weights=self.init_weights
+                ).cuda()
         elif self.encoder_type == "gru" or self.encoder_type == "lstm":
-            self.encoder = RecurrentEncoder(
-                n_in=self.enc_n_in,
-                n_hid=self.enc_n_hid,
-                n_out=self.n_edge_types,
-                rnn_hid=self.rnn_enc_n_hid,
-                do_prob=self.dropout_p,
-                factor=self.encoder_factor,
-                rnn_type=self.encoder_type,
-                use_bn=self.use_bn,
-            ).cuda()
+            if self.use_weather:
+                raise NotImplementedError
+            else:
+                self.encoder = RecurrentEncoder(
+                    n_in=self.enc_n_in,
+                    n_hid=self.enc_n_hid,
+                    n_out=self.n_edge_types,
+                    rnn_hid=self.rnn_enc_n_hid,
+                    do_prob=self.dropout_p,
+                    factor=self.encoder_factor,
+                    rnn_type=self.encoder_type,
+                    use_bn=self.use_bn,
+                ).cuda()
         elif self.encoder_type == "fixed":
             self.encoder = FixedEncoder(adj_matrix=self.fixed_adj_matrix)
 
@@ -427,6 +447,7 @@ class Trainer:
                     n_nodes=n_nodes,
                     gumbel_tau=self.gumbel_curr_tau,
                     gumbel_hard=self.gumbel_hard,
+                    use_weather=self.use_weather
                 )
 
             self.lr_scheduler.step()
@@ -467,6 +488,7 @@ class Trainer:
                         log_prior=self.log_prior,
                         pred_steps=self.pred_steps,
                         n_nodes=n_nodes,
+                        use_weather=self.use_weather
                     )
                     self._save_graph_examples(epoch) # Double check placement
                 self.writer.add_scalar("Val/MSE", val_mse, epoch)
@@ -521,9 +543,13 @@ class Trainer:
     def _save_graph_examples(self, epoch):
         with torch.no_grad():
             # Calc edge probs
-            _, (val_batch, _) = next(enumerate(self.val_dataloader))
+            _, (val_batch, weather) = next(enumerate(self.val_dataloader))
             batch_subset = val_batch[:10].cuda()
-            logits = self.encoder(batch_subset, self.rel_rec, self.rel_send)
+            if self.use_weather:
+                weather_subset = weather[:10].cuda()
+                logits = self.encoder(batch_subset, weather_subset, self.rel_rec, self.rel_send)
+            else:
+                logits = self.encoder(batch_subset, self.rel_rec, self.rel_send)
             edge_probs = F.softmax(logits, dim=-1)
             
             # Create matrices

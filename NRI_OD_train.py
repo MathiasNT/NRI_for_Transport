@@ -102,9 +102,6 @@ if __name__ == "__main__":
         "--dec_gru_hid", help="Hidden size of the recurrent state of the decoder",
         type=int, default=8
     )
-    
-
-
     parser.add_argument(
         "--fixed_adj_matrix_path",
         help="Path to fixed adjacancy matrix for fixed encoder",
@@ -134,6 +131,7 @@ if __name__ == "__main__":
         help="The overall split len (burn_in_steps + pred_steps = split_len)",
         required=True,
     )
+    parser.add_argument("--use_weather", action="store_true", default=False, help="Whether to include weather in the encoder")
 
     args = parser.parse_args()
 
@@ -197,7 +195,8 @@ if __name__ == "__main__":
         gumbel_tau=args.gumbel_tau,
         gumbel_hard=args.gumbel_hard,
         gumbel_anneal=args.gumbel_anneal,
-        weight_decay=args.weight_decay
+        weight_decay=args.weight_decay,
+        use_weather=args.use_weather
     )
 
     print("Initialized")

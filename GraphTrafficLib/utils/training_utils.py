@@ -42,7 +42,8 @@ def train(
     skip_first,
     n_nodes,
     gumbel_tau,
-    gumbel_hard
+    gumbel_hard,
+    use_weather
 ):
     nll_train = []
     kl_train = []
@@ -52,12 +53,16 @@ def train(
     encoder.train()
     decoder.train()
 
-    for _, (data, _) in enumerate(tqdm(train_dataloader, desc="Training", leave=False)):
+    for _, (data, weather) in enumerate(tqdm(train_dataloader, desc="Training", leave=False)):
         optimizer.zero_grad()
 
         data = data.cuda()
 
-        logits = encoder(data, rel_rec, rel_send)
+        if use_weather:
+            weather = weather.cuda()
+            logits = encoder(data, weather, rel_rec, rel_send)
+        else:
+            logits = encoder(data, rel_rec, rel_send)
         edges = F.gumbel_softmax(logits, tau=gumbel_tau, hard=gumbel_hard)  # RelaxedOneHotCategorical
         edge_probs = F.softmax(logits, dim=-1)
         
@@ -114,6 +119,7 @@ def val(
     log_prior,
     pred_steps,
     n_nodes,
+    use_weather
 ):
     nll_val = []
     kl_val = []
@@ -123,12 +129,17 @@ def val(
     encoder.eval()
     decoder.eval()
 
-    for _, (data, _) in enumerate(tqdm(val_dataloader, desc="Validation", leave=False)):
+    for _, (data, weather) in enumerate(tqdm(val_dataloader, desc="Validation", leave=False)):
         optimizer.zero_grad()
         with torch.no_grad():
             data = data.cuda()
 
-            logits = encoder(data, rel_rec, rel_send)
+            if use_weather:
+                weather = weather.cuda()
+                logits = encoder(data, weather, rel_rec, rel_send)
+            else:
+                logits = encoder(data, rel_rec, rel_send)
+
             edges = F.gumbel_softmax(logits, tau=0.01, hard=True)
             edge_probs = F.softmax(logits, dim=-1)
             mean_edge_prob.append(edge_probs.mean(dim=(1, 0)).tolist())
