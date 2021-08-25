@@ -66,15 +66,27 @@ def train(
         edges = F.gumbel_softmax(logits, tau=gumbel_tau, hard=gumbel_hard)  # RelaxedOneHotCategorical
         edge_probs = F.softmax(logits, dim=-1)
         
-        pred_arr = decoder(
-            data.transpose(1, 2),
-            rel_rec,
-            rel_send,
-            edges,
-            burn_in=burn_in,
-            burn_in_steps=burn_in_steps,
-            split_len=split_len,
-        )
+        if use_weather:
+            pred_arr = decoder(
+                data.transpose(1, 2),
+                weather,
+                rel_rec,
+                rel_send,
+                edges,
+                burn_in=burn_in,
+                burn_in_steps=burn_in_steps,
+                split_len=split_len,
+            )
+        else:
+            pred_arr = decoder(
+                data.transpose(1, 2),
+                rel_rec,
+                rel_send,
+                edges,
+                burn_in=burn_in,
+                burn_in_steps=burn_in_steps,
+                split_len=split_len,
+            )
         pred = pred_arr.transpose(1, 2)[:, :, -pred_steps:, :]  # TODO .contiguous?
         target = data[:, :, -pred_steps:, :]
 
@@ -144,15 +156,27 @@ def val(
             edge_probs = F.softmax(logits, dim=-1)
             mean_edge_prob.append(edge_probs.mean(dim=(1, 0)).tolist())
 
-            pred_arr = decoder(
-                data.transpose(1, 2),
-                rel_rec,
-                rel_send,
-                edges,
-                burn_in=burn_in,
-                burn_in_steps=burn_in_steps,
-                split_len=split_len,
-            )
+            if use_weather:
+                pred_arr = decoder(
+                    data.transpose(1, 2),
+                    weather,
+                    rel_rec,
+                    rel_send,
+                    edges,
+                    burn_in=burn_in,
+                    burn_in_steps=burn_in_steps,
+                    split_len=split_len,
+                )
+            else:
+                pred_arr = decoder(
+                    data.transpose(1, 2),
+                    rel_rec,
+                    rel_send,
+                    edges,
+                    burn_in=burn_in,
+                    burn_in_steps=burn_in_steps,
+                    split_len=split_len,
+                )
             pred = pred_arr.transpose(1, 2)[:, :, -pred_steps: ,:]
             target = data[:, :, -pred_steps:, :]
 

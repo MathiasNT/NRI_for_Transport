@@ -30,7 +30,8 @@ from ..models.latent_graph import (
     FixedEncoder,
     RecurrentEncoder,
     DynamicGRUDecoder_multistep,
-    MLPEncoder_weather
+    MLPEncoder_weather,
+    GRUDecoder_multistep_weather
 )
 
 
@@ -327,23 +328,36 @@ class Trainer:
             self.encoder = FixedEncoder(adj_matrix=self.fixed_adj_matrix)
 
         if self.encoder_type in ["gru", "lstm"]:
-            self.decoder = DynamicGRUDecoder_multistep(
-                n_hid=self.dec_n_hid,
-                f_in=self.node_f_dim,
-                msg_hid=self.dec_msg_hid,
-                gru_hid=self.dec_gru_hid,
-                edge_types=self.n_edge_types,
-                skip_first=self.skip_first,
-            ).cuda()
+            if self.use_weather:
+                raise NotImplementedError
+            else:
+                self.decoder = DynamicGRUDecoder_multistep(
+                    n_hid=self.dec_n_hid,
+                    f_in=self.node_f_dim,
+                    msg_hid=self.dec_msg_hid,
+                    gru_hid=self.dec_gru_hid,
+                    edge_types=self.n_edge_types,
+                    skip_first=self.skip_first,
+                ).cuda()
         else:
-            self.decoder = GRUDecoder_multistep(
-                n_hid=self.dec_n_hid,
-                f_in=self.node_f_dim,
-                msg_hid=self.dec_msg_hid,
-                gru_hid=self.dec_gru_hid,
-                edge_types=self.n_edge_types,
-                skip_first=self.skip_first,
-            ).cuda()
+            if self.use_weather:
+                self.decoder = GRUDecoder_multistep_weather(
+                    n_hid=self.dec_n_hid,
+                    f_in=self.node_f_dim,
+                    msg_hid=self.dec_msg_hid,
+                    gru_hid=self.dec_gru_hid,
+                    edge_types=self.n_edge_types,
+                    skip_first=self.skip_first,
+                ).cuda()
+            else:
+                self.decoder = GRUDecoder_multistep(
+                    n_hid=self.dec_n_hid,
+                    f_in=self.node_f_dim,
+                    msg_hid=self.dec_msg_hid,
+                    gru_hid=self.dec_gru_hid,
+                    edge_types=self.n_edge_types,
+                    skip_first=self.skip_first,
+                ).cuda()
 
         self.model_params = [
             {
