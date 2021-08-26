@@ -124,3 +124,19 @@ class MLPEncoder_weather(nn.Module):
         x = self.fc(x)
 
         return x
+
+class FixedEncoder_weather(nn.Module):
+    def __init__(self, adj_matrix):
+        super().__init__()
+        self.adj_matrix = torch.nn.Parameter(adj_matrix, requires_grad=False)
+
+    def forward(self, inputs, weather, rel_rec, rel_send):
+        edge_types = torch.zeros(rel_rec.shape[0], device=inputs.device)
+        for edge_idx in range(rel_rec.shape[0]):
+            rec_idx = torch.where(rel_rec[edge_idx])
+            send_idx = torch.where(rel_send[edge_idx])
+            if self.adj_matrix[send_idx, rec_idx]:
+                edge_types[edge_idx] = 1
+        edge_types = F.one_hot(edge_types.long())
+        edge_types = edge_types.unsqueeze(0).repeat(inputs.shape[0], 1, 1)
+        return edge_types.float()
