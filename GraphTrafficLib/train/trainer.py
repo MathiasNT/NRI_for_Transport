@@ -31,7 +31,8 @@ from ..models.latent_graph import (
     RecurrentEncoder,
     DynamicGRUDecoder_multistep,
     MLPEncoder_weather,
-    GRUDecoder_multistep_weather
+    GRUDecoder_multistep_weather,
+    FixedEncoder_weather
 )
 
 
@@ -325,7 +326,10 @@ class Trainer:
                     use_bn=self.use_bn,
                 ).cuda()
         elif self.encoder_type == "fixed":
-            self.encoder = FixedEncoder(adj_matrix=self.fixed_adj_matrix)
+            if self.use_weather:
+                self.encoder = FixedEncoder_weather(adj_matrix=self.fixed_adj_matrix)
+            else:
+                self.encoder = FixedEncoder(adj_matrix=self.fixed_adj_matrix)
 
         if self.encoder_type in ["gru", "lstm"]:
             if self.use_weather:
