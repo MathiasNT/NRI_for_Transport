@@ -18,7 +18,7 @@ mkdir "../models/${EXP_NAME}"
 EPOCHS=300
 KL_CYC=50
 CUDA_DEVICE=0
-BATCH_SIZE=250
+BATCH_SIZE=200
 BURN_IN_STEPS=30
 SPLIT_LEN=40
 EDGE_RATE=0.1
@@ -34,10 +34,11 @@ WEATHER_DATA_PATH=LGA_weather_full_2019.csv
 
 
 GUMBEL_TAU=0.5
-python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_hard_${GUMBEL_TAU}tau_no_anneal \
+python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/MLP_hard_${GUMBEL_TAU}tau \
                         --epochs ${EPOCHS} \
                         --encoder_type mlp \
                         --loss_type nll \
+			--kl_cyc ${KL_CYC} \
                         --cuda_device ${CUDA_DEVICE} \
                         --pickup_data_name  ${PICKUP_DATA_PATH}\
                         --weather_data_name ${WEATHER_DATA_PATH} \
