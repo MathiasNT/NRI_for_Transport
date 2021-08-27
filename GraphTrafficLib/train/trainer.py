@@ -32,7 +32,8 @@ from ..models.latent_graph import (
     DynamicGRUDecoder_multistep,
     MLPEncoder_weather,
     GRUDecoder_multistep_weather,
-    FixedEncoder_weather
+    FixedEncoder_weather,
+    CNNEncoder_weather
 )
 
 
@@ -300,7 +301,15 @@ class Trainer:
                 ).cuda()
         elif self.encoder_type == "cnn":
             if self.use_weather:
-                raise NotImplementedError
+                self.encoder = CNNEncoder_weather(
+                    n_in=self.enc_n_in,
+                    n_hid=self.enc_n_hid,
+                    n_out=self.n_edge_types,
+                    do_prob=self.dropout_p,
+                    factor=self.encoder_factor,
+                    use_bn=self.use_bn,
+                    init_weights=self.init_weights
+                ).cuda()
             else:
                 self.encoder = CNNEncoder(
                     n_in=self.enc_n_in,

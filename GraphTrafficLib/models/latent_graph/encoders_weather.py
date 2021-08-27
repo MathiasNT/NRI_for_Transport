@@ -125,6 +125,89 @@ class MLPEncoder_weather(nn.Module):
 
         return x
 
+class CNNEncoder_weather(nn.Module):
+    def __init__(self, n_in, n_hid, n_out, do_prob=0.0, factor=True, use_bn=True, init_weights=False):
+        super().__init__()
+        self.dropout_prob = do_prob
+
+        self.factor = factor
+
+        self.cnn = CNN(n_in * 2, n_hid, n_hid, do_prob, init_weights)
+        self.weather_cnn = CNN(n_in, n_hid, n_hid, do_prob, init_weights)
+        self.mlp1 = MLP(n_hid*2, n_hid, n_hid, do_prob, use_bn=use_bn)
+        self.mlp2 = MLP(n_hid*2, n_hid, n_hid, do_prob, use_bn=use_bn)
+        self.mlp3 = MLP(n_hid * 3, n_hid, n_hid, do_prob, use_bn=use_bn)
+        self.fc_out = nn.Linear(n_hid, n_out)
+
+        if self.factor:
+            print("Using factor graph CNN encoder")
+        else:
+            print("Using CNN encoder")
+
+    def node2edge_temporal(self, inputs, rel_rec, rel_send):
+        """This function makes a matrix of "stacked timeseries" of the sender and receiver nodes"""
+        # TODO look into if there is a way to not assume the same graph across all samples
+        # Input has shape [B, N, T, F]
+
+        x = inputs.view(inputs.size(0), inputs.size(1), -1)  # [B, N, T*F]
+
+        receivers = torch.matmul(rel_rec, x)
+        receivers = receivers.view(
+            inputs.size(0) * receivers.size(1), inputs.size(2), inputs.size(3)
+        )
+        receivers = receivers.transpose(2, 1)
+
+        senders = torch.matmul(rel_send, x)
+        senders = senders.view(
+            inputs.size(0) * senders.size(1), inputs.size(2), inputs.size(3)
+        )
+        senders = senders.transpose(2, 1)
+
+        edges = torch.cat([senders, receivers], dim=1)
+        return edges
+
+    def edge2node(self, x, rel_rec):
+        """This function makes the aggregation over the incomming edge embeddings"""
+        incoming = torch.matmul(rel_rec.t(), x)  # Corresponds to a sum aggregation
+        return incoming / incoming.size(1)
+
+    def node2edge(self, x, rel_rec, rel_send):
+        """This function makes a matrix of [node_i, node_j] rows for the edge embeddings"""
+        receivers = torch.matmul(rel_rec, x)
+        senders = torch.matmul(rel_send, x)
+        edges = torch.cat(
+            [senders, receivers], dim=-1
+        )  # TODO double check dim - pretty sure it is right, could do -1 instead
+        return edges
+
+    def forward(self, inputs, weather, rel_rec, rel_send):
+        # Input [B, N, T, F]
+        edges = self.node2edge_temporal(inputs, rel_rec, rel_send)  # [B*E, 2F, T]
+        x = self.cnn(edges)  # [B*E, F']
+        x = x.view(
+            inputs.size(0), inputs.size(1) * (inputs.size(1) - 1), -1
+        )  # [B, E, F']
+        weather = weather.permute(0, 2, 1)
+        w = self.weather_cnn(weather).unsqueeze(1)
+        w_edge = w.repeat(1, x.size(1), 1)
+        x = torch.cat([x, w_edge], dim=-1)
+
+        x = self.mlp1(x)
+        x_skip = x
+
+        if self.factor:
+            x = self.edge2node(x, rel_rec)  # [B, N, F']
+            w_node = w.repeat(1, x.size(1), 1)
+            x = torch.cat([x,w_node], dim=-1)
+            x = self.mlp2(x)
+
+            x = self.node2edge(x, rel_rec, rel_send)  # [B, E, 2F']
+            x = torch.cat((x, x_skip), dim=2)  # [B, E, 3F']
+            x = self.mlp3(x)  # [B, E, F']
+
+        return self.fc_out(x)
+
+
 class FixedEncoder_weather(nn.Module):
     def __init__(self, adj_matrix):
         super().__init__()
