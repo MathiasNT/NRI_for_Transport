@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from torchvision.utils import make_grid
 import matplotlib.pyplot as plt
 
-from ..utils.data_utils import create_dataloaders
+from ..utils.data_utils import create_dataloaders, create_dataloaders_bike
 from ..utils import encode_onehot
 from ..utils import val, train, dnri_train, dnri_val, gumbel_tau_scheduler
 from ..utils.losses import torch_nll_gaussian, kl_categorical, cyc_anneal
@@ -265,8 +265,10 @@ class Trainer:
             train_frac=self.train_frac,
         )
 
-        min_date = pd.Timestamp(year=2019, month=1, day=1)
-        max_date = pd.Timestamp(year=2019 + 1, month=1, day=1)
+        self.data_type = "taxi"
+
+        #min_date = pd.Timestamp(year=2019, month=1, day=1)
+        #max_date = pd.Timestamp(year=2019 + 1, month=1, day=1)
 
         # # Note that this misses a bit from the beginning but this will not be a big problem when we index finer
         # bins_dt = pd.date_range(start=min_date, end=max_date, freq="1H")
@@ -277,6 +279,13 @@ class Trainer:
 
         # # print(f"train_dates len: {len(self.train_dates)}")
         # # print(f"test_dates len: {len(self.test_dates)}")
+
+    def load_data_bike(self, bike_folder_path):
+        x_data = torch.load(f'{bike_folder_path}/nyc_bike_cgc_x_standardised')
+        y_data = torch.load(f'{bike_folder_path}/nyc_bike_cgc_y_standardised')
+        (self.train_dataloader, self.val_dataloader, _, self.mean, self.std) = create_dataloaders_bike(x_data=x_data, y_data=y_data, batch_size=self.batch_size)
+        
+        self.data_type = "bike"
 
     def _init_model(self):
 
@@ -456,7 +465,7 @@ class Trainer:
                 )
                 mean_edge_prob = np.mean(mean_edge_prob, 0)
             else:
-                train_mse, train_nll, train_kl, mean_edge_prob = train(
+                train_mse, train_rmse, train_nll, train_kl, mean_edge_prob = train(
                     encoder=self.encoder,
                     decoder=self.decoder,
                     train_dataloader=self.train_dataloader,
@@ -478,6 +487,7 @@ class Trainer:
                 )
 
             self.lr_scheduler.step()
+
             self.writer.add_scalar("Train/MSE", train_mse, epoch)
             self.writer.add_scalar("Train/NLL", train_nll, epoch)
             self.writer.add_scalar("Train/KL", train_kl, epoch)
@@ -485,6 +495,8 @@ class Trainer:
             self.writer.add_scalar("KL_frac", self.kl_frac, epoch)
             for i, prob in enumerate(mean_edge_prob):
                 self.writer.add_scalar(f"Mean_edge_prob/train_{i}", prob, epoch)
+            if self.data_type == "bike":
+                self.writer.add_scalar("Train/rescaled_RMSE", train_rmse * self.std, epoch)
 
             if epoch % 5 == 0:
                 if self.encoder_type in ["gru", "lstm"]:
@@ -502,7 +514,7 @@ class Trainer:
                     )
                     self._save_graph_examples_dnri(epoch) # Double check placement
                 else:
-                    val_mse, val_nll, val_kl, mean_edge_prob = val(
+                    val_mse, val_rmse, val_nll, val_kl, mean_edge_prob = val(
                         encoder=self.encoder,
                         decoder=self.decoder,
                         val_dataloader=self.val_dataloader,
@@ -523,6 +535,8 @@ class Trainer:
                 self.writer.add_scalar("Val/KL", val_kl, epoch)
                 for i, prob in enumerate(mean_edge_prob):
                     self.writer.add_scalar(f"Mean_edge_prob/val_{i}", prob, epoch)
+                if self.data_type == "bike":
+                    self.writer.add_scalar("Val/rescaled_RMSE", val_rmse * self.std, epoch)
 
 
 

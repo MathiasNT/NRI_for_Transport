@@ -38,7 +38,7 @@ if __name__ == "__main__":
         "--dropoff_data_name", help="path from datafolder to dropoffdata"
     )
     parser.add_argument(
-        "--weather_data_name", help="path from datafolder to weaher data", required=True
+        "--weather_data_name", help="path from datafolder to weaher data"
     )
 
     # General args
@@ -202,11 +202,16 @@ if __name__ == "__main__":
     print("Initialized")
 
     print(f"Loading data at {pickup_data_path}")
-    trainer.load_data(
-        data_path=pickup_data_path,
-        dropoff_data_path=dropoff_data_path,
-        weather_data_path=weather_data_path,
-    )
+    if args.pickup_data_name.split('_')[0] == 'taxi':
+        trainer.load_data(
+            data_path=pickup_data_path,
+            dropoff_data_path=dropoff_data_path,
+            weather_data_path=weather_data_path,
+        )
+    elif args.pickup_data_name.split('_')[0] == 'bike':
+        trainer.load_data_bike(bike_folder_path=pickup_data_path)
+    else:
+        raise NameError("data path is neither bike or taxi")
     print("Data loaded")
     trainer.train()
     print("Training")

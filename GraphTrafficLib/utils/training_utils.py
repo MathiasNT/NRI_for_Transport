@@ -45,9 +45,11 @@ def train(
     gumbel_hard,
     use_weather
 ):
-    nll_train = []
-    kl_train = []
-    mse_train = []
+    nll = 0
+    kl = 0
+    mse = 0
+    rmse = 0
+    steps = 0
     mean_edge_prob_train = []
 
     encoder.train()
@@ -55,7 +57,7 @@ def train(
 
     for _, (data, weather) in enumerate(tqdm(train_dataloader, desc="Training", leave=False)):
         optimizer.zero_grad()
-
+        steps += len(data)
         data = data.cuda()
 
         if use_weather:
@@ -106,16 +108,23 @@ def train(
         loss.backward()
         optimizer.step()
 
-        nll_train.append(loss_nll.item())
-        kl_train.append(loss_kl.item())
-        mse_train.append(F.mse_loss(pred, target).item())
+        nll += loss_nll.item() * len(data)
+        kl += loss_kl.item() * len(data)
+        
+        mse_batch = F.mse_loss(pred,target).item()
+        mse += mse_batch * len(data)
+        rmse += mse_batch ** 0.5 * len(data)
+
         mean_edge_prob_train.append(edge_probs.mean(dim=(1, 0)).tolist())
 
-    mse = np.mean(mse_train)
-    nll = np.mean(nll_train)
-    kl = np.mean(kl_train)
+
+    mse = mse / steps
+    kl = kl / steps
+    nll = nll /steps
+    rmse = rmse / steps
+    
     mean_edge_prob = np.mean(np.array(mean_edge_prob_train), 0)
-    return mse, nll, kl, mean_edge_prob
+    return mse, rmse, nll, kl, mean_edge_prob
 
 
 def val(
@@ -133,9 +142,11 @@ def val(
     n_nodes,
     use_weather
 ):
-    nll_val = []
-    kl_val = []
-    mse_val = []
+    nll = 0
+    kl = 0
+    mse = 0
+    rmse = 0
+    steps = 0
     mean_edge_prob = []
 
     encoder.eval()
@@ -145,6 +156,7 @@ def val(
         optimizer.zero_grad()
         with torch.no_grad():
             data = data.cuda()
+            steps += len(data)
 
             if use_weather:
                 weather = weather.cuda()
@@ -184,14 +196,18 @@ def val(
             loss_kl = kl_categorical(
                 preds=edge_probs, log_prior=log_prior, num_atoms=n_nodes
             )  # Here I chose theirs since my implementation runs out of RAM :(
-        nll_val.append(loss_nll.item())
-        kl_val.append(loss_kl.item())
-        mse_val.append(F.mse_loss(pred, target).item())
-    mse = np.mean(mse_val)
-    nll = np.mean(nll_val)
-    kl = np.mean(kl_val)
+        nll += loss_nll.item() * len(data)
+        kl += loss_kl.item() * len(data)
+        
+        mse_batch = F.mse_loss(pred,target).item()
+        mse += mse_batch * len(data)
+        rmse += mse_batch ** 0.5 * len(data)
+    mse = mse / steps
+    kl = kl / steps
+    nll = nll /steps
+    rmse = rmse / steps
     mean_edge_prob = np.mean(np.array(mean_edge_prob), 0)
-    return mse, nll, kl, mean_edge_prob
+    return mse, rmse, nll, kl, mean_edge_prob
 
 
 def dnri_train(
@@ -213,9 +229,11 @@ def dnri_train(
     gumbel_tau,
     gumbel_hard
 ):
-    nll_train = []
-    kl_train = []
-    mse_train = []
+    nll = 0
+    kl = 0
+    mse = 0
+    rmse = 0
+    steps = 0
     mean_edge_prob = []
 
     encoder.train()
@@ -223,7 +241,7 @@ def dnri_train(
 
     for _, (data, _) in enumerate(tqdm(train_dataloader, desc="Training", leave=False)):
         optimizer.zero_grad()
-
+        steps += len(data)
         data = data.cuda()
 
         _, posterior_logits, _ = encoder(data, rel_rec, rel_send)
@@ -261,14 +279,18 @@ def dnri_train(
         loss.backward()
         optimizer.step()
 
-        nll_train.append(loss_nll.item())
-        kl_train.append(loss_kl.item())
-        mse_train.append(F.mse_loss(pred, target).item())
-    mse = np.mean(mse_train)
-    nll = np.mean(nll_train)
-    kl = np.mean(kl_train)
+        nll += loss_nll.item() * len(data)
+        kl += loss_kl.item() * len(data)
+        
+        mse_batch = F.mse_loss(pred,target).item()
+        mse += mse_batch * len(data)
+        rmse += mse_batch ** 0.5 * len(data)
+    mse = mse / steps
+    kl = kl / steps
+    nll = nll /steps
+    rmse = rmse / steps
     mean_edge_prob = np.mean(np.array(mean_edge_prob), 0)
-    return mse, nll, kl, mean_edge_prob
+    return mse, rmse, nll, kl, mean_edge_prob
 
 
 def dnri_val(
@@ -283,9 +305,11 @@ def dnri_val(
     log_prior,
     n_nodes,
 ):
-    nll_val = []
-    kl_val = []
-    mse_val = []
+    nll = 0
+    kl = 0
+    mse = 0
+    rmse = 0
+    steps = 0
     mean_edge_prob = []
 
     encoder.eval()
@@ -294,6 +318,7 @@ def dnri_val(
     for _, (data, _) in enumerate(tqdm(val_dataloader, desc="Validation", leave=False)):
         temp_mean_edge_probs = []
         with torch.no_grad():
+            steps += len(data)
             data = data.cuda()
             target = data[:, :, 1:, :]
 
@@ -368,13 +393,18 @@ def dnri_val(
             loss_kl = kl_categorical(
                 preds=edge_probs, log_prior=log_prior, num_atoms=n_nodes
             )  # Here I chose theirs since my implementation runs out of RAM :(
-        nll_val.append(loss_nll.item())
-        kl_val.append(loss_kl.item())
-        mse_val.append(F.mse_loss(pred, target).item())
-        mse = np.mean(mse_val)
-        nll = np.mean(nll_val)
-        kl = np.mean(kl_val)
-    return mse, nll, kl
+        nll += loss_nll.item() * len(data)
+        kl += loss_kl.item() * len(data)
+        
+        mse_batch = F.mse_loss(pred,target).item()
+        mse += mse_batch * len(data)
+        rmse += mse_batch ** 0.5 * len(data)
+
+    mse = mse / steps
+    kl = kl / steps
+    nll = nll /steps
+    rmse = rmse / steps
+    return mse, rmse, nll, kl
 
 
 def train_lstm(model, train_dataloader, optimizer, burn_in, burn_in_steps, split_len):

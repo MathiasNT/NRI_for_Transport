@@ -4,7 +4,7 @@ Dataloader stuff
 from torch.utils.data import DataLoader
 import torch
 from .Nyc_w_Weather import Nyc_w_Weather, Nyc_w_Weather2, Nyc_no_Weather2
-from torch.utils.data.dataset import TensorDataset
+from torch.utils.data.dataset import TensorDataset, Dataset
 
 
 # def create_test_train_split(
@@ -339,3 +339,28 @@ def renormalize_data(data, data_min, data_max, new_way=True):
         return data * (data_max - data_min) + data_min
     else:
         return (data + 1) * (data_max - data_min) / 2 + data_min
+
+def create_dataloaders_bike(
+    x_data,
+    y_data,
+    batch_size,
+): 
+    full_data = torch.cat([x_data, y_data], dim=1)
+    full_data = full_data.permute(0,2,1,3)
+    train_data = full_data[:3001,:,:]
+    val_data = full_data[3001:-672,:,:]
+    test_data = full_data[-672:,:,:]
+    
+    # packing on dummy weather to make the data fit rest of code
+    train_dataset = TensorDataset(train_data, torch.zeros_like(train_data))
+    val_dataset = TensorDataset(val_data, torch.zeros_like(val_data))
+    test_dataset = TensorDataset(test_data, torch.zeros_like(test_data))
+
+    train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size, num_workers=4)
+    val_dataloader = DataLoader(val_dataset, shuffle=True, batch_size=batch_size, num_workers=4)
+    test_dataloader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, num_workers=4)
+
+    # mean and std values are grabbed from https://github.com/Essaim/CGCDemandPrediction
+    mean = 2.7760608974358973
+    std = 4.010208024889097
+    return (train_dataloader, val_dataloader, test_dataloader, mean, std)
