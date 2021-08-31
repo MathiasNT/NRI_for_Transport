@@ -62,9 +62,9 @@ def train(
 
         if use_weather:
             weather = weather.cuda()
-            logits = encoder(data, weather, rel_rec, rel_send)
+            logits = encoder(data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send)
         else:
-            logits = encoder(data, rel_rec, rel_send)
+            logits = encoder(data[:, :, :burn_in_steps, :], rel_rec, rel_send)
         edges = F.gumbel_softmax(logits, tau=gumbel_tau, hard=gumbel_hard)  # RelaxedOneHotCategorical
         edge_probs = F.softmax(logits, dim=-1)
         
@@ -160,9 +160,9 @@ def val(
 
             if use_weather:
                 weather = weather.cuda()
-                logits = encoder(data, weather, rel_rec, rel_send)
+                logits = encoder(data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send)
             else:
-                logits = encoder(data, rel_rec, rel_send)
+                logits = encoder(data[:, :, :burn_in_steps, :], rel_rec, rel_send)
 
             edges = F.gumbel_softmax(logits, tau=0.01, hard=True)
             edge_probs = F.softmax(logits, dim=-1)
