@@ -1,5 +1,5 @@
 #!/bin/sh
-#BSUB -J baseline_weather_batch_size_test
+#BSUB -J mlp_bs_test
 #BSUB -q gpuv100
 #BSUB -gpu "num=1:mode=exclusive_process"
 #BSUB -n 4
@@ -8,22 +8,20 @@
 #BSUB -R "rusage[mem=40GB]"
 #BSUB -R "select[gpu32gb]"
 #BSUB -N
-#BSUB -o ../logs/%J_baseline_weather_batch_size_test.out
-#BSUB -e ../logs/%J_baseline_weather_batch_size_test.err
+#BSUB -o ../logs/%J_Output_mlp_bs_test.out
+#BSUB -e ../logs/%J_Error_mlp_bs_test.err
 
-EXP_NAME=baseline_weather_batch_size_test
+EXP_NAME=mlp_bs_test
 mkdir "../models/${EXP_NAME}"
 
 
 EPOCHS=300
 KL_CYC=50
 CUDA_DEVICE=0
-#BATCH_SIZE=200
 BURN_IN_STEPS=30
 SPLIT_LEN=40
 EDGE_RATE=0.1
-#WEIGHT_DECAY=0.005
-
+GUMBEL_TAU=0.5
 
 ENC_N_HID=128
 DEC_N_HID=16
@@ -32,19 +30,17 @@ DEC_GRU_HID=8
 
 PICKUP_DATA_PATH=full_manhattan/full_year_full_manhattan_2d.npy
 WEATHER_DATA_PATH=LGA_weather_full_2019.csv
-DTW_ADJ_PATH=full_manhattan/full_year_full_manhattan_dtw_adj_bin.npy
-LOCAL_ADJ_PATH=full_manhattan/full_year_full_manhattan_local_adj.npy
 
 
 BATCH_SIZE=50
-python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/local_bs${BATCH_SIZE} \
+python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/mlp_bs${BATCH_SIZE} \
                         --epochs ${EPOCHS} \
-                        --encoder_type fixed \
+                        --encoder_type mlp \
                         --loss_type nll \
+			--kl_cyc ${KL_CYC} \
                         --cuda_device ${CUDA_DEVICE} \
                         --pickup_data_name  ${PICKUP_DATA_PATH}\
                         --weather_data_name ${WEATHER_DATA_PATH} \
-			--fixed_adj_matrix_path ${LOCAL_ADJ_PATH} \
                         --batch_size ${BATCH_SIZE} \
                         --burn_in_steps ${BURN_IN_STEPS} \
                         --split_len ${SPLIT_LEN} \
@@ -53,17 +49,20 @@ python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/local_bs${BATCH_SIZE} \
 			--dec_n_hid ${DEC_N_HID} \
 			--dec_msg_hid ${DEC_MSG_HID} \
 			--dec_gru_hid ${DEC_GRU_HID} \
-			--use_weather \
-			
+			--gumbel_tau ${GUMBEL_TAU} \
+			--gumbel_hard \
+			--use_weather
+
+
 BATCH_SIZE=100
-python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/local_bs${BATCH_SIZE} \
+python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/mlp_bs${BATCH_SIZE} \
                         --epochs ${EPOCHS} \
-                        --encoder_type fixed \
+                        --encoder_type mlp \
                         --loss_type nll \
+			--kl_cyc ${KL_CYC} \
                         --cuda_device ${CUDA_DEVICE} \
                         --pickup_data_name  ${PICKUP_DATA_PATH}\
                         --weather_data_name ${WEATHER_DATA_PATH} \
-			--fixed_adj_matrix_path ${LOCAL_ADJ_PATH} \
                         --batch_size ${BATCH_SIZE} \
                         --burn_in_steps ${BURN_IN_STEPS} \
                         --split_len ${SPLIT_LEN} \
@@ -72,17 +71,20 @@ python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/local_bs${BATCH_SIZE} \
 			--dec_n_hid ${DEC_N_HID} \
 			--dec_msg_hid ${DEC_MSG_HID} \
 			--dec_gru_hid ${DEC_GRU_HID} \
-			--use_weather \
+			--gumbel_tau ${GUMBEL_TAU} \
+			--gumbel_hard \
+			--use_weather
+
 
 BATCH_SIZE=200
-python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/local_bs${BATCH_SIZE} \
+python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/mlp_bs${BATCH_SIZE} \
                         --epochs ${EPOCHS} \
-                        --encoder_type fixed \
+                        --encoder_type mlp \
                         --loss_type nll \
+			--kl_cyc ${KL_CYC} \
                         --cuda_device ${CUDA_DEVICE} \
                         --pickup_data_name  ${PICKUP_DATA_PATH}\
                         --weather_data_name ${WEATHER_DATA_PATH} \
-			--fixed_adj_matrix_path ${LOCAL_ADJ_PATH} \
                         --batch_size ${BATCH_SIZE} \
                         --burn_in_steps ${BURN_IN_STEPS} \
                         --split_len ${SPLIT_LEN} \
@@ -91,17 +93,20 @@ python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/local_bs${BATCH_SIZE} \
 			--dec_n_hid ${DEC_N_HID} \
 			--dec_msg_hid ${DEC_MSG_HID} \
 			--dec_gru_hid ${DEC_GRU_HID} \
-			--use_weather \
+			--gumbel_tau ${GUMBEL_TAU} \
+			--gumbel_hard \
+			--use_weather
 			
-BATCH_SIZE=600
-python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/local_bs${BATCH_SIZE} \
+
+BATCH_SIZE=400
+python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/mlp_bs${BATCH_SIZE} \
                         --epochs ${EPOCHS} \
-                        --encoder_type fixed \
+                        --encoder_type mlp \
                         --loss_type nll \
+			--kl_cyc ${KL_CYC} \
                         --cuda_device ${CUDA_DEVICE} \
                         --pickup_data_name  ${PICKUP_DATA_PATH}\
                         --weather_data_name ${WEATHER_DATA_PATH} \
-			--fixed_adj_matrix_path ${LOCAL_ADJ_PATH} \
                         --batch_size ${BATCH_SIZE} \
                         --burn_in_steps ${BURN_IN_STEPS} \
                         --split_len ${SPLIT_LEN} \
@@ -110,4 +115,6 @@ python3 NRI_OD_train.py  --experiment_name ${EXP_NAME}/local_bs${BATCH_SIZE} \
 			--dec_n_hid ${DEC_N_HID} \
 			--dec_msg_hid ${DEC_MSG_HID} \
 			--dec_gru_hid ${DEC_GRU_HID} \
-			--use_weather \
+			--gumbel_tau ${GUMBEL_TAU} \
+			--gumbel_hard \
+			--use_weather
