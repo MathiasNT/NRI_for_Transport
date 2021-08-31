@@ -127,7 +127,7 @@ class Trainer:
         self.burn_in_steps = burn_in_steps
         self.split_len = split_len
         self.pred_steps = self.split_len - self.burn_in_steps
-        self.encoder_steps = self.split_len
+        self.encoder_steps = self.burn_in_steps
         assert self.burn_in_steps + self.pred_steps == self.split_len
 
         self.burn_in = burn_in
@@ -588,9 +588,9 @@ class Trainer:
             batch_subset = val_batch[:10].cuda()
             if self.use_weather:
                 weather_subset = weather[:10].cuda()
-                logits = self.encoder(batch_subset, weather_subset, self.rel_rec, self.rel_send)
+                logits = self.encoder(batch_subset[:,:, self.burn_in_steps:, :], weather_subset, self.rel_rec, self.rel_send)
             else:
-                logits = self.encoder(batch_subset, self.rel_rec, self.rel_send)
+                logits = self.encoder(batch_subset[:,:,self.burn_in_steps:,:], self.rel_rec, self.rel_send)
             edge_probs = F.softmax(logits, dim=-1)
             
             # Create matrices
