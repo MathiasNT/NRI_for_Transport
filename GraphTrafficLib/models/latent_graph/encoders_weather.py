@@ -17,7 +17,7 @@ class MLPEncoder_weather(nn.Module):
         [description]
     """
 
-    def __init__(self, n_in, n_hid, n_out, do_prob, factor, use_bn=True):
+    def __init__(self, n_in, n_in_weather, n_hid, n_out, do_prob, factor, use_bn=True):
         super().__init__()
 
         self.factor = factor
@@ -27,7 +27,13 @@ class MLPEncoder_weather(nn.Module):
         self.mlp1 = MLP(
             n_in=n_in, n_hid=n_hid, n_out=n_hid, dropout_prob=do_prob, use_bn=use_bn
         )
-        self.weather_mlp = MLP(n_in=n_in, n_hid=n_hid, n_out=n_hid, dropout_prob=do_prob, use_bn=use_bn)
+        self.weather_mlp = MLP(
+            n_in=n_in_weather,
+            n_hid=n_hid,
+            n_out=n_hid,
+            dropout_prob=do_prob,
+            use_bn=use_bn,
+        )
         # MLP for v->e, hence input is double size
         self.mlp2 = MLP(
             n_in=n_hid * 3,
@@ -38,7 +44,11 @@ class MLPEncoder_weather(nn.Module):
         )
         # MLP for e->v, so dimensions should be straight forward
         self.mlp3 = MLP(
-            n_in=n_hid * 2, n_hid=n_hid, n_out=n_hid, dropout_prob=do_prob, use_bn=use_bn
+            n_in=n_hid * 2,
+            n_hid=n_hid,
+            n_out=n_hid,
+            dropout_prob=do_prob,
+            use_bn=use_bn,
         )
         # MLP for second v->e, so dimensions should be straight foward
 
@@ -101,14 +111,14 @@ class MLPEncoder_weather(nn.Module):
         # Create, cat weather and embed messages
         x = self.node2edge(x, rel_rec, rel_send)
         w_edge = w.repeat(1, x.size(1), 1)
-        x = torch.cat([x,w_edge], dim=-1)
+        x = torch.cat([x, w_edge], dim=-1)
         x = self.mlp2(x)
-        
+
         if self.factor:
             x_skip = x
             x = self.edge2node(x, rel_rec)
-            w_node = w.repeat(1, x.size(1), 1)            
-            x = torch.cat([x,w_node], dim=-1)
+            w_node = w.repeat(1, x.size(1), 1)
+            x = torch.cat([x, w_node], dim=-1)
             x = self.mlp3(x)
             x = self.node2edge(x, rel_rec, rel_send)
             x = torch.cat((x, x_skip), dim=-1)
@@ -125,8 +135,18 @@ class MLPEncoder_weather(nn.Module):
 
         return x
 
+
 class CNNEncoder_weather(nn.Module):
-    def __init__(self, n_in, n_hid, n_out, do_prob=0.0, factor=True, use_bn=True, init_weights=False):
+    def __init__(
+        self,
+        n_in,
+        n_hid,
+        n_out,
+        do_prob=0.0,
+        factor=True,
+        use_bn=True,
+        init_weights=False,
+    ):
         super().__init__()
         self.dropout_prob = do_prob
 
@@ -134,8 +154,8 @@ class CNNEncoder_weather(nn.Module):
 
         self.cnn = CNN(n_in * 2, n_hid, n_hid, do_prob, init_weights)
         self.weather_cnn = CNN(n_in, n_hid, n_hid, do_prob, init_weights)
-        self.mlp1 = MLP(n_hid*2, n_hid, n_hid, do_prob, use_bn=use_bn)
-        self.mlp2 = MLP(n_hid*2, n_hid, n_hid, do_prob, use_bn=use_bn)
+        self.mlp1 = MLP(n_hid * 2, n_hid, n_hid, do_prob, use_bn=use_bn)
+        self.mlp2 = MLP(n_hid * 2, n_hid, n_hid, do_prob, use_bn=use_bn)
         self.mlp3 = MLP(n_hid * 3, n_hid, n_hid, do_prob, use_bn=use_bn)
         self.fc_out = nn.Linear(n_hid, n_out)
 
@@ -198,7 +218,7 @@ class CNNEncoder_weather(nn.Module):
         if self.factor:
             x = self.edge2node(x, rel_rec)  # [B, N, F']
             w_node = w.repeat(1, x.size(1), 1)
-            x = torch.cat([x,w_node], dim=-1)
+            x = torch.cat([x, w_node], dim=-1)
             x = self.mlp2(x)
 
             x = self.node2edge(x, rel_rec, rel_send)  # [B, E, 2F']

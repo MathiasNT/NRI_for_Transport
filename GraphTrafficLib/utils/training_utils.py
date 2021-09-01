@@ -43,7 +43,7 @@ def train(
     n_nodes,
     gumbel_tau,
     gumbel_hard,
-    use_weather
+    use_weather,
 ):
     nll = 0
     kl = 0
@@ -55,7 +55,9 @@ def train(
     encoder.train()
     decoder.train()
 
-    for _, (data, weather) in enumerate(tqdm(train_dataloader, desc="Training", leave=False)):
+    for _, (data, weather) in enumerate(
+        tqdm(train_dataloader, desc="Training", leave=False)
+    ):
         optimizer.zero_grad()
         steps += len(data)
         data = data.cuda()
@@ -65,9 +67,11 @@ def train(
             logits = encoder(data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send)
         else:
             logits = encoder(data[:, :, :burn_in_steps, :], rel_rec, rel_send)
-        edges = F.gumbel_softmax(logits, tau=gumbel_tau, hard=gumbel_hard)  # RelaxedOneHotCategorical
+        edges = F.gumbel_softmax(
+            logits, tau=gumbel_tau, hard=gumbel_hard
+        )  # RelaxedOneHotCategorical
         edge_probs = F.softmax(logits, dim=-1)
-        
+
         if use_weather:
             pred_arr = decoder(
                 data.transpose(1, 2),
@@ -110,19 +114,18 @@ def train(
 
         nll += loss_nll.item() * len(data)
         kl += loss_kl.item() * len(data)
-        
-        mse_batch = F.mse_loss(pred,target).item()
+
+        mse_batch = F.mse_loss(pred, target).item()
         mse += mse_batch * len(data)
         rmse += mse_batch ** 0.5 * len(data)
 
         mean_edge_prob_train.append(edge_probs.mean(dim=(1, 0)).tolist())
 
-
     mse = mse / steps
     kl = kl / steps
-    nll = nll /steps
+    nll = nll / steps
     rmse = rmse / steps
-    
+
     mean_edge_prob = np.mean(np.array(mean_edge_prob_train), 0)
     return mse, rmse, nll, kl, mean_edge_prob
 
@@ -140,7 +143,7 @@ def val(
     log_prior,
     pred_steps,
     n_nodes,
-    use_weather
+    use_weather,
 ):
     nll = 0
     kl = 0
@@ -152,7 +155,9 @@ def val(
     encoder.eval()
     decoder.eval()
 
-    for _, (data, weather) in enumerate(tqdm(val_dataloader, desc="Validation", leave=False)):
+    for _, (data, weather) in enumerate(
+        tqdm(val_dataloader, desc="Validation", leave=False)
+    ):
         optimizer.zero_grad()
         with torch.no_grad():
             data = data.cuda()
@@ -160,7 +165,9 @@ def val(
 
             if use_weather:
                 weather = weather.cuda()
-                logits = encoder(data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send)
+                logits = encoder(
+                    data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send
+                )
             else:
                 logits = encoder(data[:, :, :burn_in_steps, :], rel_rec, rel_send)
 
@@ -189,7 +196,7 @@ def val(
                     burn_in_steps=burn_in_steps,
                     split_len=split_len,
                 )
-            pred = pred_arr.transpose(1, 2)[:, :, -pred_steps: ,:]
+            pred = pred_arr.transpose(1, 2)[:, :, -pred_steps:, :]
             target = data[:, :, -pred_steps:, :]
 
             loss_nll = torch_nll_gaussian(pred, target, 5e-5)
@@ -198,13 +205,13 @@ def val(
             )  # Here I chose theirs since my implementation runs out of RAM :(
         nll += loss_nll.item() * len(data)
         kl += loss_kl.item() * len(data)
-        
-        mse_batch = F.mse_loss(pred,target).item()
+
+        mse_batch = F.mse_loss(pred, target).item()
         mse += mse_batch * len(data)
         rmse += mse_batch ** 0.5 * len(data)
     mse = mse / steps
     kl = kl / steps
-    nll = nll /steps
+    nll = nll / steps
     rmse = rmse / steps
     mean_edge_prob = np.mean(np.array(mean_edge_prob), 0)
     return mse, rmse, nll, kl, mean_edge_prob
@@ -227,7 +234,7 @@ def dnri_train(
     skip_first,
     n_nodes,
     gumbel_tau,
-    gumbel_hard
+    gumbel_hard,
 ):
     nll = 0
     kl = 0
@@ -281,13 +288,13 @@ def dnri_train(
 
         nll += loss_nll.item() * len(data)
         kl += loss_kl.item() * len(data)
-        
-        mse_batch = F.mse_loss(pred,target).item()
+
+        mse_batch = F.mse_loss(pred, target).item()
         mse += mse_batch * len(data)
         rmse += mse_batch ** 0.5 * len(data)
     mse = mse / steps
     kl = kl / steps
-    nll = nll /steps
+    nll = nll / steps
     rmse = rmse / steps
     mean_edge_prob = np.mean(np.array(mean_edge_prob), 0)
     return mse, rmse, nll, kl, mean_edge_prob
@@ -379,7 +386,6 @@ def dnri_val(
                             prior_logits, dim=-1
                         )
 
-
                 pred, hidden = decoder.do_single_step_forward(
                     ins, rel_rec, rel_send, edges, hidden, step
                 )
@@ -395,14 +401,14 @@ def dnri_val(
             )  # Here I chose theirs since my implementation runs out of RAM :(
         nll += loss_nll.item() * len(data)
         kl += loss_kl.item() * len(data)
-        
-        mse_batch = F.mse_loss(pred,target).item()
+
+        mse_batch = F.mse_loss(pred, target).item()
         mse += mse_batch * len(data)
         rmse += mse_batch ** 0.5 * len(data)
 
     mse = mse / steps
     kl = kl / steps
-    nll = nll /steps
+    nll = nll / steps
     rmse = rmse / steps
     return mse, rmse, nll, kl
 

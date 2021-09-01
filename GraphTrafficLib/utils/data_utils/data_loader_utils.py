@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 import torch
 from .Nyc_w_Weather import Nyc_w_Weather, Nyc_w_Weather2, Nyc_no_Weather2
 from torch.utils.data.dataset import TensorDataset, Dataset
+import numpy as np
 
 
 # def create_test_train_split(
@@ -219,7 +220,9 @@ def create_dataloaders(
         train_max = demand_tensor[: int(train_frac * len(demand_tensor))].amax(
             dim=(0, 1)
         )
-        weather_train_max = weather_tensor[: int(train_frac * len(weather_tensor))].amax(dim=0)
+        weather_train_max = weather_tensor[
+            : int(train_frac * len(weather_tensor))
+        ].amax(dim=0)
 
     if fixed_min is not None:
         train_min = fixed_min
@@ -227,12 +230,16 @@ def create_dataloaders(
         train_min = demand_tensor[: int(train_frac * len(demand_tensor))].amin(
             dim=(0, 1)
         )
-        weather_train_min = weather_tensor[: int(train_frac * len(weather_tensor))].amin(dim=0)
+        weather_train_min = weather_tensor[
+            : int(train_frac * len(weather_tensor))
+        ].amin(dim=0)
 
     if normalize:
         # demand_tensor = (demand_tensor - train_min) * 2 / (train_max - train_min) - 1  // between -1 and 1
         demand_tensor = (demand_tensor - train_min) / (train_max - train_min)
-        weather_tensor = (weather_tensor - weather_train_min) / (weather_train_max - weather_train_min)
+        weather_tensor = (weather_tensor - weather_train_min) / (
+            weather_train_max - weather_train_min
+        )
 
     splits = []
     weather_splits = []
@@ -340,25 +347,52 @@ def renormalize_data(data, data_min, data_max, new_way=True):
     else:
         return (data + 1) * (data_max - data_min) / 2 + data_min
 
-def create_dataloaders_bike(
-    x_data,
-    y_data,
-    batch_size,
-): 
-    full_data = torch.cat([x_data, y_data], dim=1)
-    full_data = full_data.permute(0,2,1,3)
-    train_data = full_data[:3001,:,:]
-    val_data = full_data[3001:-672,:,:]
-    test_data = full_data[-672:,:,:]
-    
-    # packing on dummy weather to make the data fit rest of code
-    train_dataset = TensorDataset(train_data, torch.zeros_like(train_data))
-    val_dataset = TensorDataset(val_data, torch.zeros_like(val_data))
-    test_dataset = TensorDataset(test_data, torch.zeros_like(test_data))
 
-    train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size, num_workers=4)
-    val_dataloader = DataLoader(val_dataset, shuffle=True, batch_size=batch_size, num_workers=4)
-    test_dataloader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, num_workers=4)
+def create_dataloaders_bike(x_data, y_data, weather_tensor, batch_size, normalize):
+    full_data = torch.cat([x_data, y_data], dim=1)
+    full_data = full_data.permute(0, 2, 1, 3)
+    train_data = full_data[:3001, :, :]
+    val_data = full_data[3001:-672, :, :]
+    test_data = full_data[-672:, :, :]
+
+    weather_train_max = weather_tensor[:3001].amax(dim=0)
+
+    weather_train_min = weather_tensor[:3001].amin(dim=0)
+
+    if normalize:
+        weather_tensor = (weather_tensor - weather_train_min) / (
+            weather_train_max - weather_train_min
+        )
+
+    # Code from https://github.com/Essaim/CGCDemandPrediction to make sure it matches their data
+    X_list = [12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+    Y_list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    X_, Y_ = list(), list()
+    weather_tensor = weather_tensor.numpy()
+    for i in range(max(X_list), weather_tensor.shape[0] - max(Y_list)):
+        X_.append([weather_tensor[i - j] for j in X_list])
+        Y_.append([weather_tensor[i + j] for j in Y_list])
+    X_ = torch.from_numpy(np.asarray(X_)).float()
+    Y_ = torch.from_numpy(np.asarray(Y_)).float()
+    weather_tensor = torch.cat([X_, Y_], dim=1)
+    train_weather = weather_tensor[:3001, :, :]
+    val_weather = weather_tensor[3001:-672, :, :]
+    test_weather = weather_tensor[-672:, :, :]
+
+    # packing on dummy weather to make the data fit rest of code
+    train_dataset = TensorDataset(train_data, train_weather)
+    val_dataset = TensorDataset(val_data, val_weather)
+    test_dataset = TensorDataset(test_data, test_weather)
+
+    train_dataloader = DataLoader(
+        train_dataset, shuffle=True, batch_size=batch_size, num_workers=4
+    )
+    val_dataloader = DataLoader(
+        val_dataset, shuffle=True, batch_size=batch_size, num_workers=4
+    )
+    test_dataloader = DataLoader(
+        test_dataset, shuffle=True, batch_size=batch_size, num_workers=4
+    )
 
     # mean and std values are grabbed from https://github.com/Essaim/CGCDemandPrediction
     mean = 2.7760608974358973

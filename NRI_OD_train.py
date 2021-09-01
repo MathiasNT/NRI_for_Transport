@@ -24,7 +24,6 @@ kl_frac = 1
 # enc_n_hid = 128
 
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
@@ -70,10 +69,30 @@ if __name__ == "__main__":
         help="Whether or not to use bn in MLP modules",
         action="store_false",
     )
-    parser.add_argument("--gumbel_hard", action="store_true", default=False, help="Uses discrete sampling in training forward pass")
-    parser.add_argument("--gumbel_tau", type=float, help="The tau value in the gumbel distribution", default=0.5)
-    parser.add_argument("--gumbel_anneal", action="store_true", default=False, help="Whether to anneal the tau value in the gumbel distribution")
-    parser.add_argument("--weight_decay", type=float, help="The L2 regularization for the optimizer (default=0)", default=0)
+    parser.add_argument(
+        "--gumbel_hard",
+        action="store_true",
+        default=False,
+        help="Uses discrete sampling in training forward pass",
+    )
+    parser.add_argument(
+        "--gumbel_tau",
+        type=float,
+        help="The tau value in the gumbel distribution",
+        default=0.5,
+    )
+    parser.add_argument(
+        "--gumbel_anneal",
+        action="store_true",
+        default=False,
+        help="Whether to anneal the tau value in the gumbel distribution",
+    )
+    parser.add_argument(
+        "--weight_decay",
+        type=float,
+        help="The L2 regularization for the optimizer (default=0)",
+        default=0,
+    )
 
     # Model args
     parser.add_argument(
@@ -89,8 +108,10 @@ if __name__ == "__main__":
         "--enc_n_hid", help="The hidden dim of the encoder", type=int, default=128
     )
     parser.add_argument(
-        "--init_weights", dest="init_weights", help="Whether to use special init for CNN weights",
-        action="store_true"
+        "--init_weights",
+        dest="init_weights",
+        help="Whether to use special init for CNN weights",
+        action="store_true",
     )
     parser.add_argument(
         "--dec_n_hid", help="Hidden size of out part of decoder", type=int, default=16
@@ -99,8 +120,10 @@ if __name__ == "__main__":
         "--dec_msg_hid", help="Hidden size of message in decoder", type=int, default=8
     )
     parser.add_argument(
-        "--dec_gru_hid", help="Hidden size of the recurrent state of the decoder",
-        type=int, default=8
+        "--dec_gru_hid",
+        help="Hidden size of the recurrent state of the decoder",
+        type=int,
+        default=8,
     )
     parser.add_argument(
         "--fixed_adj_matrix_path",
@@ -131,7 +154,12 @@ if __name__ == "__main__":
         help="The overall split len (burn_in_steps + pred_steps = split_len)",
         required=True,
     )
-    parser.add_argument("--use_weather", action="store_true", default=False, help="Whether to include weather in the encoder")
+    parser.add_argument(
+        "--use_weather",
+        action="store_true",
+        default=False,
+        help="Whether to include weather in the encoder",
+    )
 
     args = parser.parse_args()
 
@@ -196,20 +224,22 @@ if __name__ == "__main__":
         gumbel_hard=args.gumbel_hard,
         gumbel_anneal=args.gumbel_anneal,
         weight_decay=args.weight_decay,
-        use_weather=args.use_weather
+        use_weather=args.use_weather,
     )
 
     print("Initialized")
 
     print(f"Loading data at {pickup_data_path}")
-    if args.pickup_data_name.split('_')[0] == 'taxi':
+    if args.pickup_data_name.split("_")[0] == "taxi":
         trainer.load_data(
             data_path=pickup_data_path,
             dropoff_data_path=dropoff_data_path,
             weather_data_path=weather_data_path,
         )
-    elif args.pickup_data_name.split('_')[0] == 'bike':
-        trainer.load_data_bike(bike_folder_path=pickup_data_path)
+    elif args.pickup_data_name.split("_")[0] == "bike":
+        trainer.load_data_bike(
+            bike_folder_path=pickup_data_path, weather_data_path=weather_data_path
+        )
     else:
         raise NameError("data path is neither bike or taxi")
     print("Data loaded")

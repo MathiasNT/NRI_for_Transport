@@ -33,7 +33,7 @@ from ..models.latent_graph import (
     MLPEncoder_weather,
     GRUDecoder_multistep_weather,
     FixedEncoder_weather,
-    CNNEncoder_weather
+    CNNEncoder_weather,
 )
 
 
@@ -78,7 +78,7 @@ class Trainer:
         gumbel_hard=True,
         gumbel_anneal=None,
         weight_decay=0,
-        use_weather=False
+        use_weather=False,
     ):
 
         # Training settings
@@ -143,6 +143,9 @@ class Trainer:
         # Encoder
         if self.encoder_type == "mlp":
             self.enc_n_in = self.encoder_steps * self.node_f_dim
+            self.enc_n_in_weather = (
+                self.split_len * 2
+            )  # hardcoded 2 two weather values atm
         elif self.encoder_type in ["cnn", "gru", "lstm"]:
             self.enc_n_in = self.node_f_dim  # TODO update these hardcodes?
             self.rnn_enc_n_hid = rnn_enc_n_hid
@@ -202,11 +205,15 @@ class Trainer:
             "gumbel_hard": self.gumbel_hard,
             "gumbel_anneal": self.gumbel_anneal,
             "weight_decay": self.weight_decay,
-            "use_weather": self.use_weather
+            "use_weather": self.use_weather,
         }
 
         # Save all parameters to txt file and add to tensorboard
-        self.self_parameters = [x + ": " + str(y) + "\n" for x, y in vars(locals()['self']).items() if not x in (["encoder", "decoder", "model_params"])]
+        self.self_parameters = [
+            x + ": " + str(y) + "\n"
+            for x, y in vars(locals()["self"]).items()
+            if not x in (["encoder", "decoder", "model_params"])
+        ]
         self.parameters = [x + ": " + str(y) + "\n" for x, y in locals().items()]
         with open(
             os.path.join(self.experiment_folder_path, "parameters.txt"), "w"
@@ -267,8 +274,8 @@ class Trainer:
 
         self.data_type = "taxi"
 
-        #min_date = pd.Timestamp(year=2019, month=1, day=1)
-        #max_date = pd.Timestamp(year=2019 + 1, month=1, day=1)
+        # min_date = pd.Timestamp(year=2019, month=1, day=1)
+        # max_date = pd.Timestamp(year=2019 + 1, month=1, day=1)
 
         # # Note that this misses a bit from the beginning but this will not be a big problem when we index finer
         # bins_dt = pd.date_range(start=min_date, end=max_date, freq="1H")
@@ -280,11 +287,33 @@ class Trainer:
         # # print(f"train_dates len: {len(self.train_dates)}")
         # # print(f"test_dates len: {len(self.test_dates)}")
 
-    def load_data_bike(self, bike_folder_path):
-        x_data = torch.load(f'{bike_folder_path}/nyc_bike_cgc_x_standardised')
-        y_data = torch.load(f'{bike_folder_path}/nyc_bike_cgc_y_standardised')
-        (self.train_dataloader, self.val_dataloader, _, self.mean, self.std) = create_dataloaders_bike(x_data=x_data, y_data=y_data, batch_size=self.batch_size)
-        
+    def load_data_bike(self, bike_folder_path, weather_data_path):
+        x_data = torch.load(f"{bike_folder_path}/nyc_bike_cgc_x_standardised")
+        y_data = torch.load(f"{bike_folder_path}/nyc_bike_cgc_y_standardised")
+
+        # load weather data
+        weather_df = pd.read_csv(weather_data_path)
+        # temp fix for na temp
+        weather_df.loc[weather_df.temperature.isna(), "temperature"] = 0
+        assert sum(weather_df.temperature.isna()) == 0
+        # Create weather vector
+        weather_vector = weather_df.loc[:, ("temperature", "precipDepth")].values
+        weather_tensor = torch.Tensor(weather_vector)
+
+        (
+            self.train_dataloader,
+            self.val_dataloader,
+            _,
+            self.mean,
+            self.std,
+        ) = create_dataloaders_bike(
+            x_data=x_data,
+            y_data=y_data,
+            weather_tensor=weather_tensor,
+            batch_size=self.batch_size,
+            normalize=self.normalize,
+        )
+
         self.data_type = "bike"
 
     def _init_model(self):
@@ -293,11 +322,12 @@ class Trainer:
             if self.use_weather:
                 self.encoder = MLPEncoder_weather(
                     n_in=self.enc_n_in,
+                    n_in_weather=self.enc_n_in_weather,
                     n_hid=self.enc_n_hid,
                     n_out=self.n_edge_types,
                     do_prob=self.dropout_p,
                     factor=self.encoder_factor,
-                    use_bn=self.use_bn,  # TODO not checked
+                    use_bn=self.use_bn,
                 ).cuda()
             else:
                 self.encoder = MLPEncoder(
@@ -317,7 +347,7 @@ class Trainer:
                     do_prob=self.dropout_p,
                     factor=self.encoder_factor,
                     use_bn=self.use_bn,
-                    init_weights=self.init_weights
+                    init_weights=self.init_weights,
                 ).cuda()
             else:
                 self.encoder = CNNEncoder(
@@ -327,7 +357,7 @@ class Trainer:
                     do_prob=self.dropout_p,
                     factor=self.encoder_factor,
                     use_bn=self.use_bn,
-                    init_weights=self.init_weights
+                    init_weights=self.init_weights,
                 ).cuda()
         elif self.encoder_type == "gru" or self.encoder_type == "lstm":
             if self.use_weather:
@@ -436,11 +466,13 @@ class Trainer:
 
             if self.kl_cyc is not None:
                 self.kl_frac = cyc_anneal(epoch, self.kl_cyc)
-            
+
             if self.gumbel_anneal:
                 # TODO Notice hard coded start tau
-                self.gumbel_curr_tau = gumbel_tau_scheduler(2, self.gumbel_tau, epoch, self.n_epochs)
-            else: 
+                self.gumbel_curr_tau = gumbel_tau_scheduler(
+                    2, self.gumbel_tau, epoch, self.n_epochs
+                )
+            else:
                 self.gumbel_curr_tau = self.gumbel_tau
 
             if self.encoder_type in ["gru", "lstm"]:
@@ -483,7 +515,7 @@ class Trainer:
                     n_nodes=n_nodes,
                     gumbel_tau=self.gumbel_curr_tau,
                     gumbel_hard=self.gumbel_hard,
-                    use_weather=self.use_weather
+                    use_weather=self.use_weather,
                 )
 
             self.lr_scheduler.step()
@@ -496,7 +528,9 @@ class Trainer:
             for i, prob in enumerate(mean_edge_prob):
                 self.writer.add_scalar(f"Mean_edge_prob/train_{i}", prob, epoch)
             if self.data_type == "bike":
-                self.writer.add_scalar("Train/rescaled_RMSE", train_rmse * self.std, epoch)
+                self.writer.add_scalar(
+                    "Train/rescaled_RMSE", train_rmse * self.std, epoch
+                )
 
             if epoch % 5 == 0:
                 if self.encoder_type in ["gru", "lstm"]:
@@ -512,7 +546,7 @@ class Trainer:
                         log_prior=self.log_prior,
                         n_nodes=n_nodes,
                     )
-                    self._save_graph_examples_dnri(epoch) # Double check placement
+                    self._save_graph_examples_dnri(epoch)  # Double check placement
                 else:
                     val_mse, val_rmse, val_nll, val_kl, mean_edge_prob = val(
                         encoder=self.encoder,
@@ -527,18 +561,18 @@ class Trainer:
                         log_prior=self.log_prior,
                         pred_steps=self.pred_steps,
                         n_nodes=n_nodes,
-                        use_weather=self.use_weather
+                        use_weather=self.use_weather,
                     )
-                    self._save_graph_examples(epoch) # Double check placement
+                    self._save_graph_examples(epoch)  # Double check placement
                 self.writer.add_scalar("Val/MSE", val_mse, epoch)
                 self.writer.add_scalar("Val/NLL", val_nll, epoch)
                 self.writer.add_scalar("Val/KL", val_kl, epoch)
                 for i, prob in enumerate(mean_edge_prob):
                     self.writer.add_scalar(f"Mean_edge_prob/val_{i}", prob, epoch)
                 if self.data_type == "bike":
-                    self.writer.add_scalar("Val/rescaled_RMSE", val_rmse * self.std, epoch)
-
-
+                    self.writer.add_scalar(
+                        "Val/rescaled_RMSE", val_rmse * self.std, epoch
+                    )
 
                 val_mse_arr.append(val_mse)
                 val_nll_arr.append(val_nll)
@@ -588,11 +622,20 @@ class Trainer:
             batch_subset = val_batch[:10].cuda()
             if self.use_weather:
                 weather_subset = weather[:10].cuda()
-                logits = self.encoder(batch_subset[:,:, self.burn_in_steps:, :], weather_subset, self.rel_rec, self.rel_send)
+                logits = self.encoder(
+                    batch_subset[:, :, self.burn_in_steps :, :],
+                    weather_subset,
+                    self.rel_rec,
+                    self.rel_send,
+                )
             else:
-                logits = self.encoder(batch_subset[:,:,self.burn_in_steps:,:], self.rel_rec, self.rel_send)
+                logits = self.encoder(
+                    batch_subset[:, :, self.burn_in_steps :, :],
+                    self.rel_rec,
+                    self.rel_send,
+                )
             edge_probs = F.softmax(logits, dim=-1)
-            
+
             # Create matrices
             adj_matrices = []
             for i in range(edge_probs.shape[0]):
@@ -624,18 +667,20 @@ class Trainer:
             _, (val_batch, _) = next(enumerate(self.val_dataloader))
             batch_subset = val_batch[:2].cuda()
             _, posterior_logits, prior_state = self.encoder(
-                batch_subset[:, :, :self.burn_in_steps, :], self.rel_rec, self.rel_send
+                batch_subset[:, :, : self.burn_in_steps, :], self.rel_rec, self.rel_send
             )
             burn_in_edges = F.gumbel_softmax(
                 posterior_logits, tau=0.5, hard=True
             )  # RelaxedOneHotCategorical
             burn_in_edge_probs = F.softmax(posterior_logits, dim=-1)
 
-            batch_subset = batch_subset.transpose(1,2)
+            batch_subset = batch_subset.transpose(1, 2)
             pred_all = []
 
             hidden = torch.autograd.Variable(
-                torch.zeros(batch_subset.size(0), batch_subset.size(2), self.decoder.gru_hid)
+                torch.zeros(
+                    batch_subset.size(0), batch_subset.size(2), self.decoder.gru_hid
+                )
             )
             edges = torch.autograd.Variable(
                 torch.zeros(
@@ -659,8 +704,8 @@ class Trainer:
                 edges = edges.cuda()
                 edge_probs = edge_probs.cuda()
 
-            edges[:, :, :self.burn_in_steps, :] = burn_in_edges
-            edge_probs[:, :, :self.burn_in_steps, :] = burn_in_edge_probs
+            edges[:, :, : self.burn_in_steps, :] = burn_in_edges
+            edge_probs[:, :, : self.burn_in_steps, :] = burn_in_edge_probs
 
             for step in range(0, batch_subset.shape[1] - 1):
                 if self.burn_in:
@@ -679,7 +724,7 @@ class Trainer:
                         edge_probs[:, :, step : step + 1, :] = F.softmax(
                             prior_logits, dim=-1
                         )
-                    
+
                 pred, hidden = self.decoder.do_single_step_forward(
                     ins, self.rel_rec, self.rel_send, edges, hidden, step
                 )
@@ -689,7 +734,7 @@ class Trainer:
             adj_matrices = []
             for i in range(edge_probs.shape[0]):
                 batch_adj_matrices = []
-                for j in range(self.burn_in_steps-10, self.burn_in_steps+10):
+                for j in range(self.burn_in_steps - 10, self.burn_in_steps + 10):
                     batch_adj_matrices.append(
                         visualize_prob_adj(
                             edge_list=edge_probs[i, :, j, :],
@@ -699,14 +744,18 @@ class Trainer:
                     )
                 adj_matrices.append(torch.stack(batch_adj_matrices))
             adj_matrices = torch.stack(adj_matrices)
-            adj_matrices = adj_matrices.reshape(-1, adj_matrices.shape[-2], adj_matrices.shape[-1])
+            adj_matrices = adj_matrices.reshape(
+                -1, adj_matrices.shape[-2], adj_matrices.shape[-1]
+            )
             adj_matrices = adj_matrices.unsqueeze(1)
-            
+
             adj_matrices = torch.nn.functional.interpolate(
                 adj_matrices, scale_factor=5, mode="nearest"
             ).squeeze()
-            
-            adj_matrices = adj_matrices.reshape(2, -1, adj_matrices.shape[-2], adj_matrices.shape[-1])
+
+            adj_matrices = adj_matrices.reshape(
+                2, -1, adj_matrices.shape[-2], adj_matrices.shape[-1]
+            )
 
             fig, axs = plt.subplots(20, 2, figsize=(10, 60))
             [axi.set_axis_off() for axi in axs.ravel()]
