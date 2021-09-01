@@ -28,6 +28,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Parse args
+    parser.add_argument("--use_16_bit", action='store_true', help="whether to set torch to 16 bit precision")
+
+
     # Data args
     # TODO fix the pickup data naming
     parser.add_argument(
@@ -162,6 +165,9 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
+    if args.use_16_bit:
+        torch.set_default_dtype(d=torch.float16)
 
     pred_steps = args.split_len - args.burn_in_steps
     encoder_steps = args.split_len

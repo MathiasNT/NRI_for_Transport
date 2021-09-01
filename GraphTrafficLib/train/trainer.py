@@ -411,6 +411,8 @@ class Trainer:
                     skip_first=self.skip_first,
                 ).cuda()
 
+
+
         self.model_params = [
             {
                 "params": self.encoder.parameters(),
