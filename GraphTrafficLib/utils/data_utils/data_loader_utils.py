@@ -385,13 +385,13 @@ def create_dataloaders_bike(x_data, y_data, weather_tensor, batch_size, normaliz
     test_dataset = TensorDataset(test_data, test_weather)
 
     train_dataloader = DataLoader(
-        train_dataset, shuffle=True, batch_size=batch_size, num_workers=4
+        train_dataset, shuffle=True, batch_size=batch_size, num_workers=4, pin_memory=True
     )
     val_dataloader = DataLoader(
-        val_dataset, shuffle=True, batch_size=batch_size, num_workers=4
+        val_dataset, shuffle=True, batch_size=batch_size, num_workers=4, pin_memory=True
     )
     test_dataloader = DataLoader(
-        test_dataset, shuffle=True, batch_size=batch_size, num_workers=4
+        test_dataset, shuffle=True, batch_size=batch_size, num_workers=4, pin_memory=True
     )
 
     # mean and std values are grabbed from https://github.com/Essaim/CGCDemandPrediction
