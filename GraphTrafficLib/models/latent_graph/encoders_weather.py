@@ -32,7 +32,7 @@ class MLPEncoder_weather(nn.Module):
             n_hid=n_hid,
             n_out=n_hid,
             dropout_prob=do_prob,
-            use_bn=use_bn,
+            use_bn=False,
         )
         # MLP for v->e, hence input is double size
         self.mlp2 = MLP(
