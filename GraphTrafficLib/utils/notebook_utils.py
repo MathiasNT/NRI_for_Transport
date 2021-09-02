@@ -14,12 +14,15 @@ from GraphTrafficLib.models.latent_graph import (
 )
 from GraphTrafficLib.models import SimpleLSTM
 from GraphTrafficLib.utils import encode_onehot
-from GraphTrafficLib.utils.data_utils import create_test_train_split_max_min_normalize, create_dataloaders
+from GraphTrafficLib.utils.data_utils import create_test_train_split_max_min_normalize, create_dataloaders, create_dataloaders_bike
 
 
-def load_model(experiment_path, device, encoder_type):
+def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
     # Load the model
-    model_dict = torch.load(f"{experiment_path}/model_dict.pth", map_location=device)
+    if load_checkpoint:
+        model_dict = torch.load(f"{experiment_path}/checkpoint_model_dict.pth", map_location=device)
+    else:
+        model_dict = torch.load(f"{experiment_path}/model_dict.pth", map_location=device)
     model_settings = model_dict["settings"]
     train_res = model_dict["train_res"]
 
@@ -70,10 +73,12 @@ def load_model(experiment_path, device, encoder_type):
         gru_hid=model_settings["dec_gru_hid"],
         edge_types=model_settings["dec_edge_types"],
         skip_first=model_settings["skip_first"],
+        do_prob=model_settings["dropout_p"]
     ).to(device)
     encoder.load_state_dict(model_dict["encoder"])
     decoder.load_state_dict(model_dict["decoder"])
     return encoder, decoder, model_settings, train_res
+
 
 
 def load_lstm_model(lstm_path, device):
@@ -142,6 +147,39 @@ def load_data(
     
     return data_tensor, train_dataloader, val_dataloader, test_dataloader, train_max, train_min
 
+def load_data_bike(
+    bike_folder_path,
+    split_len,
+    batch_size,
+    normalize,
+):
+    x_data = torch.load(f"{bike_folder_path}/nyc_bike_cgc_x_standardised")
+    y_data = torch.load(f"{bike_folder_path}/nyc_bike_cgc_y_standardised")
+    data_tensor = torch.as_tensor(torch.load(f"{bike_folder_path}/standard_preprocessed_NYC_bike")).permute(1,0,2)
+
+    # load weather data
+    weather_df = pd.read_csv(f"{bike_folder_path}/bike_weather.csv")
+    # temp fix for na temp
+    weather_df.loc[weather_df.temperature.isna(), "temperature"] = 0
+    assert sum(weather_df.temperature.isna()) == 0
+    # Create weather vector
+    weather_vector = weather_df.loc[:, ("temperature", "precipDepth")].values
+    weather_tensor = torch.Tensor(weather_vector)
+
+    (
+        train_dataloader,
+        val_dataloader,
+        test_dataloader,
+        mean,
+        std,
+    ) = create_dataloaders_bike(
+        x_data=x_data,
+        y_data=y_data,
+        weather_tensor=weather_tensor,
+        batch_size=batch_size,
+        normalize=normalize,
+    )
+    return data_tensor, train_dataloader, val_dataloader, test_dataloader, mean, std
 
 # This here is actually my old dataloader currently kept for legacy reasons
 def load_data2(
@@ -249,6 +287,7 @@ def create_predictions(
     burn_in,
     burn_in_steps,
     split_len,
+    use_weather,
     sample_graph,
     device,
 ):
@@ -256,13 +295,26 @@ def create_predictions(
     y_pred = []
     graph_list = []
     graph_probs = []
+
+    pred_steps=split_len - burn_in_steps
+    rmse = 0
+    steps = 0
+
     encoder.eval()
     decoder.eval()
     for i, (data, weather) in tqdm(enumerate(test_dataloader)):
         with torch.no_grad():
             data = data.to(device)
+            steps += len(data)
 
-            logits = encoder(data, rel_rec, rel_send)
+            if use_weather:
+                weather = weather.cuda()
+                logits = encoder(
+                    data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send
+                )
+            else:
+                logits = encoder(data[:, :, :burn_in_steps, :], rel_rec, rel_send)
+
             edge_probs = F.softmax(logits, dim=-1)
             if sample_graph:
                 edges = F.gumbel_softmax(logits, tau=1e-10, hard=True)
@@ -272,24 +324,43 @@ def create_predictions(
 
             graph_list.append(edges.cpu())
 
-            pred_arr = decoder(
-                data.transpose(1, 2),
-                rel_rec,
-                rel_send,
-                edges,
-                burn_in=burn_in,
-                burn_in_steps=burn_in_steps,
-                split_len=split_len,
-            )
+            if use_weather:
+                pred_arr = decoder(
+                    data.transpose(1, 2),
+                    weather,
+                    rel_rec,
+                    rel_send,
+                    edges,
+                    burn_in=burn_in,
+                    burn_in_steps=burn_in_steps,
+                    split_len=split_len,
+                )
+            else:
+                pred_arr = decoder(
+                    data.transpose(1, 2),
+                    rel_rec,
+                    rel_send,
+                    edges,
+                    burn_in=burn_in,
+                    burn_in_steps=burn_in_steps,
+                    split_len=split_len,
+                )
             pred = pred_arr.transpose(1, 2).contiguous()
             target = data[:, :, 1:, :]
-
+            
             y_true.append(target[:, :, burn_in_steps - 1, :].cpu().squeeze())
             y_pred.append(pred[:, :, burn_in_steps - 1, :].cpu())
 
+
+            rmse_pred = pred[:,:, -pred_steps:, :]
+            rmse_target = data[:, :, -pred_steps:, :]
+            mse_batch = F.mse_loss(rmse_pred, rmse_target).item()
+            rmse += mse_batch ** 0.5 * len(data)
+
     y_true = torch.cat(y_true)
     y_pred = torch.cat(y_pred).squeeze().cpu().detach()
-    return y_pred, y_true
+    rmse = rmse / steps
+    return y_pred, y_true, rmse
 
 
 def create_predictions_gru(
