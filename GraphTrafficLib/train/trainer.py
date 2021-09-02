@@ -147,7 +147,7 @@ class Trainer:
                 self.split_len * 2
             )  # hardcoded 2 two weather values atm
         elif self.encoder_type in ["cnn", "gru", "lstm"]:
-            self.enc_n_in = self.node_f_dim  # TODO update these hardcodes?
+            self.enc_n_in = self.node_f_dim
             self.rnn_enc_n_hid = rnn_enc_n_hid
         elif self.encoder_type == "fixed":
             assert (
@@ -400,6 +400,7 @@ class Trainer:
                     gru_hid=self.dec_gru_hid,
                     edge_types=self.n_edge_types,
                     skip_first=self.skip_first,
+                    do_prob=self.dropout_p
                 ).cuda()
             else:
                 self.decoder = GRUDecoder_multistep(
@@ -409,6 +410,7 @@ class Trainer:
                     gru_hid=self.dec_gru_hid,
                     edge_types=self.n_edge_types,
                     skip_first=self.skip_first,
+                    do_prob=self.dropout_p
                 ).cuda()
 
 

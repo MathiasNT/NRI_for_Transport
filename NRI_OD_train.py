@@ -4,7 +4,6 @@ import argparse
 
 
 # Training settings
-dropout_p = 0
 shuffle_train = True
 shuffle_val = False
 
@@ -93,6 +92,9 @@ if __name__ == "__main__":
         type=float,
         help="The L2 regularization for the optimizer (default=0)",
         default=0,
+    )
+    parser.add_argument(
+        "--dropout_p", type=float, default=0, help="Dropout rate (1-keep)"
     )
 
     # Model args
@@ -193,7 +195,7 @@ if __name__ == "__main__":
     trainer = Trainer(
         batch_size=args.batch_size,
         n_epochs=args.epochs,
-        dropout_p=dropout_p,
+        dropout_p=args.dropout_p,
         shuffle_train=shuffle_train,
         shuffle_val=shuffle_val,
         lr=args.lr,

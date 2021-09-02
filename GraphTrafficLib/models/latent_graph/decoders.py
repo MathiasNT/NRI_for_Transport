@@ -99,7 +99,7 @@ class MLPDecoder(nn.Module):
 class GRUDecoder(nn.Module):
     """summary"""
 
-    def __init__(self, n_hid, n_out, f_in, msg_hid, msg_out, gru_hid, edge_types):
+    def __init__(self, n_hid, n_out, f_in, msg_hid, msg_out, gru_hid, edge_types, do_prob):
         super().__init__()
 
         self.edge_types = edge_types
@@ -135,6 +135,7 @@ class GRUDecoder(nn.Module):
         self.out_fc3 = nn.Linear(in_features=n_hid, out_features=n_out)
 
         self.gru_hid = gru_hid
+        self.dropout_prob = do_prob
 
     def edge2node(self, x, rel_rec):
         """This function makes the aggregation over the incomming edge embeddings"""
@@ -165,6 +166,7 @@ class GRUDecoder(nn.Module):
         # Go over the different edge types and compute their contribution to the overall messages
         for i in range(0, self.edge_types):
             msg = F.tanh(self.msg_fc1[i](pre_msg))
+            msg = F.dropout(msg, p=self.dropout_prob, training=self.training)
             msg = F.tanh(self.msg_fc2[i](msg))
             msg = msg * rel_types[:, :, i : i + 1]
             all_msgs += msg / float(self.edge_types)
@@ -186,8 +188,8 @@ class GRUDecoder(nn.Module):
         hidden = (1 - i) * n + i * hidden
 
         # Output MLP
-        pred = F.relu(self.out_fc1(hidden))
-        pred = F.relu(self.out_fc2(pred))
+        pred = F.dropout(F.relu(self.out_fc1(hidden)), p=self.dropout_prob, training=self.training)
+        pred = F.dropout(F.relu(self.out_fc2(pred)), p=self.dropout_prob, training=self.training)
         pred = self.out_fc3(pred)
 
         # Do a skip connection
