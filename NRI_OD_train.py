@@ -180,17 +180,11 @@ if __name__ == "__main__":
     pred_steps = args.split_len - args.burn_in_steps
     encoder_steps = args.split_len
 
+    node_f_dim = 2 # TODO fix hardcode
+
     dataset_folder = "../datafolder"
     proc_folder = f"{dataset_folder}/procdata"
 
-    pickup_data_path = f"{proc_folder}/{args.pickup_data_name}"
-    if args.dropoff_data_name is not None:
-        dropoff_data_path = f"{proc_folder}/{args.dropoff_data_name}"
-        node_f_dim = 1
-    else:
-        dropoff_data_path = args.dropoff_data_name
-        node_f_dim = 2
-    weather_data_path = f"{proc_folder}/{args.weather_data_name}"
     if args.fixed_adj_matrix_path is not None:
         args.fixed_adj_matrix_path = f"{proc_folder}/{args.fixed_adj_matrix_path}"
 
@@ -247,16 +241,17 @@ if __name__ == "__main__":
 
     print("Initialized")
 
-    print(f"Loading data at {pickup_data_path}")
     if args.pickup_data_name.split("_")[0] == "taxi":
         trainer.load_data(
-            data_path=pickup_data_path,
-            dropoff_data_path=dropoff_data_path,
-            weather_data_path=weather_data_path,
+            proc_folder=proc_folder,
+            data_name=args.pickup_data_name,
+            weather_data_name=args.weather_data_name,
         )
     elif args.pickup_data_name.split("_")[0] == "bike":
         trainer.load_data_bike(
-            bike_folder_path=pickup_data_path, weather_data_path=weather_data_path
+            proc_folder=proc_folder,
+            bike_folder=args.pickup_data_name,
+            weather_data_path=args.weather_data_name
         )
     else:
         raise NameError("data path is neither bike or taxi")

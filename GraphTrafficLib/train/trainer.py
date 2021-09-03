@@ -236,22 +236,16 @@ class Trainer:
         # Init best loss val
         self.best_rmse = None
 
-    def load_data(self, data_path, weather_data_path, dropoff_data_path=None):
+    def load_data(self, proc_folder, data_name, weather_data_name):
 
+
+        data_path = f"{proc_folder}/{data_name}"
+        weather_data_path = f"{proc_folder}/{weather_data_name}"
+        
+        print(f"Loading data at {data_path}")
         # Load data
         data = np.load(data_path)
-
-        if dropoff_data_path is not None:
-            dropoff_data = np.load(dropoff_data_path)
-
-            # Create data tensor
-            pickup_tensor = torch.Tensor(data)
-            dropoff_tensor = torch.Tensor(dropoff_data)
-
-            # Stack data tensor
-            data_tensor = torch.cat([pickup_tensor, dropoff_tensor], dim=0)
-        else:
-            data_tensor = torch.Tensor(data)
+        data_tensor = torch.Tensor(data)
 
         # load weather data
         weather_df = pd.read_csv(weather_data_path, parse_dates=[0, 7])
@@ -280,6 +274,23 @@ class Trainer:
 
         self.data_type = "taxi"
 
+
+        # Generate off-diagonal interaction graph
+        self.n_nodes = self.train_dataloader.dataset[0][0].shape[0]
+        off_diag = np.ones([self.n_nodes, self.n_nodes]) - np.eye(self.n_nodes)
+        rel_rec = np.array(encode_onehot(np.where(off_diag)[0]), dtype=np.float32)
+        rel_send = np.array(encode_onehot(np.where(off_diag)[1]), dtype=np.float32)
+        self.rel_rec = torch.FloatTensor(rel_rec).cuda()
+        self.rel_send = torch.FloatTensor(rel_send).cuda()
+
+
+        if self.prior_adj_path is None:
+            log_prior = get_simple_prior(self.n_edge_types, self.edge_rate)
+        else:
+            adj_prior_matrix = np.load(f"{proc_folder}/{self.prior_adj_path}")
+            log_prior = get_prior_from_adj(adj_prior_matrix, 0.75, rel_send, rel_rec) # TODO fix hard code
+        self.log_prior = Variable(log_prior).cuda()
+
         # min_date = pd.Timestamp(year=2019, month=1, day=1)
         # max_date = pd.Timestamp(year=2019 + 1, month=1, day=1)
 
@@ -293,11 +304,12 @@ class Trainer:
         # # print(f"train_dates len: {len(self.train_dates)}")
         # # print(f"test_dates len: {len(self.test_dates)}")
 
-    def load_data_bike(self, bike_folder_path, weather_data_path):
-        x_data = torch.load(f"{bike_folder_path}/nyc_bike_cgc_x_standardised")
-        y_data = torch.load(f"{bike_folder_path}/nyc_bike_cgc_y_standardised")
+    def load_data_bike(self, proc_folder, bike_folder, weather_data_path):
+        x_data = torch.load(f"{proc_folder}/{bike_folder}/nyc_bike_cgc_x_standardised")
+        y_data = torch.load(f"{proc_folder}/{bike_folder}/nyc_bike_cgc_y_standardised")
 
         # load weather data
+        weather_data_path = f"{proc_folder}/{weather_data_path}"
         weather_df = pd.read_csv(weather_data_path)
         # temp fix for na temp
         weather_df.loc[weather_df.temperature.isna(), "temperature"] = 0
@@ -321,6 +333,22 @@ class Trainer:
         )
 
         self.data_type = "bike"
+
+        # Generate off-diagonal interaction graph
+        self.n_nodes = self.train_dataloader.dataset[0][0].shape[0]
+        off_diag = np.ones([self.n_nodes, self.n_nodes]) - np.eye(self.n_nodes)
+        rel_rec = np.array(encode_onehot(np.where(off_diag)[0]), dtype=np.float32)
+        rel_send = np.array(encode_onehot(np.where(off_diag)[1]), dtype=np.float32)
+        self.rel_rec = torch.FloatTensor(rel_rec).cuda()
+        self.rel_send = torch.FloatTensor(rel_send).cuda()
+
+        if self.prior_adj_path is None:
+            log_prior = get_simple_prior(self.n_edge_types, self.edge_rate)
+        else:
+            adj_prior_matrix = np.load(f"{proc_folder}/{self.prior_adj_path}")
+            log_prior = get_prior_from_adj(adj_prior_matrix, 0.75, rel_send, rel_rec) # TODO fix hard code
+        self.log_prior = Variable(log_prior).cuda()
+
 
     def _init_model(self):
 
@@ -442,15 +470,6 @@ class Trainer:
             verbose=True,
         )
 
-
-
-        if self.prior_adj_path is None:
-            log_prior = get_simple_prior(self.n_edge_types, self.edge_rate)
-        else:
-            adj_prior = np.load(self.prior_adj_path)
-            log_prior = get_prior_from_adj
-        self.log_prior = Variable(log_prior).cuda()
-
     def train(self):
         print("Starting training")
         train_mse_arr = []
@@ -464,14 +483,6 @@ class Trainer:
         test_mse_arr = []
         test_nll_arr = []
         test_kl_arr = []
-
-        # Generate off-diagonal interaction graph
-        n_nodes = self.train_dataloader.dataset[0][0].shape[0]
-        off_diag = np.ones([n_nodes, n_nodes]) - np.eye(n_nodes)
-        rel_rec = np.array(encode_onehot(np.where(off_diag)[0]), dtype=np.float32)
-        rel_send = np.array(encode_onehot(np.where(off_diag)[1]), dtype=np.float32)
-        self.rel_rec = torch.FloatTensor(rel_rec).cuda()
-        self.rel_send = torch.FloatTensor(rel_send).cuda()
 
         print("save init graph")
         #self._save_graph_examples(-1)
@@ -505,7 +516,7 @@ class Trainer:
                     loss_type=self.loss_type,
                     pred_steps=self.pred_steps,
                     skip_first=self.skip_first,
-                    n_nodes=n_nodes,
+                    n_nodes=self.n_nodes,
                     gumbel_tau=self.gumbel_curr_tau,
                     gumbel_hard=self.gumbel_hard,
                 )
@@ -526,7 +537,7 @@ class Trainer:
                     loss_type=self.loss_type,
                     pred_steps=self.pred_steps,
                     skip_first=self.skip_first,
-                    n_nodes=n_nodes,
+                    n_nodes=self.n_nodes,
                     gumbel_tau=self.gumbel_curr_tau,
                     gumbel_hard=self.gumbel_hard,
                     use_weather=self.use_weather,
@@ -560,7 +571,7 @@ class Trainer:
                         burn_in_steps=self.burn_in_steps,
                         split_len=self.split_len,
                         log_prior=self.log_prior,
-                        n_nodes=n_nodes,
+                        n_nodes=self.n_nodes,
                     )
                     self._save_graph_examples_dnri(epoch)  # Double check placement
                 else:
@@ -576,7 +587,7 @@ class Trainer:
                         split_len=self.split_len,
                         log_prior=self.log_prior,
                         pred_steps=self.pred_steps,
-                        n_nodes=n_nodes,
+                        n_nodes=self.n_nodes,
                         use_weather=self.use_weather,
                         nll_variance=self.nll_variance
                     )
@@ -606,7 +617,7 @@ class Trainer:
                         burn_in_steps=self.burn_in_steps,
                         split_len=self.split_len,
                         log_prior=self.log_prior,
-                        n_nodes=n_nodes,
+                        n_nodes=self.n_nodes,
                     )
                     self._save_graph_examples_dnri(epoch)  # Double check placement
                 else:
@@ -622,7 +633,7 @@ class Trainer:
                         split_len=self.split_len,
                         log_prior=self.log_prior,
                         pred_steps=self.pred_steps,
-                        n_nodes=n_nodes,
+                        n_nodes=self.n_nodes,
                         use_weather=self.use_weather,
                         nll_variance=self.nll_variance
                     )

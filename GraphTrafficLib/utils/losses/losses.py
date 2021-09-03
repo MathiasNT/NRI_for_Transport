@@ -27,7 +27,7 @@ def get_prior_from_adj(adj_matrix, adj_prior, rel_send, rel_rec):
     zero_idxs = edge_prior == 0
     edge_prior[zero_idxs] = 1 - adj_prior
     log_prior = np.log(edge_prior)
-    return 
+    return log_prior
 
 def get_simple_prior(n_edge_types, edge_rate):
     # Set up prior
