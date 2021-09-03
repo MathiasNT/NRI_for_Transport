@@ -71,6 +71,15 @@ def visualize_prob_adj(edge_list, rel_send, rel_rec):
         adj_matrix[send, rec] = row[1]
     return adj_matrix
 
+def get_prior_from_adj(adj_matrix, adj_prior, rel_send, rel_rec):
+    edge_prior = torch.ones(adj_matrix.shape[0]*adj_matrix[0]-1, 2)
+    edge_prior *= (1-adj_prior)
+    for i in range(len(edge_prior)):
+        send = rel_send[i].argmax().item()
+        rec = rel_rec[i].argmax().item()
+        edge_prior[i, adj_matrix[send, rec]] += adj_prior
+    return edge_prior
+
 
 def visualize_mean_graph_adj(graph_list, rel_send, rel_rec):
     all_graphs = torch.stack(graph_list[:-1])

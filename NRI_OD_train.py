@@ -148,6 +148,14 @@ if __name__ == "__main__":
         default=0.01,
         type=float,
     )
+
+    parser.add_argument(
+        "--prior_adj_path",
+        help="path to adj matrix of prior",
+        default=None,
+        type=str
+    )
+
     parser.add_argument(
         "--burn_in_steps",
         type=int,
@@ -233,7 +241,8 @@ if __name__ == "__main__":
         gumbel_anneal=args.gumbel_anneal,
         weight_decay=args.weight_decay,
         use_weather=args.use_weather,
-        nll_variance=args.nll_variance
+        nll_variance=args.nll_variance,
+        prior_adj_path=args.prior_adj_path
     )
 
     print("Initialized")

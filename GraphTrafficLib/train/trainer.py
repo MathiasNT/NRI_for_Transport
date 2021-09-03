@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 from ..utils.data_utils import create_dataloaders, create_dataloaders_bike
 from ..utils import encode_onehot
 from ..utils import val, train, dnri_train, dnri_val, gumbel_tau_scheduler
-from ..utils.losses import torch_nll_gaussian, kl_categorical, cyc_anneal
+from ..utils.losses import torch_nll_gaussian, kl_categorical, cyc_anneal, get_simple_prior, get_prior_from_adj
 from ..utils.visual_utils import visualize_prob_adj
 from ..utils.general_utils import count_parameters
 
@@ -79,7 +79,8 @@ class Trainer:
         gumbel_anneal,
         weight_decay,
         use_weather,
-        nll_variance
+        nll_variance,
+        prior_adj_path
     ):
 
         # Training settings
@@ -137,6 +138,7 @@ class Trainer:
         self.kl_cyc = kl_cyc
         self.loss_type = loss_type
         self.edge_rate = edge_rate
+        self.prior_adj_path = prior_adj_path
         self.use_weather = use_weather
 
         # Net sizes
@@ -208,7 +210,8 @@ class Trainer:
             "gumbel_anneal": self.gumbel_anneal,
             "weight_decay": self.weight_decay,
             "use_weather": self.use_weather,
-            "nll_vairance": self.nll_variance
+            "nll_vairance": self.nll_variance,
+            "prior_adj_path": self.prior_adj_path
         }
 
         # Save all parameters to txt file and add to tensorboard
@@ -439,19 +442,13 @@ class Trainer:
             verbose=True,
         )
 
-        # Set up prior
-        if self.n_edge_types == 2:
-            prior = np.array([1 - self.edge_rate, self.edge_rate])
+
+
+        if self.prior_adj_path is None:
+            log_prior = get_simple_prior(self.n_edge_types, self.edge_rate)
         else:
-            prior = np.empty(self.n_edge_types)
-            prior[0] = 1 - self.edge_rate
-            prior[1:] = self.edge_rate / (self.n_edge_types - 1)
-
-        print(f"Using prior: {prior}")
-
-        log_prior = torch.FloatTensor(np.log(prior))
-        log_prior = torch.unsqueeze(log_prior, 0)
-        log_prior = torch.unsqueeze(log_prior, 0)
+            adj_prior = np.load(self.prior_adj_path)
+            log_prior = get_prior_from_adj
         self.log_prior = Variable(log_prior).cuda()
 
     def train(self):
@@ -477,7 +474,7 @@ class Trainer:
         self.rel_send = torch.FloatTensor(rel_send).cuda()
 
         print("save init graph")
-        # self._save_graph_examples(-1)
+        #self._save_graph_examples(-1)
 
         for epoch in range(self.n_epochs):
 
@@ -694,14 +691,14 @@ class Trainer:
             if self.use_weather:
                 weather_subset = weather[:10].cuda()
                 logits = self.encoder(
-                    batch_subset[:, :, self.burn_in_steps :, :],
+                    batch_subset[:, :, :self.burn_in_steps, :],
                     weather_subset,
                     self.rel_rec,
                     self.rel_send,
                 )
             else:
                 logits = self.encoder(
-                    batch_subset[:, :, self.burn_in_steps :, :],
+                    batch_subset[:, :, :self.burn_in_steps, :],
                     self.rel_rec,
                     self.rel_send,
                 )

@@ -102,7 +102,7 @@ def train(
             preds=edge_probs,
             log_prior=log_prior,
             num_atoms=n_nodes,
-        )  # Here I chose theirs since my implementation runs out of RAM :(
+        )
         loss_mse = F.mse_loss(pred, target)
 
         if loss_type == "nll":

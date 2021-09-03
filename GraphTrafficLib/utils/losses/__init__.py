@@ -3,6 +3,8 @@ from .losses import (
     kl_categorical_uniform_direct,
     kl_categorical,
     cyc_anneal,
+    get_prior_from_adj,
+    get_simple_prior
 )
 
 __all__ = [
@@ -10,5 +12,7 @@ __all__ = [
     "kl_categorical_uniform_direct",
     "kl_categorical",
     "cyc_anneal",
+    "get_prior_from_adj",
+    "get_simple_prior"
 ]
 
