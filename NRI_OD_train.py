@@ -96,6 +96,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dropout_p", type=float, default=0, help="Dropout rate (1-keep)"
     )
+    parser.add_argument(
+        "--nll_variance", type=float, default=5e-5, help="Variance for NLL loss"
+    )
 
     # Model args
     parser.add_argument(
@@ -202,6 +205,7 @@ if __name__ == "__main__":
         lr_decay_step=args.lr_decay_step,
         lr_decay_gamma=args.lr_decay_gamma,
         encoder_factor=encoder_factor,
+        skip_first=True,
         experiment_name=args.experiment_name,
         normalize=normalize,
         train_frac=train_frac,
@@ -215,6 +219,7 @@ if __name__ == "__main__":
         encoder_type=args.encoder_type,
         node_f_dim=node_f_dim,
         enc_n_hid=args.enc_n_hid,
+        rnn_enc_n_hid=None,
         n_edge_types=args.n_edge_types,
         dec_n_hid=args.dec_n_hid,
         dec_msg_hid=args.dec_msg_hid,
@@ -228,6 +233,7 @@ if __name__ == "__main__":
         gumbel_anneal=args.gumbel_anneal,
         weight_decay=args.weight_decay,
         use_weather=args.use_weather,
+        nll_variance=args.nll_variance
     )
 
     print("Initialized")
@@ -249,3 +255,44 @@ if __name__ == "__main__":
     trainer.train()
     print("Training")
     trainer.save_model()
+
+
+
+# batch_size=25,
+# n_epochs=100,
+# dropout_p=0,
+# shuffle_train=True,
+# shuffle_val=False,
+# encoder_factor=True,
+# experiment_name="test",
+# normalize=True,
+# train_frac=0.8,
+# burn_in_steps=30,
+# split_len=40,
+# burn_in=True,  # maybe remove this
+# kl_frac=1,
+# kl_cyc=None,
+# loss_type=None,
+# edge_rate=0.01,
+# encoder_type="mlp",
+# node_f_dim=1,
+# enc_n_hid=128,
+# rnn_enc_n_hid=None,
+# n_edge_types=2,
+# dec_n_hid=16,
+# dec_msg_hid=8,
+# dec_gru_hid=8,
+# skip_first=True,
+# lr=0.001,
+# lr_decay_step=100,
+# lr_decay_gamma=0.5,
+# fixed_adj_matrix_path=None,
+# encoder_lr_frac=1,
+# use_bn=True,
+# init_weights=False,
+# gumbel_tau=0.5,
+# gumbel_hard=True,
+# gumbel_anneal=None,
+# weight_decay=0,
+# use_weather=False,
+# nll_variance=5e-5

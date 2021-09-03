@@ -42,43 +42,44 @@ class Trainer:
 
     def __init__(
         self,
-        batch_size=25,
-        n_epochs=100,
-        dropout_p=0,
-        shuffle_train=True,
-        shuffle_val=False,
-        encoder_factor=True,
-        experiment_name="test",
-        normalize=True,
-        train_frac=0.8,
-        burn_in_steps=30,
-        split_len=40,
-        burn_in=True,  # maybe remove this
-        kl_frac=1,
-        kl_cyc=None,
-        loss_type=None,
-        edge_rate=0.01,
-        encoder_type="mlp",
-        node_f_dim=1,
-        enc_n_hid=128,
-        rnn_enc_n_hid=None,
-        n_edge_types=2,
-        dec_n_hid=16,
-        dec_msg_hid=8,
-        dec_gru_hid=8,
-        skip_first=True,
-        lr=0.001,
-        lr_decay_step=100,
-        lr_decay_gamma=0.5,
-        fixed_adj_matrix_path=None,
-        encoder_lr_frac=1,
-        use_bn=True,
-        init_weights=False,
-        gumbel_tau=0.5,
-        gumbel_hard=True,
-        gumbel_anneal=None,
-        weight_decay=0,
-        use_weather=False,
+        batch_size,
+        n_epochs,
+        dropout_p,
+        shuffle_train,
+        shuffle_val,
+        encoder_factor,
+        experiment_name,
+        normalize,
+        train_frac,
+        burn_in_steps,
+        split_len,
+        burn_in,  # maybe remove this
+        kl_frac,
+        kl_cyc,
+        loss_type,
+        edge_rate,
+        encoder_type,
+        node_f_dim,
+        enc_n_hid,
+        rnn_enc_n_hid,
+        n_edge_types,
+        dec_n_hid,
+        dec_msg_hid,
+        dec_gru_hid,
+        skip_first,
+        lr,
+        lr_decay_step,
+        lr_decay_gamma,
+        fixed_adj_matrix_path,
+        encoder_lr_frac,
+        use_bn,
+        init_weights,
+        gumbel_tau,
+        gumbel_hard,
+        gumbel_anneal,
+        weight_decay,
+        use_weather,
+        nll_variance
     ):
 
         # Training settings
@@ -96,6 +97,7 @@ class Trainer:
         self.gumbel_hard = gumbel_hard
         self.gumbel_anneal = gumbel_anneal
         self.weight_decay = weight_decay
+        self.nll_variance = nll_variance
 
         # Model settings
         self.encoder_factor = encoder_factor
@@ -206,6 +208,7 @@ class Trainer:
             "gumbel_anneal": self.gumbel_anneal,
             "weight_decay": self.weight_decay,
             "use_weather": self.use_weather,
+            "nll_vairance": self.nll_variance
         }
 
         # Save all parameters to txt file and add to tensorboard
@@ -228,7 +231,7 @@ class Trainer:
         self.writer.add_text("self_parameters", "\n".join(self.self_parameters))
 
         # Init best loss val
-        self.best_mse = None
+        self.best_rmse = None
 
     def load_data(self, data_path, weather_data_path, dropoff_data_path=None):
 
@@ -260,7 +263,7 @@ class Trainer:
         (
             self.train_dataloader,
             self.val_dataloader,
-            _,
+            self.test_dataloader,
             self.train_max,
             self.train_min,
         ) = create_dataloaders(
@@ -303,7 +306,7 @@ class Trainer:
         (
             self.train_dataloader,
             self.val_dataloader,
-            _,
+            self.test_dataloader,
             self.mean,
             self.std,
         ) = create_dataloaders_bike(
@@ -400,7 +403,7 @@ class Trainer:
                     gru_hid=self.dec_gru_hid,
                     edge_types=self.n_edge_types,
                     skip_first=self.skip_first,
-                    do_prob=self.dropout_p
+                    do_prob=self.dropout_p,
                 ).cuda()
             else:
                 self.decoder = GRUDecoder_multistep(
@@ -410,10 +413,8 @@ class Trainer:
                     gru_hid=self.dec_gru_hid,
                     edge_types=self.n_edge_types,
                     skip_first=self.skip_first,
-                    do_prob=self.dropout_p
+                    do_prob=self.dropout_p,
                 ).cuda()
-
-
 
         self.model_params = [
             {
@@ -424,10 +425,18 @@ class Trainer:
         ]
 
         self.optimizer = optim.Adam(self.model_params, weight_decay=self.weight_decay)
-        self.lr_scheduler = optim.lr_scheduler.StepLR(
+        # self.lr_scheduler = optim.lr_scheduler.StepLR(
+        #    optimizer=self.optimizer,
+        #    step_size=self.lr_decay_step,
+        #    gamma=self.lr_decay_gamma,
+        # )
+        self.lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer=self.optimizer,
-            step_size=self.lr_decay_step,
-            gamma=self.lr_decay_gamma,
+            factor=0.2,
+            patience=5,
+            threshold=0.001,
+            min_lr=0.0000001,
+            verbose=True,
         )
 
         # Set up prior
@@ -454,6 +463,10 @@ class Trainer:
         val_mse_arr = []
         val_nll_arr = []
         val_kl_arr = []
+
+        test_mse_arr = []
+        test_nll_arr = []
+        test_kl_arr = []
 
         # Generate off-diagonal interaction graph
         n_nodes = self.train_dataloader.dataset[0][0].shape[0]
@@ -520,9 +533,10 @@ class Trainer:
                     gumbel_tau=self.gumbel_curr_tau,
                     gumbel_hard=self.gumbel_hard,
                     use_weather=self.use_weather,
+                    nll_variance=self.nll_variance
                 )
 
-            self.lr_scheduler.step()
+            self.lr_scheduler.step(train_nll)
 
             self.writer.add_scalar("Train/MSE", train_mse, epoch)
             self.writer.add_scalar("Train/NLL", train_nll, epoch)
@@ -537,6 +551,7 @@ class Trainer:
                 )
 
             if epoch % 5 == 0:
+                # Validate on validation set
                 if self.encoder_type in ["gru", "lstm"]:
                     val_mse, val_nll, val_kl = dnri_val(
                         encoder=self.encoder,
@@ -566,6 +581,7 @@ class Trainer:
                         pred_steps=self.pred_steps,
                         n_nodes=n_nodes,
                         use_weather=self.use_weather,
+                        nll_variance=self.nll_variance
                     )
                     self._save_graph_examples(epoch)  # Double check placement
                 self.writer.add_scalar("Val/MSE", val_mse, epoch)
@@ -577,10 +593,56 @@ class Trainer:
                     self.writer.add_scalar(
                         "Val/rescaled_RMSE", val_rmse * self.std, epoch
                     )
-
                 val_mse_arr.append(val_mse)
                 val_nll_arr.append(val_nll)
                 val_kl_arr.append(val_kl)
+
+                # get metric of test set
+                if self.encoder_type in ["gru", "lstm"]:
+                    val_mse, val_nll, val_kl = dnri_val(
+                        encoder=self.encoder,
+                        decoder=self.decoder,
+                        val_dataloader=self.test_dataloader,
+                        rel_rec=self.rel_rec,
+                        rel_send=self.rel_send,
+                        burn_in=self.burn_in,
+                        burn_in_steps=self.burn_in_steps,
+                        split_len=self.split_len,
+                        log_prior=self.log_prior,
+                        n_nodes=n_nodes,
+                    )
+                    self._save_graph_examples_dnri(epoch)  # Double check placement
+                else:
+                    val_mse, val_rmse, val_nll, val_kl, mean_edge_prob = val(
+                        encoder=self.encoder,
+                        decoder=self.decoder,
+                        val_dataloader=self.test_dataloader,
+                        optimizer=self.optimizer,
+                        rel_rec=self.rel_rec,
+                        rel_send=self.rel_send,
+                        burn_in=self.burn_in,
+                        burn_in_steps=self.burn_in_steps,
+                        split_len=self.split_len,
+                        log_prior=self.log_prior,
+                        pred_steps=self.pred_steps,
+                        n_nodes=n_nodes,
+                        use_weather=self.use_weather,
+                        nll_variance=self.nll_variance
+                    )
+                    self._save_graph_examples(epoch)  # Double check placement
+                self.writer.add_scalar("Test/MSE", val_mse, epoch)
+                self.writer.add_scalar("Test/NLL", val_nll, epoch)
+                self.writer.add_scalar("Test/KL", val_kl, epoch)
+                for i, prob in enumerate(mean_edge_prob):
+                    self.writer.add_scalar(f"Mean_edge_prob/test_{i}", prob, epoch)
+                if self.data_type == "bike":
+                    self.writer.add_scalar(
+                        "Test/rescaled_RMSE", val_rmse * self.std, epoch
+                    )
+
+                test_mse_arr.append(val_mse)
+                test_nll_arr.append(val_nll)
+                test_kl_arr.append(val_kl)
 
             train_mse_arr.append(train_mse)
             train_nll_arr.append(train_nll)
@@ -592,17 +654,22 @@ class Trainer:
                     "nll": train_nll_arr,
                     "kl": train_kl_arr,
                 },
+                "test": {
+                    "mse": test_mse_arr,
+                    "nll": test_nll_arr,
+                    "kl": test_kl_arr,
+                },
             }
 
             if epoch % 5 == 0:
-                if self.best_mse is None or self.best_mse >= val_mse:
-                    self.best_mse = val_mse
+                if self.best_rmse is None or self.best_rmse >= val_rmse:
+                    self.best_rmse = val_rmse
                     self._checkpoint_model(epoch)
                 print(
-                    f"Epoch {epoch} Train MSE: {train_mse}, Val MSE: {val_mse}, Best MSE: {self.best_mse}, Checkpoint: {self.best_mse == val_mse}"
+                    f"Epoch {epoch} Train RMSE: {train_rmse}, Val RMSE: {val_rmse}, Best MSE: {self.best_rmse}, Checkpoint: {self.best_rmse == val_rmse}"
                 )
             else:
-                print(f"Epoch {epoch} Train MSE: {train_mse}")
+                print(f"Epoch {epoch} Train MSE: {train_rmse}")
 
     def _checkpoint_model(self, epoch):
         checkpoint_path = f"{self.experiment_folder_path}/checkpoint_model_dict.pth"

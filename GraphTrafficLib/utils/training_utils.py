@@ -44,6 +44,7 @@ def train(
     gumbel_tau,
     gumbel_hard,
     use_weather,
+    nll_variance
 ):
     nll = 0
     kl = 0
@@ -96,7 +97,7 @@ def train(
         pred = pred_arr.transpose(1, 2)[:, :, -pred_steps:, :]  # TODO .contiguous?
         target = data[:, :, -pred_steps:, :]
 
-        loss_nll = torch_nll_gaussian(pred, target, 5e-5)
+        loss_nll = torch_nll_gaussian(pred, target, variance=nll_variance)
         loss_kl = kl_categorical(
             preds=edge_probs,
             log_prior=log_prior,
@@ -144,6 +145,7 @@ def val(
     pred_steps,
     n_nodes,
     use_weather,
+    nll_variance
 ):
     nll = 0
     kl = 0
@@ -199,7 +201,7 @@ def val(
             pred = pred_arr.transpose(1, 2)[:, :, -pred_steps:, :]
             target = data[:, :, -pred_steps:, :]
 
-            loss_nll = torch_nll_gaussian(pred, target, 5e-5)
+            loss_nll = torch_nll_gaussian(pred, target, nll_variance)
             loss_kl = kl_categorical(
                 preds=edge_probs, log_prior=log_prior, num_atoms=n_nodes
             )  # Here I chose theirs since my implementation runs out of RAM :(
