@@ -266,8 +266,8 @@ class Trainer:
             self.train_dataloader,
             self.val_dataloader,
             self.test_dataloader,
-            self.train_max,
-            self.train_min,
+            self.mean,
+            self.std,
         ) = create_dataloaders(
             data=data_tensor,
             weather_data=weather_tensor,
@@ -559,10 +559,7 @@ class Trainer:
             self.writer.add_scalar("KL_frac", self.kl_frac, epoch)
             for i, prob in enumerate(mean_edge_prob):
                 self.writer.add_scalar(f"Mean_edge_prob/train_{i}", prob, epoch)
-            if self.data_type == "bike":
-                self.writer.add_scalar(
-                    "Train/rescaled_RMSE", train_rmse * self.std, epoch
-                )
+            self.writer.add_scalar("Train/rescaled_RMSE", train_rmse * self.std, epoch)
 
             if epoch % 5 == 0:
                 # Validate on validation set
@@ -603,10 +600,7 @@ class Trainer:
                 self.writer.add_scalar("Val/KL", val_kl, epoch)
                 for i, prob in enumerate(mean_edge_prob):
                     self.writer.add_scalar(f"Mean_edge_prob/val_{i}", prob, epoch)
-                if self.data_type == "bike":
-                    self.writer.add_scalar(
-                        "Val/rescaled_RMSE", val_rmse * self.std, epoch
-                    )
+                self.writer.add_scalar("Val/rescaled_RMSE", val_rmse * self.std, epoch)
                 val_mse_arr.append(val_mse)
                 val_nll_arr.append(val_nll)
                 val_kl_arr.append(val_kl)
@@ -649,10 +643,7 @@ class Trainer:
                 self.writer.add_scalar("Test/KL", val_kl, epoch)
                 for i, prob in enumerate(mean_edge_prob):
                     self.writer.add_scalar(f"Mean_edge_prob/test_{i}", prob, epoch)
-                if self.data_type == "bike":
-                    self.writer.add_scalar(
-                        "Test/rescaled_RMSE", val_rmse * self.std, epoch
-                    )
+                self.writer.add_scalar("Test/rescaled_RMSE", val_rmse * self.std, epoch)
 
                 test_mse_arr.append(val_mse)
                 test_nll_arr.append(val_nll)

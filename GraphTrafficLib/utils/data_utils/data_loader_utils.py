@@ -214,32 +214,40 @@ def create_dataloaders(
     weather_tensor = torch.Tensor(weather_data)
 
     # do max-min normal of data
-    if fixed_max is not None:
-        train_max = fixed_max
-    else:
-        train_max = demand_tensor[: int(train_frac * len(demand_tensor))].amax(
-            dim=(0, 1)
-        )
-        weather_train_max = weather_tensor[
-            : int(train_frac * len(weather_tensor))
-        ].amax(dim=0)
+    # if fixed_max is not None:
+    #     train_max = fixed_max
+    # else:
+    #     train_max = demand_tensor[: int(train_frac * len(demand_tensor))].amax(
+    #         dim=(0, 1)
+    #     )
+    #     weather_train_max = weather_tensor[
+    #         : int(train_frac * len(weather_tensor))
+    #     ].amax(dim=0)
 
-    if fixed_min is not None:
-        train_min = fixed_min
-    else:
-        train_min = demand_tensor[: int(train_frac * len(demand_tensor))].amin(
-            dim=(0, 1)
-        )
-        weather_train_min = weather_tensor[
-            : int(train_frac * len(weather_tensor))
-        ].amin(dim=0)
+    # if fixed_min is not None:
+    #     train_min = fixed_min
+    # else:
+    #     train_min = demand_tensor[: int(train_frac * len(demand_tensor))].amin(
+    #         dim=(0, 1)
+    #     )
+    #     weather_train_min = weather_tensor[
+    #         : int(train_frac * len(weather_tensor))
+    #     ].amin(dim=0)
 
     if normalize:
+         train_mean = demand_tensor[: int(train_frac * len(demand_tensor))].mean()
+         train_std = demand_tensor[: int(train_frac * len(demand_tensor))].std()
+         
+         weather_train_mean = weather_tensor[: int(train_frac * len(weather_tensor))].mean()
+         weather_train_std = weather_tensor[: int(train_frac * len(weather_tensor))].std()
+
+         demand_tensor = (demand_tensor - train_mean) / train_std
+         weather_tensor = (weather_tensor - weather_train_mean) / weather_train_std
         # demand_tensor = (demand_tensor - train_min) * 2 / (train_max - train_min) - 1  // between -1 and 1
-        demand_tensor = (demand_tensor - train_min) / (train_max - train_min)
-        weather_tensor = (weather_tensor - weather_train_min) / (
-            weather_train_max - weather_train_min
-        )
+        # demand_tensor = (demand_tensor - train_min) / (train_max - train_min)
+        # weather_tensor = (weather_tensor - weather_train_min) / (
+        #    weather_train_max - weather_train_min
+        # )
 
     splits = []
     weather_splits = []
@@ -292,7 +300,7 @@ def create_dataloaders(
         num_workers=2,
     )
 
-    return (train_dataloader, val_dataloader, test_dataloader, train_max, train_min)
+    return (train_dataloader, val_dataloader, test_dataloader, train_mean, train_std)
 
 
 def create_test_train_split_max_min_normalize_no_split(
