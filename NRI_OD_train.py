@@ -23,11 +23,9 @@ kl_frac = 1
 # enc_n_hid = 128
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     parser = argparse.ArgumentParser()
-
     # Parse args
-
     # Data args
     # TODO fix the pickup data naming
     parser.add_argument(
@@ -174,8 +172,16 @@ if __name__ == "__main__":
         default=False,
         help="Whether to include weather in the encoder",
     )
+    parser.add_argument(
+        "--use_seed",
+        type=int,
+        help="Seed for torch RNG"
+    )
 
     args = parser.parse_args()
+
+    if args.use_seed is not None:
+        torch.manual_seed(args.use_seed)
 
     pred_steps = args.split_len - args.burn_in_steps
     encoder_steps = args.split_len

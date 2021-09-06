@@ -19,7 +19,13 @@ import matplotlib.pyplot as plt
 from ..utils.data_utils import create_dataloaders, create_dataloaders_bike
 from ..utils import encode_onehot
 from ..utils import val, train, dnri_train, dnri_val, gumbel_tau_scheduler
-from ..utils.losses import torch_nll_gaussian, kl_categorical, cyc_anneal, get_simple_prior, get_prior_from_adj
+from ..utils.losses import (
+    torch_nll_gaussian,
+    kl_categorical,
+    cyc_anneal,
+    get_simple_prior,
+    get_prior_from_adj,
+)
 from ..utils.visual_utils import visualize_prob_adj
 from ..utils.general_utils import count_parameters
 
@@ -80,7 +86,7 @@ class Trainer:
         weight_decay,
         use_weather,
         nll_variance,
-        prior_adj_path
+        prior_adj_path,
     ):
 
         # Training settings
@@ -211,7 +217,7 @@ class Trainer:
             "weight_decay": self.weight_decay,
             "use_weather": self.use_weather,
             "nll_vairance": self.nll_variance,
-            "prior_adj_path": self.prior_adj_path
+            "prior_adj_path": self.prior_adj_path,
         }
 
         # Save all parameters to txt file and add to tensorboard
@@ -238,10 +244,9 @@ class Trainer:
 
     def load_data(self, proc_folder, data_name, weather_data_name):
 
-
         data_path = f"{proc_folder}/{data_name}"
         weather_data_path = f"{proc_folder}/{weather_data_name}"
-        
+
         print(f"Loading data at {data_path}")
         # Load data
         data = np.load(data_path)
@@ -274,7 +279,6 @@ class Trainer:
 
         self.data_type = "taxi"
 
-
         # Generate off-diagonal interaction graph
         self.n_nodes = self.train_dataloader.dataset[0][0].shape[0]
         off_diag = np.ones([self.n_nodes, self.n_nodes]) - np.eye(self.n_nodes)
@@ -283,12 +287,13 @@ class Trainer:
         self.rel_rec = torch.FloatTensor(rel_rec).cuda()
         self.rel_send = torch.FloatTensor(rel_send).cuda()
 
-
         if self.prior_adj_path is None:
             log_prior = get_simple_prior(self.n_edge_types, self.edge_rate)
         else:
             adj_prior_matrix = np.load(f"{proc_folder}/{self.prior_adj_path}")
-            log_prior = get_prior_from_adj(adj_prior_matrix, 0.75, rel_send, rel_rec) # TODO fix hard code
+            log_prior = get_prior_from_adj(
+                adj_prior_matrix, 0.75, rel_send, rel_rec
+            )  # TODO fix hard code
         self.log_prior = Variable(log_prior).cuda()
 
         # min_date = pd.Timestamp(year=2019, month=1, day=1)
@@ -346,9 +351,10 @@ class Trainer:
             log_prior = get_simple_prior(self.n_edge_types, self.edge_rate)
         else:
             adj_prior_matrix = np.load(f"{proc_folder}/{self.prior_adj_path}")
-            log_prior = get_prior_from_adj(adj_prior_matrix, 0.75, rel_send, rel_rec) # TODO fix hard code
+            log_prior = get_prior_from_adj(
+                adj_prior_matrix, 0.75, rel_send, rel_rec
+            )  # TODO fix hard code
         self.log_prior = Variable(log_prior).cuda()
-
 
     def _init_model(self):
 
@@ -485,7 +491,7 @@ class Trainer:
         test_kl_arr = []
 
         print("save init graph")
-        #self._save_graph_examples(-1)
+        # self._save_graph_examples(-1)
 
         for epoch in range(self.n_epochs):
 
@@ -541,7 +547,7 @@ class Trainer:
                     gumbel_tau=self.gumbel_curr_tau,
                     gumbel_hard=self.gumbel_hard,
                     use_weather=self.use_weather,
-                    nll_variance=self.nll_variance
+                    nll_variance=self.nll_variance,
                 )
 
             self.lr_scheduler.step(train_nll)
@@ -589,7 +595,7 @@ class Trainer:
                         pred_steps=self.pred_steps,
                         n_nodes=self.n_nodes,
                         use_weather=self.use_weather,
-                        nll_variance=self.nll_variance
+                        nll_variance=self.nll_variance,
                     )
                     self._save_graph_examples(epoch)  # Double check placement
                 self.writer.add_scalar("Val/MSE", val_mse, epoch)
@@ -635,7 +641,7 @@ class Trainer:
                         pred_steps=self.pred_steps,
                         n_nodes=self.n_nodes,
                         use_weather=self.use_weather,
-                        nll_variance=self.nll_variance
+                        nll_variance=self.nll_variance,
                     )
                     self._save_graph_examples(epoch)  # Double check placement
                 self.writer.add_scalar("Test/MSE", val_mse, epoch)
@@ -702,14 +708,14 @@ class Trainer:
             if self.use_weather:
                 weather_subset = weather[:10].cuda()
                 logits = self.encoder(
-                    batch_subset[:, :, :self.burn_in_steps, :],
+                    batch_subset[:, :, : self.burn_in_steps, :],
                     weather_subset,
                     self.rel_rec,
                     self.rel_send,
                 )
             else:
                 logits = self.encoder(
-                    batch_subset[:, :, :self.burn_in_steps, :],
+                    batch_subset[:, :, : self.burn_in_steps, :],
                     self.rel_rec,
                     self.rel_send,
                 )
