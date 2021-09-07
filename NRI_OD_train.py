@@ -23,7 +23,7 @@ kl_frac = 1
 # enc_n_hid = 128
 
 
-if __name__ == "__main__":    
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # Parse args
     # Data args
@@ -148,10 +148,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--prior_adj_path",
-        help="path to adj matrix of prior",
-        default=None,
-        type=str
+        "--prior_adj_path", help="path to adj matrix of prior", default=None, type=str
     )
 
     parser.add_argument(
@@ -172,11 +169,7 @@ if __name__ == "__main__":
         default=False,
         help="Whether to include weather in the encoder",
     )
-    parser.add_argument(
-        "--use_seed",
-        type=int,
-        help="Seed for torch RNG"
-    )
+    parser.add_argument("--use_seed", type=int, help="Seed for torch RNG")
 
     args = parser.parse_args()
 
@@ -186,7 +179,7 @@ if __name__ == "__main__":
     pred_steps = args.split_len - args.burn_in_steps
     encoder_steps = args.split_len
 
-    node_f_dim = 2 # TODO fix hardcode
+    node_f_dim = 2  # TODO fix hardcode
 
     dataset_folder = "../datafolder"
     proc_folder = f"{dataset_folder}/procdata"
@@ -242,7 +235,7 @@ if __name__ == "__main__":
         weight_decay=args.weight_decay,
         use_weather=args.use_weather,
         nll_variance=args.nll_variance,
-        prior_adj_path=args.prior_adj_path
+        prior_adj_path=args.prior_adj_path,
     )
 
     print("Initialized")
@@ -257,7 +250,7 @@ if __name__ == "__main__":
         trainer.load_data_bike(
             proc_folder=proc_folder,
             bike_folder=args.pickup_data_name,
-            weather_data_path=args.weather_data_name
+            weather_data_path=args.weather_data_name,
         )
     else:
         raise NameError("data path is neither bike or taxi")
@@ -265,7 +258,6 @@ if __name__ == "__main__":
     trainer.train()
     print("Training")
     trainer.save_model()
-
 
 
 # batch_size=25,
