@@ -470,7 +470,7 @@ class Trainer:
         self.lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer=self.optimizer,
             factor=0.2,
-            patience=5,
+            patience=15,
             threshold=0.001,
             min_lr=0.0000001,
             verbose=True,
