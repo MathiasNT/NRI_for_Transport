@@ -1,4 +1,5 @@
 import torch
+from torch import optim
 import torch.nn.functional as F
 import numpy as np
 import pandas as pd
@@ -20,7 +21,7 @@ from GraphTrafficLib.utils.data_utils import create_test_train_split_max_min_nor
 def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
     # Load the model
     if load_checkpoint:
-        model_dict = torch.load(f"{experiment_path}/checkpoint_model_dict.pth", map_location=device)
+        model_dict = torch.load(f"{experiment_path}/checkpoint_model_dict.pth", map_location=torch.device(device))
     else:
         model_dict = torch.load(f"{experiment_path}/model_dict.pth", map_location=device)
     model_settings = model_dict["settings"]
@@ -77,7 +78,34 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
     ).to(device)
     encoder.load_state_dict(model_dict["encoder"])
     decoder.load_state_dict(model_dict["decoder"])
-    return encoder, decoder, model_settings, train_res
+
+    if load_checkpoint:
+        model_params = [
+            {
+                "params": encoder.parameters(),
+                "lr": model_settings['encoder_lr_frac'] * model_settings['lr'],
+            },
+            {"params": decoder.parameters(), "lr": model_settings['lr']},
+            ]
+        optimizer = optim.Adam(model_params, weight_decay=model_settings['weight_decay'])
+        optimizer.load_state_dict(model_dict['optimizer'])
+
+        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer=optimizer,
+            factor=0.2,
+            patience=15,
+            threshold=0.001,
+            min_lr=0.0000001,
+            verbose=True,
+        )
+        # lr_scheduler.load_state_dict(model_dict['lr_scheduler'])
+
+    else:
+        optimizer = None
+        lr_scheduler = None
+
+        
+    return encoder, decoder, optimizer, lr_scheduler, model_settings, train_res
 
 
 

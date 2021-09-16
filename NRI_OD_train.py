@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
     # General args
     parser.add_argument("--experiment_name", help="Name used for saving", required=True)
-
+    parser.add_argument("--checkpoint_path", help="Path to model experiment to load checkpoint from")
     # Cuda args
     parser.add_argument(
         "--cuda_device", type=int, default=1, help="Which cuda device to run on"
@@ -236,6 +236,7 @@ if __name__ == "__main__":
         use_weather=args.use_weather,
         nll_variance=args.nll_variance,
         prior_adj_path=args.prior_adj_path,
+        checkpoint_path=args.checkpoint_path
     )
 
     print("Initialized")

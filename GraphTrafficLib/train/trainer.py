@@ -28,6 +28,7 @@ from ..utils.losses import (
 )
 from ..utils.visual_utils import visualize_prob_adj
 from ..utils.general_utils import count_parameters
+from ..utils.notebook_utils import load_model
 
 from ..models.latent_graph import (
     MLPEncoder,
@@ -87,6 +88,7 @@ class Trainer:
         use_weather,
         nll_variance,
         prior_adj_path,
+        checkpoint_path,
     ):
 
         # Training settings
@@ -105,9 +107,7 @@ class Trainer:
         self.gumbel_anneal = gumbel_anneal
         self.weight_decay = weight_decay
         self.nll_variance = nll_variance
-
-        # Model settings
-        self.encoder_factor = encoder_factor
+        self.checkpoint_path = checkpoint_path
 
         # Saving settings
         # Set up results folder
@@ -133,6 +133,7 @@ class Trainer:
         self.node_f_dim = node_f_dim
 
         # Model settings
+        self.encoder_factor = encoder_factor
         self.burn_in_steps = burn_in_steps
         self.split_len = split_len
         self.pred_steps = self.split_len - self.burn_in_steps
@@ -176,7 +177,10 @@ class Trainer:
         self.skip_first = skip_first
 
         # init model
-        self._init_model()
+        if self.checkpoint_path is not None:
+            self._load_model()
+        else:
+            self._init_model()
         self.n_encoder_params = count_parameters(self.encoder)
         self.n_decoder_params = count_parameters(self.decoder)
 
@@ -476,6 +480,14 @@ class Trainer:
             verbose=True,
         )
 
+    def _load_model(self):
+        torch.cuda.current_device()
+        self.encoder, self.decoder, self.optimizer, self.lr_scheduler, _, _ = load_model(experiment_path=self.checkpoint_path,
+                                                                                         device=torch.cuda.current_device(),
+                                                                                         encoder_type=self.encoder_type,
+                                                                                         load_checkpoint=True)
+
+        
     def train(self):
         print("Starting training")
         train_mse_arr = []
@@ -687,6 +699,7 @@ class Trainer:
                 "train_res": self.train_dict,
                 "optimizer": self.optimizer.state_dict(),
                 "params": self.parameters,
+                "lr_scheduler": self.lr_scheduler.state_dict()
             },
             checkpoint_path,
         )
