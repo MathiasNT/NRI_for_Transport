@@ -79,11 +79,8 @@ class GRUDecoder_multistep_weather(nn.Module):
 
         # Create variable to aggregate the messages in
         all_msgs = Variable(
-            torch.zeros(pre_msg.size(0), pre_msg.size(1), self.msg_out_shape)
+            torch.zeros(pre_msg.size(0), pre_msg.size(1), self.msg_out_shape, device=inputs.device)
         )
-        if inputs.is_cuda:
-            all_msgs = all_msgs.cuda()
-
 
         if self.skip_first:
             start_idx = 1
@@ -139,9 +136,7 @@ class GRUDecoder_multistep_weather(nn.Module):
 
         pred_all = []
 
-        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid))
-        if inputs.is_cuda:
-            hidden = hidden.cuda()
+        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid, device=inputs.device))
 
         for step in range(0, inputs.shape[1] - 1):
             if burn_in:
@@ -161,37 +156,37 @@ class GRUDecoder_multistep_weather(nn.Module):
 
         return preds
 
-    def test(
-        self,
-        inputs,
-        rel_rec,
-        rel_send,
-        rel_types,
-        burn_in,
-        burn_in_steps,
-        split_len,
-    ):
-        # Inputs should be [B, T, N, F]
+    # def test(
+    #     self,
+    #     inputs,
+    #     rel_rec,
+    #     rel_send,
+    #     rel_types,
+    #     burn_in,
+    #     burn_in_steps,
+    #     split_len,
+    # ):
+    #     # Inputs should be [B, T, N, F]
 
-        pred_all = []
+    #     pred_all = []
 
-        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid))
-        if inputs.is_cuda:
-            hidden = hidden.cuda()
+    #     hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid))
+    #     if inputs.is_cuda:
+    #         hidden = hidden.cuda()
 
-        for step in range(0, inputs.shape[1] - 1):
-            if burn_in:
-                if step <= burn_in_steps:
-                    ins = inputs[:, step, :, :]
-                else:
-                    ins = pred_all[step - 1]
-                    print(f"from index {step} is step with pred input")
+    #     for step in range(0, inputs.shape[1] - 1):
+    #         if burn_in:
+    #             if step <= burn_in_steps:
+    #                 ins = inputs[:, step, :, :]
+    #             else:
+    #                 ins = pred_all[step - 1]
+    #                 print(f"from index {step} is step with pred input")
 
-            pred, hidden = self.do_single_step_forward(
-                ins, rel_rec, rel_send, rel_types, hidden
-            )
-            pred_all.append(pred)
+    #         pred, hidden = self.do_single_step_forward(
+    #             ins, rel_rec, rel_send, rel_types, hidden
+    #         )
+    #         pred_all.append(pred)
 
-        preds = torch.stack(pred_all, dim=1)
+    #     preds = torch.stack(pred_all, dim=1)
 
-        return preds
+    #     return preds

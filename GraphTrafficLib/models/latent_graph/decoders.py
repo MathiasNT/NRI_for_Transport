@@ -65,10 +65,8 @@ class MLPDecoder(nn.Module):
 
         # Create variable to aggregate the messages in
         all_msgs = Variable(
-            torch.zeros(pre_msg.size(0), pre_msg.size(1), self.msg_out_shape)
+            torch.zeros(pre_msg.size(0), pre_msg.size(1), self.msg_out_shape, device=inputs.device)
         )
-        if inputs.is_cuda:
-            all_msgs = all_msgs.cuda()
 
         # Go over the different edge types and compute their contribution to the overall messages
         for i in range(0, self.edge_types):
@@ -158,10 +156,8 @@ class GRUDecoder(nn.Module):
 
         # Create variable to aggregate the messages in
         all_msgs = Variable(
-            torch.zeros(pre_msg.size(0), pre_msg.size(1), self.msg_out_shape)
+            torch.zeros(pre_msg.size(0), pre_msg.size(1), self.msg_out_shape, device=inputs.device)
         )
-        if inputs.is_cuda:
-            all_msgs = all_msgs.cuda()
 
         # Go over the different edge types and compute their contribution to the overall messages
         for i in range(0, self.edge_types):
@@ -202,9 +198,7 @@ class GRUDecoder(nn.Module):
         # Inputs should be [B, T, N, F]
         pred_all = []
 
-        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid))
-        if inputs.is_cuda:
-            hidden = hidden.cuda()
+        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid, device=inputs.device))
 
         for step in range(0, inputs.size(1) - 1):
             ins = inputs[:, step, :, :]
@@ -287,10 +281,8 @@ class GRUDecoder_multistep(nn.Module):
 
         # Create variable to aggregate the messages in
         all_msgs = Variable(
-            torch.zeros(pre_msg.size(0), pre_msg.size(1), self.msg_out_shape)
+            torch.zeros(pre_msg.size(0), pre_msg.size(1), self.msg_out_shape, device=inputs.device)
         )
-        if inputs.is_cuda:
-            all_msgs = all_msgs.cuda()
 
         if self.skip_first:
             start_idx = 1
@@ -344,9 +336,7 @@ class GRUDecoder_multistep(nn.Module):
 
         pred_all = []
 
-        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid))
-        if inputs.is_cuda:
-            hidden = hidden.cuda()
+        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid,device=inputs.device))
 
         for step in range(0, inputs.shape[1] - 1):
             if burn_in:
@@ -378,9 +368,7 @@ class GRUDecoder_multistep(nn.Module):
 
         pred_all = []
 
-        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid))
-        if inputs.is_cuda:
-            hidden = hidden.cuda()
+        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid, device=inputs.device))
 
         for step in range(0, inputs.shape[1] - 1):
             if burn_in:
@@ -467,10 +455,8 @@ class DynamicGRUDecoder_multistep(nn.Module):
 
         # Create variable to aggregate the messages in
         all_msgs = Variable(
-            torch.zeros(pre_msg.size(0), pre_msg.size(1), self.msg_out_shape)
+            torch.zeros(pre_msg.size(0), pre_msg.size(1), self.msg_out_shape, device=inputs.device)
         )
-        if inputs.is_cuda:
-            all_msgs = all_msgs.cuda()
 
         if self.skip_first:
             start_idx = 1
@@ -527,9 +513,7 @@ class DynamicGRUDecoder_multistep(nn.Module):
 
         pred_all = []
 
-        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid))
-        if inputs.is_cuda:
-            hidden = hidden.cuda()
+        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid, device=inputs.device))
 
         for step in range(0, inputs.shape[1] - 1):
             if burn_in:
@@ -561,9 +545,7 @@ class DynamicGRUDecoder_multistep(nn.Module):
 
         pred_all = []
 
-        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid))
-        if inputs.is_cuda:
-            hidden = hidden.cuda()
+        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid, device=inputs.device))
 
         for step in range(0, inputs.shape[1] - 1):
             if burn_in:

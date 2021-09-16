@@ -113,10 +113,10 @@ def train(
         loss.backward()
         optimizer.step()
 
-        nll += loss_nll.item() * len(data)
-        kl += loss_kl.item() * len(data)
+        nll += loss_nll.detach() * len(data)
+        kl += loss_kl.detach() * len(data)
 
-        mse_batch = F.mse_loss(pred, target).item()
+        mse_batch = F.mse_loss(pred, target).detach()
         mse += mse_batch * len(data)
         rmse += mse_batch ** 0.5 * len(data)
 
@@ -205,10 +205,10 @@ def val(
             loss_kl = kl_categorical(
                 preds=edge_probs, log_prior=log_prior, num_atoms=n_nodes
             )  # Here I chose theirs since my implementation runs out of RAM :(
-        nll += loss_nll.item() * len(data)
-        kl += loss_kl.item() * len(data)
+        nll += loss_nll.detach() * len(data)
+        kl += loss_kl.detach() * len(data)
 
-        mse_batch = F.mse_loss(pred, target).item()
+        mse_batch = F.mse_loss(pred, target).detach()
         mse += mse_batch * len(data)
         rmse += mse_batch ** 0.5 * len(data)
     mse = mse / steps
@@ -288,10 +288,10 @@ def dnri_train(
         loss.backward()
         optimizer.step()
 
-        nll += loss_nll.item() * len(data)
-        kl += loss_kl.item() * len(data)
+        nll += loss_nll.detach() * len(data)
+        kl += loss_kl.detach() * len(data)
 
-        mse_batch = F.mse_loss(pred, target).item()
+        mse_batch = F.mse_loss(pred, target).detach()
         mse += mse_batch * len(data)
         rmse += mse_batch ** 0.5 * len(data)
     mse = mse / steps
@@ -401,10 +401,10 @@ def dnri_val(
             loss_kl = kl_categorical(
                 preds=edge_probs, log_prior=log_prior, num_atoms=n_nodes
             )  # Here I chose theirs since my implementation runs out of RAM :(
-        nll += loss_nll.item() * len(data)
-        kl += loss_kl.item() * len(data)
+        nll += loss_nll.detach() * len(data)
+        kl += loss_kl.detach() * len(data)
 
-        mse_batch = F.mse_loss(pred, target).item()
+        mse_batch = F.mse_loss(pred, target).detach()
         mse += mse_batch * len(data)
         rmse += mse_batch ** 0.5 * len(data)
 
@@ -435,7 +435,7 @@ def train_lstm(model, train_dataloader, optimizer, burn_in, burn_in_steps, split
         loss.backward()
         optimizer.step()
 
-        mse_train.append(loss.item())
+        mse_train.append(loss.detach())
     mse = np.mean(mse_train)
     return mse
 
@@ -463,7 +463,7 @@ def val_lstm(
                 target.shape
             )
 
-            mse_val.append(F.mse_loss(pred, target).item())
+            mse_val.append(F.mse_loss(pred, target).detach())
         mse = np.mean(mse_val)
     return mse
 
