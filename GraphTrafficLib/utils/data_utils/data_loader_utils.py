@@ -406,3 +406,42 @@ def create_dataloaders_bike(x_data, y_data, weather_tensor, batch_size, normaliz
     mean = 2.7760608974358973
     std = 4.010208024889097
     return (train_dataloader, val_dataloader, test_dataloader, mean, std)
+
+
+def create_dataloaders_road(train_data, val_data, test_data, batch_size, normalize):
+    # TODO think about this
+    # Currently I ignore the timestamp data
+    train_data = torch.Tensor(train_data[..., :1]).permute(0,2,1,3)
+    val_data = torch.Tensor(val_data[..., :1]).permute(0,2,1,3)
+    test_data = torch.Tensor(test_data[..., :1]).permute(0,2,1,3)
+
+    if normalize:
+         train_mean = train_data.mean()
+         train_std = train_data.std()
+
+         train_data = (train_data - train_mean) / train_std
+         val_data = (val_data - train_mean) / train_std
+         test_data = (test_data - train_mean) / train_std
+
+    train_weather = torch.zeros_like(train_data)
+    val_weather = torch.zeros_like(val_data)
+    test_weather = torch.zeros_like(test_data)
+
+
+    # packing on dummy weather to make the data fit rest of code
+    train_dataset = TensorDataset(train_data, train_weather)
+    val_dataset = TensorDataset(val_data, val_weather)
+    test_dataset = TensorDataset(test_data, test_weather)
+
+    train_dataloader = DataLoader(
+        train_dataset, shuffle=True, batch_size=batch_size, num_workers=4, pin_memory=True
+    )
+    val_dataloader = DataLoader(
+        val_dataset, shuffle=True, batch_size=batch_size, num_workers=4, pin_memory=True
+    )
+    test_dataloader = DataLoader(
+        test_dataset, shuffle=True, batch_size=batch_size, num_workers=4, pin_memory=True
+    )
+
+    # mean and std values are grabbed from https://github.com/Essaim/CGCDemandPrediction
+    return (train_dataloader, val_dataloader, test_dataloader, train_mean, train_std)

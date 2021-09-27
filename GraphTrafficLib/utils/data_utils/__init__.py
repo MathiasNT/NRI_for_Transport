@@ -11,6 +11,7 @@ from .data_preprocess import (
 from .data_loader_utils import (
     create_dataloaders,
     create_dataloaders_bike,
+    create_dataloaders_road,
     create_test_train_split_max_min_normalize,
     renormalize_data,
     create_test_train_split_max_min_normalize_no_split
@@ -32,4 +33,5 @@ __all__ = [
     "create_dataloaders",
     "create_dataloaders_bike"
     "create_OD_matrix_ts",
+    "create_dataloader_road"
 ]

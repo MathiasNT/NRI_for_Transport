@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from torchvision.utils import make_grid
 import matplotlib.pyplot as plt
 
-from ..utils.data_utils import create_dataloaders, create_dataloaders_bike
+from ..utils.data_utils import create_dataloaders, create_dataloaders_bike, create_dataloaders_road
 from ..utils import encode_onehot
 from ..utils import val, train, dnri_train, dnri_val, gumbel_tau_scheduler
 from ..utils.losses import (
@@ -342,6 +342,47 @@ class Trainer:
         )
 
         self.data_type = "bike"
+
+        # Generate off-diagonal interaction graph
+        self.n_nodes = self.train_dataloader.dataset[0][0].shape[0]
+        off_diag = np.ones([self.n_nodes, self.n_nodes]) - np.eye(self.n_nodes)
+        rel_rec = np.array(encode_onehot(np.where(off_diag)[0]), dtype=np.float32)
+        rel_send = np.array(encode_onehot(np.where(off_diag)[1]), dtype=np.float32)
+        self.rel_rec = torch.FloatTensor(rel_rec).cuda()
+        self.rel_send = torch.FloatTensor(rel_send).cuda()
+
+        if self.prior_adj_path is None:
+            log_prior = get_simple_prior(self.n_edge_types, self.edge_rate)
+        else:
+            adj_prior_matrix = np.load(f"{proc_folder}/{self.prior_adj_path}")
+            log_prior = get_prior_from_adj(
+                adj_prior_matrix, 0.75, rel_send, rel_rec
+            )  # TODO fix hard code
+        self.log_prior = Variable(log_prior).cuda()
+
+    def load_data_road(self, proc_folder, road_folder):
+        train_data = np.load(f"{proc_folder}/{road_folder}/train_data.npy")
+        val_data = np.load(f"{proc_folder}/{road_folder}/val_data.npy")
+        test_data = np.load(f"{proc_folder}/{road_folder}/test_data.npy")
+
+        # load weather data
+        ## TODO maybe?
+
+        (
+            self.train_dataloader,
+            self.val_dataloader,
+            self.test_dataloader,
+            self.mean,
+            self.std,
+        ) = create_dataloaders_road(
+            train_data=train_data,
+            val_data=val_data,
+            test_data=test_data,
+            batch_size=self.batch_size,
+            normalize=self.normalize,
+        )
+
+        self.data_type = "road"
 
         # Generate off-diagonal interaction graph
         self.n_nodes = self.train_dataloader.dataset[0][0].shape[0]

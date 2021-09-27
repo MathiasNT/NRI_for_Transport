@@ -169,6 +169,7 @@ if __name__ == "__main__":
         default=False,
         help="Whether to include weather in the encoder",
     )
+    parser.add_argument("--node_f_dim", type=int, default=2, help="The amount of features on pr. timestep on nodes")
     parser.add_argument("--use_seed", type=int, help="Seed for torch RNG")
 
     args = parser.parse_args()
@@ -179,7 +180,7 @@ if __name__ == "__main__":
     pred_steps = args.split_len - args.burn_in_steps
     encoder_steps = args.split_len
 
-    node_f_dim = 2  # TODO fix hardcode
+    node_f_dim = args.node_f_dim
 
     dataset_folder = "../datafolder"
     proc_folder = f"{dataset_folder}/procdata"
@@ -252,6 +253,11 @@ if __name__ == "__main__":
             proc_folder=proc_folder,
             bike_folder=args.pickup_data_name,
             weather_data_path=args.weather_data_name,
+        )
+    elif args.pickup_data_name.split("_")[0] == "pems":
+        trainer.load_data_road(
+            proc_folder=proc_folder,
+            road_folder=args.pickup_data_name,
         )
     else:
         raise NameError("data path is neither bike or taxi")
