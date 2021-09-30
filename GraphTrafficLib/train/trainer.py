@@ -211,6 +211,7 @@ class Trainer:
             "train_frac": self.train_frac,
             "burn_in_steps": self.burn_in_steps,
             "split_len": self.split_len,
+            "pred_steps": self.pred_steps,
             "burn_in": self.burn_in,
             "kl_frac": self.kl_frac,
             "kl_cyc": self.kl_cyc,
