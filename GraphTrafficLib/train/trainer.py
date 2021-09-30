@@ -60,6 +60,7 @@ class Trainer:
         train_frac,
         burn_in_steps,
         split_len,
+        pred_steps,
         burn_in,  # maybe remove this
         kl_frac,
         kl_cyc,
@@ -136,9 +137,10 @@ class Trainer:
         self.encoder_factor = encoder_factor
         self.burn_in_steps = burn_in_steps
         self.split_len = split_len
-        self.pred_steps = self.split_len - self.burn_in_steps
+        self.pred_steps = pred_steps
         self.encoder_steps = self.burn_in_steps
-        assert self.burn_in_steps + self.pred_steps == self.split_len
+        assert self.pred_steps < self.split_len
+        assert self.pred_steps >= self.split_len - self.burn_in_steps
 
         self.burn_in = burn_in
         self.kl_frac = kl_frac
@@ -156,7 +158,7 @@ class Trainer:
             self.enc_n_in = self.encoder_steps * self.node_f_dim
             self.enc_n_in_weather = (
                 self.split_len * 2
-            )  # hardcoded 2 two weather values atm
+            )  # hardcoded 2 two weather values atm TODO fix
         elif self.encoder_type in ["cnn", "gru", "lstm"]:
             self.enc_n_in = self.node_f_dim
             self.rnn_enc_n_hid = rnn_enc_n_hid

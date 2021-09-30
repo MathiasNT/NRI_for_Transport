@@ -164,6 +164,12 @@ if __name__ == "__main__":
         required=True,
     )
     parser.add_argument(
+        "--pred_steps",
+        type=int,
+        help="How many steps (going backwards from end of sequence) to use in loss (max split_len - 1 and min split_len - burn_in_steps. Note only used in actual training loss and not in reporting",
+        required=True
+    )
+    parser.add_argument(
         "--use_weather",
         action="store_true",
         default=False,
@@ -213,6 +219,7 @@ if __name__ == "__main__":
         train_frac=train_frac,
         burn_in_steps=args.burn_in_steps,
         split_len=args.split_len,
+        pred_steps=args.pred_steps,
         burn_in=burn_in,
         kl_frac=kl_frac,
         kl_cyc=args.kl_cyc,

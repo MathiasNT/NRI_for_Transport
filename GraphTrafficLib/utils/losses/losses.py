@@ -58,3 +58,18 @@ def cyc_anneal(epoch, cyclic):
     anneal = min(1, 2 / cyclic * cycle + 0.1)
 
     return anneal
+
+def cyc_anneal_delayed(epoch, cyclic, delay):
+    """
+    returns anneal weight to multiply KLD with in elbo
+    takes half a cycle to get to 1. for the rest of the cycle it will remain 1
+    so it resembles https://github.com/haofuml/cyclical_annealing
+    Function assumes epoch starts at 0
+    """
+    if epoch < delay:
+         return 1
+
+    cycle = (epoch) % cyclic
+    anneal = min(1, 2 / cyclic * cycle + 0.1)
+
+    return anneal

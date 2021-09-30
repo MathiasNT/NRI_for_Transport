@@ -103,12 +103,12 @@ def train(
             log_prior=log_prior,
             num_atoms=n_nodes,
         )
-        loss_mse = F.mse_loss(pred, target)
+        #loss_mse = F.mse_loss(pred, target)
 
         if loss_type == "nll":
             loss = loss_nll + kl_frac * loss_kl
-        elif loss_type == "mse":
-            loss = loss_mse + kl_frac * loss_kl
+        #elif loss_type == "mse":
+        #    loss = loss_mse + kl_frac * loss_kl
 
         loss.backward()
         optimizer.step()
@@ -116,7 +116,9 @@ def train(
         nll += loss_nll.detach() * len(data)
         kl += loss_kl.detach() * len(data)
 
-        mse_batch = F.mse_loss(pred, target).detach()
+        mse_batch = F.mse_loss(input=pred[:,:, -(split_len - burn_in_steps):, :],
+                              target=target[:,:, -(split_len - burn_in_steps):, :]
+            ).detach()
         mse += mse_batch * len(data)
         rmse += mse_batch ** 0.5 * len(data)
 
@@ -208,7 +210,10 @@ def val(
         nll += loss_nll.detach() * len(data)
         kl += loss_kl.detach() * len(data)
 
-        mse_batch = F.mse_loss(pred, target).detach()
+
+        mse_batch = F.mse_loss(input=pred[:,:, -(split_len - burn_in_steps):, :],
+                              target=target[:,:, -(split_len - burn_in_steps):, :]
+            ).detach()
         mse += mse_batch * len(data)
         rmse += mse_batch ** 0.5 * len(data)
     mse = mse / steps

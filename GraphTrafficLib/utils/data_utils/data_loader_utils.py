@@ -355,6 +355,8 @@ def renormalize_data(data, data_min, data_max, new_way=True):
     else:
         return (data + 1) * (data_max - data_min) / 2 + data_min
 
+def restandardize_data(data, data_mean, data_std):
+    return data * data_std + data_mean
 
 def create_dataloaders_bike(x_data, y_data, weather_tensor, batch_size, normalize):
     full_data = torch.cat([x_data, y_data], dim=1)
@@ -396,10 +398,10 @@ def create_dataloaders_bike(x_data, y_data, weather_tensor, batch_size, normaliz
         train_dataset, shuffle=True, batch_size=batch_size, num_workers=4, pin_memory=True
     )
     val_dataloader = DataLoader(
-        val_dataset, shuffle=True, batch_size=batch_size, num_workers=4, pin_memory=True
+        val_dataset, shuffle=False, batch_size=batch_size, num_workers=4, pin_memory=True
     )
     test_dataloader = DataLoader(
-        test_dataset, shuffle=True, batch_size=batch_size, num_workers=4, pin_memory=True
+        test_dataset, shuffle=False, batch_size=batch_size, num_workers=4, pin_memory=True
     )
 
     # mean and std values are grabbed from https://github.com/Essaim/CGCDemandPrediction

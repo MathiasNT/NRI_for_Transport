@@ -17,6 +17,7 @@ class Encoder_Visualizer(object):
         burn_in,
         burn_in_steps,
         split_len,
+        use_weather,
     ):
         super().__init__()
         self.rel_rec = rel_rec
@@ -25,15 +26,24 @@ class Encoder_Visualizer(object):
         self.burn_in = burn_in
         self.burn_in_steps = burn_in_steps
         self.split_len = split_len
+        self.use_weather = use_weather
 
     def infer_graphs(self, data, gumbel_temp):
         graph_list = []
         graph_probs = []
         self.encoder.eval()
-        for _, data in enumerate(data):
+        for _, (data, weather) in enumerate(data):
             with torch.no_grad():
                 data = data.unsqueeze(dim=0).cuda()
-                logits = self.encoder(data, self.rel_rec, self.rel_send)
+                if self.use_weather:
+                    weather = weather.unsqueeze(dim=0).cuda()
+                    logits = self.encoder(
+                        data[:,:, :self.burn_in_steps, :], weather, self.rel_rec, self.rel_send
+                    )
+                else:
+                    logits = self.encoder(
+                        data[:,:,:self.burn_in_steps, :], self.rel_rec, self.rel_send
+                    )
                 edges = F.gumbel_softmax(logits, tau=gumbel_temp, hard=True)
                 edge_probs = F.softmax(logits, dim=-1)
                 graph_list.append(edges.cpu())
@@ -309,6 +319,31 @@ def visualize_continous_adj(edge_list, rel_send, rel_rec):
         rec = rel_rec[i].argmax().item()
         adj_matrix[rec, send] = row[1]
     return adj_matrix
+
+# Function taken from 
+# https://discuss.pytorch.org/t/how-can-i-merge-diagonal-and-off-diagonal-matrix-elements-into-a-single-matrix/128074/3
+def merge_on_and_off_diagonal(on_diag, off_diag):
+    #store output shape, to remove and unsqueeze'd dims
+    output_shape = (*off_diag.shape[:-1],off_diag.shape[-2])
+    if(len(on_diag.shape)==1 and len(off_diag.shape)==2):
+        on_diag=on_diag.unsqueeze(0).unsqueeze(1)
+        off_diag=off_diag.unsqueeze(0).unsqueeze(1)
+    elif(len(on_diag.shape)==2 and len(off_diag.shape)==3):
+        on_diag=on_diag.unsqueeze(1)
+        off_diag=off_diag.unsqueeze(1)
+    #reform input on_diag and off_diag to shape
+    #B = batch, D = number of vector for given batch, A = dimension of vector
+    #on_diag shape:  [B, D, A]
+    #off_diag shape: [B, D, A, A-1]
+    if on_diag.shape[-1] != off_diag.shape[-2]:
+        raise ValueError("index on_diag.shape[-1] must match off_diag.shape[-2]")
+    dim=len(on_diag.shape)
+    tmp = torch.cat((on_diag[:,:,:-1].unsqueeze(dim), \
+                off_diag.view((*off_diag.shape[0:(dim-1)],off_diag.shape[-1], off_diag.shape[-2]))), dim=dim)
+    res = torch.cat( (tmp.view(*off_diag.shape[0:(dim-1)], -1), on_diag[:,:,-1].unsqueeze(2)), dim=dim-1 ).view(*off_diag.shape[0:(dim-1)], on_diag.shape[-1], on_diag.shape[-1])
+
+    return res.view(output_shape)
+
 
 def plot_adj_and_time(adj, time_str):
     fig, ax = plt.subplots(1,figsize=(10,10))
