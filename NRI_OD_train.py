@@ -40,7 +40,9 @@ if __name__ == "__main__":
 
     # General args
     parser.add_argument("--experiment_name", help="Name used for saving", required=True)
-    parser.add_argument("--checkpoint_path", help="Path to model experiment to load checkpoint from")
+    parser.add_argument(
+        "--checkpoint_path", help="Path to model experiment to load checkpoint from"
+    )
     # Cuda args
     parser.add_argument(
         "--cuda_device", type=int, default=1, help="Which cuda device to run on"
@@ -167,7 +169,7 @@ if __name__ == "__main__":
         "--pred_steps",
         type=int,
         help="How many steps (going backwards from end of sequence) to use in loss (max split_len - 1 and min split_len - burn_in_steps. Note only used in actual training loss and not in reporting",
-        required=True
+        required=True,
     )
     parser.add_argument(
         "--use_weather",
@@ -175,7 +177,12 @@ if __name__ == "__main__":
         default=False,
         help="Whether to include weather in the encoder",
     )
-    parser.add_argument("--node_f_dim", type=int, default=2, help="The amount of features on pr. timestep on nodes")
+    parser.add_argument(
+        "--node_f_dim",
+        type=int,
+        default=2,
+        help="The amount of features on pr. timestep on nodes",
+    )
     parser.add_argument("--use_seed", type=int, help="Seed for torch RNG")
 
     args = parser.parse_args()
@@ -244,7 +251,7 @@ if __name__ == "__main__":
         use_weather=args.use_weather,
         nll_variance=args.nll_variance,
         prior_adj_path=args.prior_adj_path,
-        checkpoint_path=args.checkpoint_path
+        checkpoint_path=args.checkpoint_path,
     )
 
     print("Initialized")
