@@ -15,19 +15,28 @@ from GraphTrafficLib.models.latent_graph import (
     MLPEncoder_weather,
     GRUDecoder_multistep_weather,
     CNNEncoder_weather,
-    FixedEncoder_weather
+    FixedEncoder_weather,
 )
 from GraphTrafficLib.models import SimpleLSTM
 from GraphTrafficLib.utils import encode_onehot
-from GraphTrafficLib.utils.data_utils import create_test_train_split_max_min_normalize, create_dataloaders, create_dataloaders_bike
+from GraphTrafficLib.utils.data_utils import (
+    create_test_train_split_max_min_normalize,
+    create_dataloaders,
+    create_dataloaders_bike,
+)
 
 
 def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
     # Load the model settings and weights
     if load_checkpoint:
-        model_dict = torch.load(f"{experiment_path}/checkpoint_model_dict.pth", map_location=torch.device(device))
+        model_dict = torch.load(
+            f"{experiment_path}/checkpoint_model_dict.pth",
+            map_location=torch.device(device),
+        )
     else:
-        model_dict = torch.load(f"{experiment_path}/model_dict.pth", map_location=device)
+        model_dict = torch.load(
+            f"{experiment_path}/model_dict.pth", map_location=device
+        )
     model_settings = model_dict["settings"]
     train_res = model_dict["train_res"]
 
@@ -39,43 +48,44 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
 
     # Init model
     if encoder_type == "mlp":
-        if model_settings['use_weather']:
+        if model_settings["use_weather"]:
             encoder = MLPEncoder_weather(
-                    n_in=model_settings['enc_n_in'],
-                    n_in_weather=model_settings['split_len'] * 2, # hardcoded same as model init TODO fix
-                    n_hid=model_settings["enc_n_hid"],
-                    n_out=model_settings['enc_n_out'],
-                    do_prob=model_settings['dropout_p'],
-                    factor=model_settings['encoder_factor'],
-                    use_bn=model_settings['use_bn'],
-                ).cuda()
+                n_in=model_settings["enc_n_in"],
+                n_in_weather=model_settings["split_len"]
+                * 2,  # hardcoded same as model init TODO fix
+                n_hid=model_settings["enc_n_hid"],
+                n_out=model_settings["enc_n_out"],
+                do_prob=model_settings["dropout_p"],
+                factor=model_settings["encoder_factor"],
+                use_bn=model_settings["use_bn"],
+            ).cuda()
         else:
             encoder = MLPEncoder(
                 n_in=model_settings["enc_n_in"],
                 n_hid=model_settings["enc_n_hid"],
                 n_out=model_settings["enc_n_out"],
-                do_prob=model_settings['dropout_p'],
-                factor=model_settings['encoder_factor'],
-                use_bn=model_settings['use_bn'],
+                do_prob=model_settings["dropout_p"],
+                factor=model_settings["encoder_factor"],
+                use_bn=model_settings["use_bn"],
             ).to(device)
     elif encoder_type == "cnn":
-        if model_settings['use_weather']:
+        if model_settings["use_weather"]:
             encoder = CNNEncoder_weather(
-                    n_in=model_settings["enc_n_in"],
-                    n_hid=model_settings["enc_n_hid"],
-                    n_out=model_settings["enc_n_out"],
-                    do_prob=model_settings['dropout_p'],
-                    factor=model_settings['encoder_factor'],
-                    use_bn=model_settings['use_bn'],
-                ).cuda()
+                n_in=model_settings["enc_n_in"],
+                n_hid=model_settings["enc_n_hid"],
+                n_out=model_settings["enc_n_out"],
+                do_prob=model_settings["dropout_p"],
+                factor=model_settings["encoder_factor"],
+                use_bn=model_settings["use_bn"],
+            ).cuda()
         else:
             encoder = CNNEncoder(
                 n_in=model_settings["enc_n_in"],
                 n_hid=model_settings["enc_n_hid"],
                 n_out=model_settings["enc_n_out"],
-                do_prob=model_settings['dropout_p'],
-                factor=model_settings['encoder_factor'],
-                use_bn=model_settings['use_bn'],
+                do_prob=model_settings["dropout_p"],
+                factor=model_settings["encoder_factor"],
+                use_bn=model_settings["use_bn"],
             ).to(device)
     elif encoder_type == "gru":
         if "rnn_n_hid" not in model_settings.keys():
@@ -85,19 +95,19 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
             n_hid=model_settings["enc_n_hid"],
             rnn_hid=model_settings["rnn_hid"],
             n_out=model_settings["enc_n_out"],
-            do_prob=model_settings['dropout_p'],
-            factor=model_settings['encoder_factor']
+            do_prob=model_settings["dropout_p"],
+            factor=model_settings["encoder_factor"],
         ).to(device)
     elif encoder_type == "fixed":
-        if model_settings['use_weather']:
-            encoder = FixedEncoder_weather(adj_matrix=model_dict["encoder"]["adj_matrix"]).to(
-                device
-            )
+        if model_settings["use_weather"]:
+            encoder = FixedEncoder_weather(
+                adj_matrix=model_dict["encoder"]["adj_matrix"]
+            ).to(device)
         else:
             encoder = FixedEncoder(adj_matrix=model_dict["encoder"]["adj_matrix"]).to(
                 device
             )
-    if model_settings['use_weather']:
+    if model_settings["use_weather"]:
         decoder = GRUDecoder_multistep_weather(
             n_hid=model_settings["dec_n_hid"],
             f_in=model_settings["node_f_dim"],
@@ -105,7 +115,7 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
             gru_hid=model_settings["dec_gru_hid"],
             edge_types=model_settings["dec_edge_types"],
             skip_first=model_settings["skip_first"],
-            do_prob=model_settings["dropout_p"]
+            do_prob=model_settings["dropout_p"],
         ).to(device)
     else:
         decoder = GRUDecoder_multistep(
@@ -115,9 +125,9 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
             gru_hid=model_settings["dec_gru_hid"],
             edge_types=model_settings["dec_edge_types"],
             skip_first=model_settings["skip_first"],
-            do_prob=model_settings["dropout_p"]
+            do_prob=model_settings["dropout_p"],
         ).to(device)
-    
+
     # Load trained weights
     encoder.load_state_dict(model_dict["encoder"])
     decoder.load_state_dict(model_dict["decoder"])
@@ -126,12 +136,14 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
         model_params = [
             {
                 "params": encoder.parameters(),
-                "lr": model_settings['encoder_lr_frac'] * model_settings['lr'],
+                "lr": model_settings["encoder_lr_frac"] * model_settings["lr"],
             },
-            {"params": decoder.parameters(), "lr": model_settings['lr']},
-            ]
-        optimizer = optim.Adam(model_params, weight_decay=model_settings['weight_decay'])
-        optimizer.load_state_dict(model_dict['optimizer'])
+            {"params": decoder.parameters(), "lr": model_settings["lr"]},
+        ]
+        optimizer = optim.Adam(
+            model_params, weight_decay=model_settings["weight_decay"]
+        )
+        optimizer.load_state_dict(model_dict["optimizer"])
 
         lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer=optimizer,
@@ -147,9 +159,7 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
         optimizer = None
         lr_scheduler = None
 
-        
     return encoder, decoder, optimizer, lr_scheduler, model_settings, train_res
-
 
 
 def load_lstm_model(lstm_path, device):
@@ -165,6 +175,7 @@ def load_lstm_model(lstm_path, device):
     lstm.load_state_dict(model_dict["model"])
     return lstm, model_settings, train_res
 
+
 def load_data(
     data_path,
     weather_data_path,
@@ -176,7 +187,7 @@ def load_data(
 ):
     # Load data
     data = np.load(data_path)
-    
+
     if dropoff_data_path is not None:
         dropoff_data = np.load(dropoff_data_path)
 
@@ -188,8 +199,7 @@ def load_data(
         data_tensor = torch.cat([pickup_tensor, dropoff_tensor], dim=0)
     else:
         data_tensor = torch.Tensor(data)
-    
-    
+
     # load weather data
     weather_df = pd.read_csv(weather_data_path, parse_dates=[0, 7])
     # temp fix for na temp
@@ -214,9 +224,16 @@ def load_data(
         normalize=normalize,
         train_frac=train_frac,
     )
-    
-    
-    return data_tensor, train_dataloader, val_dataloader, test_dataloader, train_max, train_min
+
+    return (
+        data_tensor,
+        train_dataloader,
+        val_dataloader,
+        test_dataloader,
+        train_max,
+        train_min,
+    )
+
 
 def load_data_bike(
     bike_folder_path,
@@ -226,7 +243,9 @@ def load_data_bike(
 ):
     x_data = torch.load(f"{bike_folder_path}/nyc_bike_cgc_x_standardised")
     y_data = torch.load(f"{bike_folder_path}/nyc_bike_cgc_y_standardised")
-    data_tensor = torch.as_tensor(torch.load(f"{bike_folder_path}/standard_preprocessed_NYC_bike")).permute(1,0,2)
+    data_tensor = torch.as_tensor(
+        torch.load(f"{bike_folder_path}/standard_preprocessed_NYC_bike")
+    ).permute(1, 0, 2)
 
     # load weather data
     weather_df = pd.read_csv(f"{bike_folder_path}/bike_weather.csv")
@@ -251,6 +270,7 @@ def load_data_bike(
         normalize=normalize,
     )
     return data_tensor, train_dataloader, val_dataloader, test_dataloader, mean, std
+
 
 # This here is actually my old dataloader currently kept for legacy reasons
 def load_data2(
@@ -361,20 +381,20 @@ def create_predictions(
     use_weather,
     sample_graph,
     device,
-    tau
+    tau,
 ):
     y_true = []
     y_pred = []
     graph_list = []
     graph_probs = []
-    mse_batch = []
-
-    pred_steps=split_len - burn_in_steps
-
+    mse = 0
+    pred_steps = split_len - burn_in_steps
+    steps = 0
     encoder.eval()
     decoder.eval()
     for _, (data, weather) in tqdm(enumerate(test_dataloader)):
         with torch.no_grad():
+            steps += len(data)
             data = data.to(device)
 
             if use_weather:
@@ -417,18 +437,17 @@ def create_predictions(
                 )
             pred = pred_arr.transpose(1, 2).contiguous()
             target = data[:, :, 1:, :]
-            
+
             y_true.append(target)
             y_pred.append(pred)
-            
-            rmse_pred = pred[:,:, -pred_steps:, :]
+
+            rmse_pred = pred[:, :, -pred_steps:, :]
             rmse_target = data[:, :, -pred_steps:, :]
-            mse_batch.append(F.mse_loss(rmse_pred, rmse_target).item())
-            
+            mse += F.mse_loss(rmse_pred, rmse_target).item() * len(data)
 
     y_true = torch.cat(y_true).cpu().detach()
     y_pred = torch.cat(y_pred).squeeze().cpu().detach()
-    mse = np.mean(mse_batch)
+    mse = mse / steps
     rmse = mse ** 0.5
     return y_pred, y_true, mse, rmse
 

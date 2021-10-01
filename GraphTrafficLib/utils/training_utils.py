@@ -44,7 +44,7 @@ def train(
     gumbel_tau,
     gumbel_hard,
     use_weather,
-    nll_variance
+    nll_variance,
 ):
     nll = 0
     kl = 0
@@ -103,11 +103,11 @@ def train(
             log_prior=log_prior,
             num_atoms=n_nodes,
         )
-        #loss_mse = F.mse_loss(pred, target)
+        # loss_mse = F.mse_loss(pred, target)
 
         if loss_type == "nll":
             loss = loss_nll + kl_frac * loss_kl
-        #elif loss_type == "mse":
+        # elif loss_type == "mse":
         #    loss = loss_mse + kl_frac * loss_kl
 
         loss.backward()
@@ -116,18 +116,18 @@ def train(
         nll += loss_nll.detach() * len(data)
         kl += loss_kl.detach() * len(data)
 
-        mse_batch = F.mse_loss(input=pred[:,:, -(split_len - burn_in_steps):, :],
-                              target=target[:,:, -(split_len - burn_in_steps):, :]
-            ).detach()
+        mse_batch = F.mse_loss(
+            input=pred[:, :, -(split_len - burn_in_steps) :, :],
+            target=target[:, :, -(split_len - burn_in_steps) :, :],
+        ).detach()
         mse += mse_batch * len(data)
-        rmse += mse_batch ** 0.5 * len(data)
 
         mean_edge_prob_train.append(edge_probs.mean(dim=(1, 0)).tolist())
 
     mse = mse / steps
     kl = kl / steps
     nll = nll / steps
-    rmse = rmse / steps
+    rmse = mse ** 0.5
 
     mean_edge_prob = np.mean(np.array(mean_edge_prob_train), 0)
     return mse, rmse, nll, kl, mean_edge_prob
@@ -147,12 +147,11 @@ def val(
     pred_steps,
     n_nodes,
     use_weather,
-    nll_variance
+    nll_variance,
 ):
     nll = 0
     kl = 0
     mse = 0
-    rmse = 0
     steps = 0
     mean_edge_prob = []
 
@@ -210,16 +209,15 @@ def val(
         nll += loss_nll.detach() * len(data)
         kl += loss_kl.detach() * len(data)
 
-
-        mse_batch = F.mse_loss(input=pred[:,:, -(split_len - burn_in_steps):, :],
-                              target=target[:,:, -(split_len - burn_in_steps):, :]
-            ).detach()
+        mse_batch = F.mse_loss(
+            input=pred[:, :, -(split_len - burn_in_steps) :, :],
+            target=target[:, :, -(split_len - burn_in_steps) :, :],
+        ).detach()
         mse += mse_batch * len(data)
-        rmse += mse_batch ** 0.5 * len(data)
     mse = mse / steps
     kl = kl / steps
     nll = nll / steps
-    rmse = rmse / steps
+    rmse = mse ** 0.5
     mean_edge_prob = np.mean(np.array(mean_edge_prob), 0)
     return mse, rmse, nll, kl, mean_edge_prob
 
