@@ -747,6 +747,7 @@ class Trainer:
             },
             checkpoint_path,
         )
+        print(f"Model at epoch {epoch} checkpointed model at {checkpoint_path}")
 
     def _save_graph_examples(self, epoch):
         with torch.no_grad():
@@ -906,14 +907,20 @@ class Trainer:
     def save_model(self):
         model_path = f"{self.experiment_folder_path}/model_dict.pth"
 
-        gru_dev_1_dict = {
-            "encoder": self.encoder.state_dict(),
-            "decoder": self.decoder.state_dict(),
-            "settings": self.model_settings,
-            "train_res": self.train_dict,
-        }
+        torch.save(
+            {
+                "epoch": self.n_epochs,
+                "encoder": self.encoder.state_dict(),
+                "decoder": self.decoder.state_dict(),
+                "settings": self.model_settings,
+                "train_res": self.train_dict,
+                "optimizer": self.optimizer.state_dict(),
+                "params": self.parameters,
+                "lr_scheduler": self.lr_scheduler.state_dict()
+            },
+            model_path,
+        )
 
-        torch.save(gru_dev_1_dict, model_path)
         print(f"Model saved at {model_path}")
 
     def profile_model(self):

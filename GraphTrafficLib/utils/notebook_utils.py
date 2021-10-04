@@ -30,7 +30,7 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
     # Load the model settings and weights
     if load_checkpoint:
         model_dict = torch.load(
-            f"{experiment_path}/checkpoint_model_dict.pth",
+            f"{experiment_path}",
             map_location=torch.device(device),
         )
     else:
