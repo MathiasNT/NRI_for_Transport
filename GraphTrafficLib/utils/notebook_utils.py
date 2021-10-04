@@ -159,6 +159,9 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
         optimizer = None
         lr_scheduler = None
 
+    print(f"loaded model at {experiment_path}")
+    print(f"Continuing from epoch {model_dict['epoch']}")
+
     return encoder, decoder, optimizer, lr_scheduler, model_settings, train_res
 
 
