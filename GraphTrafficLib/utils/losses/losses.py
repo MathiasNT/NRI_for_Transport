@@ -73,3 +73,11 @@ def cyc_anneal_delayed(epoch, cyclic, delay):
     anneal = min(1, 2 / cyclic * cycle + 0.1)
 
     return anneal
+
+# Taken from https://github.com/Essaim/CGCDemandPrediction
+def pcc(x, y):
+    x,y = x.reshape(-1),y.reshape(-1)
+    return np.corrcoef(x,y)[0][1]
+
+def mape(pred, y):
+    return ((y-pred).abs() / (y.abs() + 1e-8))

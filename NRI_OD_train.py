@@ -183,6 +183,11 @@ if __name__ == "__main__":
         default=2,
         help="The amount of features on pr. timestep on nodes",
     )
+    parser.add_argument(
+        "--subset_dim",
+        type=int,
+        help="Dimension to subset the output to."
+    )
     parser.add_argument("--use_seed", type=int, help="Seed for torch RNG")
 
     args = parser.parse_args()
@@ -234,6 +239,7 @@ if __name__ == "__main__":
         edge_rate=args.edge_rate,
         encoder_type=args.encoder_type,
         node_f_dim=node_f_dim,
+        subset_dim=args.subset_dim
         enc_n_hid=args.enc_n_hid,
         rnn_enc_n_hid=None,
         n_edge_types=args.n_edge_types,

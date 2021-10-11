@@ -4,7 +4,9 @@ from .losses import (
     kl_categorical,
     cyc_anneal,
     get_prior_from_adj,
-    get_simple_prior
+    get_simple_prior,
+    pcc,
+    mape
 )
 
 __all__ = [
@@ -13,6 +15,8 @@ __all__ = [
     "kl_categorical",
     "cyc_anneal",
     "get_prior_from_adj",
-    "get_simple_prior"
+    "get_simple_prior",
+    "pcc",
+    "mape"
 ]
 

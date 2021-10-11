@@ -68,6 +68,7 @@ class Trainer:
         edge_rate,
         encoder_type,
         node_f_dim,
+        subset_dim,
         enc_n_hid,
         rnn_enc_n_hid,
         n_edge_types,
@@ -132,6 +133,7 @@ class Trainer:
         self.normalize = normalize
         self.train_frac = train_frac
         self.node_f_dim = node_f_dim
+        self.subset_dim = subset_dim
 
         # Model settings
         self.encoder_factor = encoder_factor
@@ -225,6 +227,7 @@ class Trainer:
             "use_weather": self.use_weather,
             "nll_vairance": self.nll_variance,
             "prior_adj_path": self.prior_adj_path,
+            "subset_dim": self.subset_dim
         }
 
         # Save all parameters to txt file and add to tensorboard

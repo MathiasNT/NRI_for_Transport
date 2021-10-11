@@ -6,6 +6,7 @@ import folium
 from folium.plugins import PolyLineTextPath
 import numpy as np
 import matplotlib
+from matplotlib import cm
 
 
 class Encoder_Visualizer(object):
@@ -302,10 +303,13 @@ def plot_zone_and_map(
                 ]
                 x_values = np.array([zone_centroid[1], sender_centroid[1]])
                 y_values = np.array([zone_centroid[0], sender_centroid[0]])
+                val = row[sender_idx].numpy()
                 if idx == zone_idx.item():  # if they match it is a receiving edge
-                    ax0.plot(x_values, y_values, color="red", linewidth=1.5)
+                    color = cm.Reds(val)[0]
+                    ax0.plot(x_values, y_values, color=color, linewidth=1.5)
                 else:
-                    ax1.plot(x_values, y_values, color="green", linewidth=1.5)
+                    color = cm.Greens(val)[0]
+                    ax1.plot(x_values, y_values, color=color, linewidth=1.5)
 
     ax20.imshow(adj)
     ax20.set_aspect("equal")
@@ -366,5 +370,11 @@ def merge_on_and_off_diagonal(on_diag, off_diag):
 def plot_adj_and_time(adj, time_str):
     fig, ax = plt.subplots(1, figsize=(10, 10))
     ax.imshow(adj, vmin=0, vmax=1)
+    ax.set_title(time_str)
+    return fig
+
+def plot_diff_adj_and_time(adj, time_str):
+    fig, ax = plt.subplots(1, figsize=(10, 10))
+    ax.imshow(adj, cmap="bwr")
     ax.set_title(time_str)
     return fig

@@ -439,10 +439,10 @@ def create_dataloaders_road(train_data, val_data, test_data, batch_size, normali
         train_dataset, shuffle=True, batch_size=batch_size, num_workers=4, pin_memory=True
     )
     val_dataloader = DataLoader(
-        val_dataset, shuffle=True, batch_size=batch_size, num_workers=4, pin_memory=True
+        val_dataset, shuffle=False, batch_size=batch_size, num_workers=4, pin_memory=True
     )
     test_dataloader = DataLoader(
-        test_dataset, shuffle=True, batch_size=batch_size, num_workers=4, pin_memory=True
+        test_dataset, shuffle=False, batch_size=batch_size, num_workers=4, pin_memory=True
     )
 
     # mean and std values are grabbed from https://github.com/Essaim/CGCDemandPrediction

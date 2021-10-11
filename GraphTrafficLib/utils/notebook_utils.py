@@ -23,6 +23,7 @@ from GraphTrafficLib.utils.data_utils import (
     create_test_train_split_max_min_normalize,
     create_dataloaders,
     create_dataloaders_bike,
+    create_dataloaders_road,
 )
 
 
@@ -153,14 +154,15 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
             min_lr=0.0000001,
             verbose=True,
         )
-        # lr_scheduler.load_state_dict(model_dict['lr_scheduler'])
+        lr_scheduler.load_state_dict(model_dict["lr_scheduler"])
 
     else:
         optimizer = None
         lr_scheduler = None
 
     print(f"loaded model at {experiment_path}")
-    print(f"Continuing from epoch {model_dict['epoch']}")
+    if "epoch" in model_dict.keys():
+        print(f"Continuing from epoch {model_dict['epoch']}")
 
     return encoder, decoder, optimizer, lr_scheduler, model_settings, train_res
 
@@ -273,6 +275,46 @@ def load_data_bike(
         normalize=normalize,
     )
     return data_tensor, train_dataloader, val_dataloader, test_dataloader, mean, std
+
+
+def load_data_road(
+    road_folder,
+    batch_size,
+    normalize,
+    test_subset_size=None
+):
+
+    train_data = np.load(f"{road_folder}/train_data.npy")
+    val_data = np.load(f"{road_folder}/val_data.npy")
+    test_data = np.load(f"{road_folder}/test_data.npy")
+
+    if test_subset_size is not None:
+        test_data = test_data[:test_subset_size, :, :,:]
+
+    (
+        train_dataloader,
+        val_dataloader,
+        test_dataloader,
+        mean,
+        std,
+    ) = create_dataloaders_road(
+        train_data=train_data,
+        val_data=val_data,
+        test_data=test_data,
+        batch_size=batch_size,
+        normalize=normalize,
+    )
+
+    return (
+        train_data,
+        val_data,
+        test_data,
+        train_dataloader,
+        val_dataloader,
+        test_dataloader,
+        mean,
+        std,
+    )
 
 
 # This here is actually my old dataloader currently kept for legacy reasons
