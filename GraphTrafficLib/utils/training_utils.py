@@ -45,6 +45,7 @@ def train(
     gumbel_hard,
     use_weather,
     nll_variance,
+    subset_dim = None
 ):
     nll = 0
     kl = 0
@@ -73,6 +74,9 @@ def train(
         )  # RelaxedOneHotCategorical
         edge_probs = F.softmax(logits, dim=-1)
 
+        if subset_dim is not None:
+            data = data[..., subset_dim ].unsqueeze(-1)
+
         if use_weather:
             pred_arr = decoder(
                 data.transpose(1, 2),
@@ -96,7 +100,7 @@ def train(
             )
         pred = pred_arr.transpose(1, 2)[:, :, -pred_steps:, :]  # TODO .contiguous?
         target = data[:, :, -pred_steps:, :]
-
+        
         loss_nll = torch_nll_gaussian(pred, target, variance=nll_variance)
         loss_kl = kl_categorical(
             preds=edge_probs,
@@ -148,6 +152,7 @@ def val(
     n_nodes,
     use_weather,
     nll_variance,
+    subset_dim=None
 ):
     nll = 0
     kl = 0
@@ -177,6 +182,9 @@ def val(
             edges = F.gumbel_softmax(logits, tau=0.01, hard=True)
             edge_probs = F.softmax(logits, dim=-1)
             mean_edge_prob.append(edge_probs.mean(dim=(1, 0)).tolist())
+                
+            if subset_dim is not None:
+                data = data[..., subset_dim ].unsqueeze(-1)
 
             if use_weather:
                 pred_arr = decoder(

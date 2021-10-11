@@ -239,7 +239,7 @@ if __name__ == "__main__":
         edge_rate=args.edge_rate,
         encoder_type=args.encoder_type,
         node_f_dim=node_f_dim,
-        subset_dim=args.subset_dim
+        subset_dim=args.subset_dim,
         enc_n_hid=args.enc_n_hid,
         rnn_enc_n_hid=None,
         n_edge_types=args.n_edge_types,

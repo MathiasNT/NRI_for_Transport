@@ -179,6 +179,10 @@ class Trainer:
         self.dec_msg_hid = dec_msg_hid
         self.dec_gru_hid = dec_gru_hid
         self.skip_first = skip_first
+        if self.subset_dim is not None:
+            self.decoder_f_dim = 1
+        else:
+            self.decoder_f_dim = self.node_f_dim
 
         # init model
         if self.checkpoint_path is not None:
@@ -191,6 +195,7 @@ class Trainer:
         # save settings
         self.model_settings = {
             "node_f_dim": self.node_f_dim,
+            "decoder_f_dim": self.decoder_f_dim,
             "encoder_type": self.encoder_type,
             "enc_n_in": self.enc_n_in,
             "enc_n_hid": self.enc_n_hid,
@@ -476,7 +481,7 @@ class Trainer:
             else:
                 self.decoder = DynamicGRUDecoder_multistep(
                     n_hid=self.dec_n_hid,
-                    f_in=self.node_f_dim,
+                    f_in=self.decoder_f_dim,
                     msg_hid=self.dec_msg_hid,
                     gru_hid=self.dec_gru_hid,
                     edge_types=self.n_edge_types,
@@ -486,7 +491,7 @@ class Trainer:
             if self.use_weather:
                 self.decoder = GRUDecoder_multistep_weather(
                     n_hid=self.dec_n_hid,
-                    f_in=self.node_f_dim,
+                    f_in=self.decoder_f_dim,
                     msg_hid=self.dec_msg_hid,
                     gru_hid=self.dec_gru_hid,
                     edge_types=self.n_edge_types,
@@ -496,7 +501,7 @@ class Trainer:
             else:
                 self.decoder = GRUDecoder_multistep(
                     n_hid=self.dec_n_hid,
-                    f_in=self.node_f_dim,
+                    f_in=self.decoder_f_dim,
                     msg_hid=self.dec_msg_hid,
                     gru_hid=self.dec_gru_hid,
                     edge_types=self.n_edge_types,
@@ -607,6 +612,7 @@ class Trainer:
                     gumbel_hard=self.gumbel_hard,
                     use_weather=self.use_weather,
                     nll_variance=self.nll_variance,
+                    subset_dim=self.subset_dim
                 )
 
             self.lr_scheduler.step(train_nll)
@@ -652,6 +658,7 @@ class Trainer:
                         n_nodes=self.n_nodes,
                         use_weather=self.use_weather,
                         nll_variance=self.nll_variance,
+                        subset_dim=self.subset_dim
                     )
                     self._save_graph_examples(epoch)  # Double check placement
                 self.writer.add_scalar("Val/MSE", val_mse, epoch)
@@ -695,6 +702,7 @@ class Trainer:
                         n_nodes=self.n_nodes,
                         use_weather=self.use_weather,
                         nll_variance=self.nll_variance,
+                        subset_dim=self.subset_dim
                     )
                     self._save_graph_examples(epoch)  # Double check placement
                 self.writer.add_scalar("Test/MSE", val_mse, epoch)
