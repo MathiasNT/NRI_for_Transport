@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import numpy as np
 import datetime as dt
+import torch
 
 
 def add_spatial_bins(df, n_lat_bins, n_lon_bins):
@@ -37,7 +38,7 @@ def add_temporal_bins(df, time_col_name, dt_freq, year, month):
 
     # due to the time indexing we have some values that gets outside the bins - here is a temporary fix
     df = df.dropna()
-    return df, n_bins_dt
+    return df, n_bins_dt, bins_dt
 
 
 def create_binned_matrix(df, n_lat_bins, n_lon_bins, n_bins_dt):
@@ -104,7 +105,8 @@ def preprocess_NYC_borough_dropoff(file_paths, location_ids):
 
     dtype_cols = {**int32_cols, **float32_cols}
 
-    li = []
+    data_list = []
+    time_list = []
     for idx, path in enumerate(file_paths):
 
         # Load data
@@ -143,7 +145,7 @@ def preprocess_NYC_borough_dropoff(file_paths, location_ids):
         df_len = len(df)
 
         # Add temporal bins on dopoff time
-        df, n_bins_dt = add_temporal_bins(df, "tpep_dropoff_datetime", dt_freq="1H", year=2019, month=(idx + 1))
+        df, n_bins_dt, bins_dt = add_temporal_bins(df, "tpep_dropoff_datetime", dt_freq="1H", year=2019, month=(idx + 1))
         #print(f"Data from {df.tpep_dropoff_datetime.min()} to {df.tpep_dropoff_datetime.max()}")
 
         # Add spatial bins on dropoff zone
@@ -168,16 +170,17 @@ def preprocess_NYC_borough_dropoff(file_paths, location_ids):
 
         if group_idx != sorted(group_idx):
             raise NameError("Group index is not sorted!")
-        li.append(binned_vector)
+        data_list.append(binned_vector)
+        time_list.append(bins_dt[:-1])
         
         print(f"added {binned_vector.shape}")
         
         print(f"{path} done")
 
-    full_year_vector = np.concatenate(li, axis=1)
-
-    return full_year_vector
-
+    full_year_vector = np.concatenate(data_list, axis=1)
+    full_time_list = time_list[0].union_many(time_list[1:])
+    
+    return full_year_vector, full_time_list
 
 def preprocess_NYC_borough_pickup(file_paths, location_ids):
 
@@ -193,7 +196,8 @@ def preprocess_NYC_borough_pickup(file_paths, location_ids):
 
     dtype_cols = {**int32_cols, **float32_cols}
 
-    li = []
+    data_list = []
+    time_list = []
     for idx, path in enumerate(file_paths):
 
         # Load data
@@ -232,7 +236,7 @@ def preprocess_NYC_borough_pickup(file_paths, location_ids):
         df_len = len(df)
 
         # Add temporal bins
-        df, n_bins_dt = add_temporal_bins(df, "tpep_pickup_datetime", dt_freq="1H", year=2019, month=(idx + 1))
+        df, n_bins_dt, bins_dt = add_temporal_bins(df, "tpep_pickup_datetime", dt_freq="1H", year=2019, month=(idx + 1))
         print(f"Data from {df.tpep_pickup_datetime.min()} to {df.tpep_pickup_datetime.max()}")
 
         n_spatial_bins = len(df.PULocationID.unique())
@@ -256,12 +260,53 @@ def preprocess_NYC_borough_pickup(file_paths, location_ids):
 
         if group_idx != sorted(group_idx):
             raise NameError("Group index is not sorted!")
-        li.append(binned_vector)
+        data_list.append(binned_vector)
+        time_list.append(bins_dt[:-1])
               
         print(f"added {binned_vector.shape}")
               
         print(f"{path} done")
 
-    full_year_vector = np.concatenate(li, axis=1)
+    full_year_vector = np.concatenate(data_list, axis=1)
+    full_time_list = time_list[0].union_many(time_list[1:])
+    return full_year_vector, full_time_list
 
-    return full_year_vector
+def get_ha_normalization_dict(data, datetime_list):
+    # Get indexes of tod and weekday pairs as sets
+    weekday_idx = [np.where(datetime_list.weekday == i)[0] for i in range(7)]
+    hour_idx = [np.where(datetime_list.hour == i)[0] for i in range(24)]
+    weekday_idx_set = [set(x) for x in weekday_idx]
+    hour_idx_set = [set(x) for x in hour_idx]
+
+    # Calculate the mean and stds of the pairs
+    normalization_dict = {}
+    for i in range(len(weekday_idx_set)):
+        normalization_dict[i] = {}
+        for j in range(len(hour_idx_set)):
+            normalization_dict[i][j] = {}
+            day_hour_idxs = weekday_idx_set[i].intersection(hour_idx_set[j])
+            normalization_dict[i][j]['mean'] = data[list(day_hour_idxs)].mean((0,1))
+            normalization_dict[i][j]['std'] = data[list(day_hour_idxs)].std((0,1))
+    
+    return normalization_dict
+
+def ha_normalization(data, datetime_list, normalization_dict):
+    tmp = []
+    for i, date in enumerate(datetime_list):
+        day = date.weekday()
+        hour = date.hour
+        normalized_step = (data[i] - normalization_dict[day][hour]['mean']) / normalization_dict[day][hour]['std']
+        tmp.append(normalized_step)
+    tmp = torch.stack(tmp)
+
+    return tmp
+
+def ha_renormalization(data, datetime_list, normalization_dict):
+    tmp = []
+    for i, date in enumerate(datetime_list):
+        day = date.weekday()
+        hour = date.hour
+        renormalized_step = (data[i] * normalization_dict[day][hour]['std']) + normalization_dict[day][hour]['mean']
+        tmp.append(renormalized_step)
+    tmp = torch.stack(tmp)
+    return tmp

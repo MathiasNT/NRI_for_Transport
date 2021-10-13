@@ -7,6 +7,9 @@ from .data_preprocess import (
     create_OD_matrix_ts,
     preprocess_NYC_borough_dropoff,
     preprocess_NYC_borough_pickup,
+    get_ha_normalization_dict,
+    ha_normalization,
+    ha_renormalization
 )
 from .data_loader_utils import (
     create_dataloaders,
@@ -36,4 +39,7 @@ __all__ = [
     "create_OD_matrix_ts",
     "create_dataloader_road",
     "restandardize_data"
+    "get_ha_normalization_dict",
+    "ha_normalization",
+    "ha_renormalization"
 ]
