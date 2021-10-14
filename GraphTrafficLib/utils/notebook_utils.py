@@ -214,6 +214,13 @@ def load_data(
     weather_vector = weather_df.loc[:, ("temperature", "precipDepth")].values
     weather_tensor = torch.Tensor(weather_vector)
 
+    # Create time list
+    min_date = pd.Timestamp(year=2019, month=1, day=1)
+    max_date = pd.Timestamp(year=2020, month=1, day=1)
+    time_list = pd.date_range(start=min_date, end=max_date, freq="1H")[:-1]
+
+
+
     # Create data loader with max min normalization
     (
         train_dataloader,
@@ -221,6 +228,7 @@ def load_data(
         test_dataloader,
         train_max,
         train_min,
+        normalization_dict
     ) = create_dataloaders(
         data=data_tensor,
         weather_data=weather_tensor,
@@ -228,6 +236,7 @@ def load_data(
         batch_size=batch_size,
         normalize=normalize,
         train_frac=train_frac,
+        time_list=time_list
     )
 
     return (
@@ -237,6 +246,8 @@ def load_data(
         test_dataloader,
         train_max,
         train_min,
+        normalization_dict,
+        time_list
     )
 
 

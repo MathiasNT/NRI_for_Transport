@@ -276,6 +276,13 @@ class Trainer:
         weather_vector = weather_df.loc[:, ("temperature", "precipDepth")].values
         weather_tensor = torch.Tensor(weather_vector)
 
+        # Create time list
+        min_date = pd.Timestamp(year=2019, month=1, day=1)
+        max_date = pd.Timestamp(year=2020, month=1, day=1)
+        self.time_list = pd.date_range(start=min_date, end=max_date, freq="1H")[:-1]
+
+
+
         # Create data loader with max min normalization
         (
             self.train_dataloader,
@@ -283,6 +290,7 @@ class Trainer:
             self.test_dataloader,
             self.mean,
             self.std,
+            self.normalization_dict
         ) = create_dataloaders(
             data=data_tensor,
             weather_data=weather_tensor,
@@ -290,6 +298,7 @@ class Trainer:
             batch_size=self.batch_size,
             normalize=self.normalize,
             train_frac=self.train_frac,
+            time_list=self.time_list
         )
 
         self.data_type = "taxi"
@@ -596,6 +605,8 @@ class Trainer:
                     encoder=self.encoder,
                     decoder=self.decoder,
                     train_dataloader=self.train_dataloader,
+                    time_list=self.time_list,
+                    normalization_dict=self.normalization_dict,
                     optimizer=self.optimizer,
                     rel_rec=self.rel_rec,
                     rel_send=self.rel_send,
@@ -624,7 +635,7 @@ class Trainer:
             self.writer.add_scalar("KL_frac", self.kl_frac, epoch)
             for i, prob in enumerate(mean_edge_prob):
                 self.writer.add_scalar(f"Mean_edge_prob/train_{i}", prob, epoch)
-            self.writer.add_scalar("Train/rescaled_RMSE", train_rmse * self.std, epoch)
+            self.writer.add_scalar("Train/rescaled_RMSE", train_rmse, epoch)
 
             if epoch % 5 == 0:
                 # Validate on validation set
@@ -647,6 +658,8 @@ class Trainer:
                         encoder=self.encoder,
                         decoder=self.decoder,
                         val_dataloader=self.val_dataloader,
+                        time_list=self.time_list,
+                        normalization_dict=self.normalization_dict,
                         optimizer=self.optimizer,
                         rel_rec=self.rel_rec,
                         rel_send=self.rel_send,
@@ -666,7 +679,7 @@ class Trainer:
                 self.writer.add_scalar("Val/KL", val_kl, epoch)
                 for i, prob in enumerate(mean_edge_prob):
                     self.writer.add_scalar(f"Mean_edge_prob/val_{i}", prob, epoch)
-                self.writer.add_scalar("Val/rescaled_RMSE", val_rmse * self.std, epoch)
+                self.writer.add_scalar("Val/rescaled_RMSE", val_rmse, epoch)
                 val_mse_arr.append(val_mse)
                 val_nll_arr.append(val_nll)
                 val_kl_arr.append(val_kl)
@@ -691,6 +704,8 @@ class Trainer:
                         encoder=self.encoder,
                         decoder=self.decoder,
                         val_dataloader=self.test_dataloader,
+                        normalization_dict=self.normalization_dict,
+                        time_list=self.time_list,
                         optimizer=self.optimizer,
                         rel_rec=self.rel_rec,
                         rel_send=self.rel_send,
@@ -710,7 +725,7 @@ class Trainer:
                 self.writer.add_scalar("Test/KL", val_kl, epoch)
                 for i, prob in enumerate(mean_edge_prob):
                     self.writer.add_scalar(f"Mean_edge_prob/test_{i}", prob, epoch)
-                self.writer.add_scalar("Test/rescaled_RMSE", val_rmse * self.std, epoch)
+                self.writer.add_scalar("Test/rescaled_RMSE", val_rmse, epoch)
 
                 test_mse_arr.append(val_mse)
                 test_nll_arr.append(val_nll)
@@ -763,7 +778,7 @@ class Trainer:
     def _save_graph_examples(self, epoch):
         with torch.no_grad():
             # Calc edge probs
-            _, (val_batch, weather) = next(enumerate(self.val_dataloader))
+            _, (val_batch, weather, _) = next(enumerate(self.val_dataloader))
             batch_subset = val_batch[:10].cuda()
             if self.use_weather:
                 weather_subset = weather[:10].cuda()

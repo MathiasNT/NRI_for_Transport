@@ -5,6 +5,7 @@ from .losses import torch_nll_gaussian, kl_categorical
 import numpy as np
 import torch
 from tqdm import tqdm
+from GraphTrafficLib.utils.data_utils.data_preprocess import ha_batch_renormalization
 
 
 def plot_training(train_mse_arr, train_nll_arr, train_kl_arr, train_acc_arr):
@@ -29,6 +30,8 @@ def train(
     encoder,
     decoder,
     train_dataloader,
+    time_list,
+    normalization_dict,
     optimizer,
     rel_rec,
     rel_send,
@@ -57,12 +60,13 @@ def train(
     encoder.train()
     decoder.train()
 
-    for _, (data, weather) in enumerate(
+    for _, (data, weather, idxs) in enumerate(
         tqdm(train_dataloader, desc="Training", leave=False)
     ):
         optimizer.zero_grad()
         steps += len(data)
         data = data.cuda()
+        #idxs = idxs.cuda()
 
         if use_weather:
             weather = weather.cuda()
@@ -120,9 +124,14 @@ def train(
         nll += loss_nll.detach() * len(data)
         kl += loss_kl.detach() * len(data)
 
+
+        pred_idxs = idxs[:,1:]
+        renormalized_pred = ha_batch_renormalization(pred, pred_idxs, time_list, normalization_dict)
+        renormalized_target = ha_batch_renormalization(target, pred_idxs, time_list, normalization_dict)
+
         mse_batch = F.mse_loss(
-            input=pred[:, :, -(split_len - burn_in_steps) :, :],
-            target=target[:, :, -(split_len - burn_in_steps) :, :],
+            input=renormalized_pred[:, :, -(split_len - burn_in_steps) :, :],
+            target=renormalized_target[:, :, -(split_len - burn_in_steps) :, :],
         ).detach()
         mse += mse_batch * len(data)
 
@@ -141,6 +150,8 @@ def val(
     encoder,
     decoder,
     val_dataloader,
+    time_list,
+    normalization_dict,
     optimizer,
     rel_rec,
     rel_send,
@@ -163,7 +174,7 @@ def val(
     encoder.eval()
     decoder.eval()
 
-    for _, (data, weather) in enumerate(
+    for _, (data, weather, idxs) in enumerate(
         tqdm(val_dataloader, desc="Validation", leave=False)
     ):
         optimizer.zero_grad()
@@ -217,9 +228,15 @@ def val(
         nll += loss_nll.detach() * len(data)
         kl += loss_kl.detach() * len(data)
 
+
+        pred_idxs = idxs[:,1:]
+        renormalized_pred = ha_batch_renormalization(pred, pred_idxs, time_list, normalization_dict)
+        renormalized_target = ha_batch_renormalization(target, pred_idxs, time_list, normalization_dict)
+
+
         mse_batch = F.mse_loss(
-            input=pred[:, :, -(split_len - burn_in_steps) :, :],
-            target=target[:, :, -(split_len - burn_in_steps) :, :],
+            input=renormalized_pred[:, :, -(split_len - burn_in_steps) :, :],
+            target=renormalized_target[:, :, -(split_len - burn_in_steps) :, :],
         ).detach()
         mse += mse_batch * len(data)
     mse = mse / steps

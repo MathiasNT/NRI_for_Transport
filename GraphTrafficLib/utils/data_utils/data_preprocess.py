@@ -310,3 +310,20 @@ def ha_renormalization(data, datetime_list, normalization_dict):
         tmp.append(renormalized_step)
     tmp = torch.stack(tmp)
     return tmp
+
+def ha_batch_renormalization(batch, batch_idxs, datetime_list, normalization_dict):
+    tmp = []
+    for i, seq in enumerate(batch):
+        tmp_seq = []
+        seq_idxs = batch_idxs[i]
+        days = datetime_list.weekday[seq_idxs]
+        hours = datetime_list.hour[seq_idxs]
+        for t in range(seq.shape[1]):
+            t_std = normalization_dict[days[t]][hours[t]]['std'].cuda()
+            t_mean = normalization_dict[days[t]][hours[t]]['mean'].cuda()
+            renormalized_step = (seq[:,t,:] * t_std) + t_mean
+            tmp_seq.append(renormalized_step)
+        tmp_seq = torch.stack(tmp_seq, 1)
+        tmp.append(tmp_seq)
+    tmp = torch.stack(tmp)
+    return tmp

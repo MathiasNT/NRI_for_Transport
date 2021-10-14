@@ -11,7 +11,6 @@ shuffle_val = False
 encoder_factor = True
 
 # Data settings
-normalize = True
 train_frac = 0.8
 
 # Model settings
@@ -189,6 +188,7 @@ if __name__ == "__main__":
         help="Dimension to subset the output to."
     )
     parser.add_argument("--use_seed", type=int, help="Seed for torch RNG")
+    parser.add_argument("--normalize", type=str, help='"ha"=historical normalize, "z"=z-score', default='z')
 
     args = parser.parse_args()
 
@@ -227,7 +227,7 @@ if __name__ == "__main__":
         encoder_factor=encoder_factor,
         skip_first=True,
         experiment_name=args.experiment_name,
-        normalize=normalize,
+        normalize=args.normalize,
         train_frac=train_frac,
         burn_in_steps=args.burn_in_steps,
         split_len=args.split_len,
