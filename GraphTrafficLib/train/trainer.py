@@ -168,7 +168,7 @@ class Trainer:
             assert (
                 fixed_adj_matrix_path is not None
             ), "fixed encoder need fixed adj matrix"
-            self.fixed_adj_matrix = torch.tensor(np.load(fixed_adj_matrix_path))
+            self.fixed_adj_matrix = torch.Tensor(np.load(fixed_adj_matrix_path))
             self.enc_n_in = self.node_f_dim
         self.enc_n_hid = enc_n_hid
         self.n_edge_types = n_edge_types
@@ -288,9 +288,8 @@ class Trainer:
             self.train_dataloader,
             self.val_dataloader,
             self.test_dataloader,
-            self.mean,
-            self.std,
-            self.normalization_dict
+            self.norm_mean,
+            self.norm_std
         ) = create_dataloaders(
             data=data_tensor,
             weather_data=weather_tensor,
@@ -351,8 +350,8 @@ class Trainer:
             self.train_dataloader,
             self.val_dataloader,
             self.test_dataloader,
-            self.mean,
-            self.std,
+            self.norm_mean,
+            self.norm_std,
         ) = create_dataloaders_bike(
             x_data=x_data,
             y_data=y_data,
@@ -362,6 +361,7 @@ class Trainer:
         )
 
         self.data_type = "bike"
+        self.time_list = None
 
         # Generate off-diagonal interaction graph
         self.n_nodes = self.train_dataloader.dataset[0][0].shape[0]
@@ -392,8 +392,8 @@ class Trainer:
             self.train_dataloader,
             self.val_dataloader,
             self.test_dataloader,
-            self.mean,
-            self.std,
+            self.norm_mean,
+            self.norm_std,
         ) = create_dataloaders_road(
             train_data=train_data,
             val_data=val_data,
@@ -403,7 +403,8 @@ class Trainer:
         )
 
         self.data_type = "road"
-
+        self.time_list = None
+        
         # Generate off-diagonal interaction graph
         self.n_nodes = self.train_dataloader.dataset[0][0].shape[0]
         off_diag = np.ones([self.n_nodes, self.n_nodes]) - np.eye(self.n_nodes)
@@ -605,8 +606,10 @@ class Trainer:
                     encoder=self.encoder,
                     decoder=self.decoder,
                     train_dataloader=self.train_dataloader,
+                    norm_mean=self.norm_mean,
+                    norm_std=self.norm_std,
+                    normalization=self.normalize,
                     time_list=self.time_list,
-                    normalization_dict=self.normalization_dict,
                     optimizer=self.optimizer,
                     rel_rec=self.rel_rec,
                     rel_send=self.rel_send,
@@ -658,8 +661,10 @@ class Trainer:
                         encoder=self.encoder,
                         decoder=self.decoder,
                         val_dataloader=self.val_dataloader,
+                        norm_mean=self.norm_mean,
+                        norm_std=self.norm_std,
+                        normalization=self.normalize,
                         time_list=self.time_list,
-                        normalization_dict=self.normalization_dict,
                         optimizer=self.optimizer,
                         rel_rec=self.rel_rec,
                         rel_send=self.rel_send,
@@ -704,7 +709,9 @@ class Trainer:
                         encoder=self.encoder,
                         decoder=self.decoder,
                         val_dataloader=self.test_dataloader,
-                        normalization_dict=self.normalization_dict,
+                        norm_mean=self.norm_mean,
+                        norm_std=self.norm_std,
+                        normalization=self.normalize,
                         time_list=self.time_list,
                         optimizer=self.optimizer,
                         rel_rec=self.rel_rec,

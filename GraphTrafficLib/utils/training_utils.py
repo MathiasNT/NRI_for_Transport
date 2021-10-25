@@ -5,7 +5,7 @@ from .losses import torch_nll_gaussian, kl_categorical
 import numpy as np
 import torch
 from tqdm import tqdm
-from GraphTrafficLib.utils.data_utils.data_preprocess import ha_batch_renormalization
+from GraphTrafficLib.utils.data_utils.data_preprocess import ha_batch_renormalization, restandardize_data
 
 
 def plot_training(train_mse_arr, train_nll_arr, train_kl_arr, train_acc_arr):
@@ -31,7 +31,9 @@ def train(
     decoder,
     train_dataloader,
     time_list,
-    normalization_dict,
+    norm_mean,
+    norm_std,
+    normalization,
     optimizer,
     rel_rec,
     rel_send,
@@ -126,9 +128,14 @@ def train(
 
 
         pred_idxs = idxs[:,1:]
-        renormalized_pred = ha_batch_renormalization(pred, pred_idxs, time_list, normalization_dict)
-        renormalized_target = ha_batch_renormalization(target, pred_idxs, time_list, normalization_dict)
+        if normalization == "ha":
+            renormalized_pred = ha_batch_renormalization(batch=pred, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean, std_matrix=norm_std)
+            renormalized_target = ha_batch_renormalization(batch=target, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean, std_matrix=norm_std)
+        elif normalization == "z":
+            renormalized_pred = restandardize_data(data=pred, data_mean=norm_mean, data_std=norm_std)
+            renormalized_target = restandardize_data(data=target, data_mean=norm_mean, data_std=norm_std)
 
+        
         mse_batch = F.mse_loss(
             input=renormalized_pred[:, :, -(split_len - burn_in_steps) :, :],
             target=renormalized_target[:, :, -(split_len - burn_in_steps) :, :],
@@ -151,7 +158,9 @@ def val(
     decoder,
     val_dataloader,
     time_list,
-    normalization_dict,
+    norm_mean,
+    norm_std,
+    normalization,
     optimizer,
     rel_rec,
     rel_send,
@@ -230,8 +239,13 @@ def val(
 
 
         pred_idxs = idxs[:,1:]
-        renormalized_pred = ha_batch_renormalization(pred, pred_idxs, time_list, normalization_dict)
-        renormalized_target = ha_batch_renormalization(target, pred_idxs, time_list, normalization_dict)
+
+        if normalization == "ha":
+            renormalized_pred = ha_batch_renormalization(batch=pred, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean, std_matrix=norm_std)
+            renormalized_target = ha_batch_renormalization(batch=target, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean, std_matrix=norm_std)
+        elif normalization == "z":
+            renormalized_pred = restandardize_data(data=pred, data_mean=norm_mean, data_std=norm_std)
+            renormalized_target = restandardize_data(data=target, data_mean=norm_mean, data_std=norm_std)
 
 
         mse_batch = F.mse_loss(

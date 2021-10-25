@@ -20,7 +20,7 @@ from GraphTrafficLib.models.latent_graph import (
 from GraphTrafficLib.models import SimpleLSTM
 from GraphTrafficLib.utils import encode_onehot
 from GraphTrafficLib.utils.data_utils import (
-    create_test_train_split_max_min_normalize,
+    #create_test_train_split_max_min_normalize,
     create_dataloaders,
     create_dataloaders_bike,
     create_dataloaders_road,
@@ -44,6 +44,9 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
     # temp legacy fix TODO fix
     if "node_f_dim" not in model_dict["settings"].keys():
         model_dict["settings"]["node_f_dim"] = model_dict["settings"]["dec_f_in"]
+
+    if "decoder_f_dim" not in model_dict['settings'].keys():
+        model_settings['decoder_f_dim'] = model_dict['settings']['node_f_dim']
 
     print(f"Model settings are: {model_settings}")
 
@@ -121,7 +124,7 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
     else:
         decoder = GRUDecoder_multistep(
             n_hid=model_settings["dec_n_hid"],
-            f_in=model_settings["node_f_dim"],
+            f_in=model_settings["decoder_f_dim"],
             msg_hid=model_settings["dec_msg_hid"],
             gru_hid=model_settings["dec_gru_hid"],
             edge_types=model_settings["dec_edge_types"],
@@ -226,9 +229,8 @@ def load_data(
         train_dataloader,
         val_dataloader,
         test_dataloader,
-        train_max,
-        train_min,
-        normalization_dict
+        train_mean,
+        train_std,
     ) = create_dataloaders(
         data=data_tensor,
         weather_data=weather_tensor,
@@ -244,9 +246,8 @@ def load_data(
         train_dataloader,
         val_dataloader,
         test_dataloader,
-        train_max,
-        train_min,
-        normalization_dict,
+        train_mean,
+        train_std,
         time_list
     )
 
@@ -438,6 +439,7 @@ def create_predictions(
     sample_graph,
     device,
     tau,
+    subset_dim=None
 ):
     y_true = []
     y_pred = []
@@ -448,7 +450,7 @@ def create_predictions(
     steps = 0
     encoder.eval()
     decoder.eval()
-    for _, (data, weather) in tqdm(enumerate(test_dataloader)):
+    for _, (data, weather, idxs) in tqdm(enumerate(test_dataloader)):
         with torch.no_grad():
             steps += len(data)
             data = data.to(device)
@@ -469,6 +471,9 @@ def create_predictions(
                 edges = edge_probs == edge_probs.max(dim=2, keepdims=True).values
 
             graph_list.append(edges.cpu())
+
+            if subset_dim is not None:
+                data = data[..., subset_dim ].unsqueeze(-1)
 
             if use_weather:
                 pred_arr = decoder(

@@ -6,196 +6,7 @@ import torch
 from .Nyc_w_Weather import Nyc_w_Weather, Nyc_w_Weather2, Nyc_no_Weather2
 from torch.utils.data.dataset import TensorDataset, Dataset
 import numpy as np
-from .data_preprocess import get_ha_normalization_dict, ha_renormalization, ha_normalization
-
-
-# def create_test_train_split(
-#     data, weather_data, split_len, batch_size, normalize=False, train_frac=0.8
-# ):
-#     demand_tensor = torch.Tensor(data).permute(1, 0)
-#     weather_tensor = torch.Tensor(weather_data)
-
-#     # Calculate mean of the training part of the data
-#     mean = demand_tensor[: int(train_frac * len(demand_tensor))].mean()
-#     std = demand_tensor[: int(train_frac * len(demand_tensor))].std()
-#     if normalize:
-#         demand_tensor = (demand_tensor - mean) / std
-
-#     splits = []
-#     weather_splits = []
-#     for i in range(demand_tensor.shape[0] - split_len):
-#         splits.append(demand_tensor[i : i + split_len])
-#         weather_splits.append(weather_tensor[i : i + split_len])
-
-#     train_splits = splits[: int(train_frac * len(splits))]
-#     test_splits = splits[int(train_frac * len(splits)) :]
-
-#     train_weather = weather_splits[: int(train_frac * len(splits))]
-#     test_weather = weather_splits[int(train_frac * len(splits)) :]
-
-#     list_ids = range(len(train_splits))
-#     train_data = Nyc_w_Weather(train_splits, train_weather, list_ids)
-#     train_dataloader = DataLoader(
-#         train_data, batch_size=batch_size, pin_memory=True, shuffle=True
-#     )
-
-#     test_list_ids = range(len(test_splits))
-#     test_data = Nyc_w_Weather(test_splits, test_weather, test_list_ids)
-#     test_dataloader = DataLoader(
-#         test_data, batch_size=batch_size, pin_memory=True, shuffle=False
-#     )
-#     return (train_dataloader, test_dataloader, mean, std)
-
-
-# def create_test_train_split2(
-#     data, weather_data, split_len, batch_size, normalize=False, train_frac=0.8
-# ):
-#     demand_tensor = torch.Tensor(data).permute(1, 0)
-#     weather_tensor = torch.Tensor(weather_data)
-
-#     # Calculate mean of the training part of the data
-#     mean = demand_tensor[: int(train_frac * len(demand_tensor))].mean()
-#     std = demand_tensor[: int(train_frac * len(demand_tensor))].std()
-#     if normalize:
-#         demand_tensor = (demand_tensor - mean) / std
-
-#     splits = []
-#     weather_splits = []
-#     for i in range(demand_tensor.shape[0] - split_len):
-#         splits.append(demand_tensor[i : i + split_len])
-#         weather_splits.append(weather_tensor[i : i + split_len])
-
-#     train_splits = splits[: int(train_frac * len(splits))]
-#     test_splits = splits[int(train_frac * len(splits)) :]
-
-#     train_weather = weather_splits[: int(train_frac * len(splits))]
-#     test_weather = weather_splits[int(train_frac * len(splits)) :]
-
-#     list_ids = range(len(train_splits))
-#     train_data = Nyc_w_Weather2(train_splits, train_weather, list_ids)
-#     train_dataloader = DataLoader(
-#         train_data, batch_size=batch_size, pin_memory=True, shuffle=True
-#     )
-
-#     test_list_ids = range(len(test_splits))
-#     test_data = Nyc_w_Weather2(test_splits, test_weather, test_list_ids)
-#     test_dataloader = DataLoader(
-#         test_data, batch_size=batch_size, pin_memory=True, shuffle=False
-#     )
-#     return (train_dataloader, test_dataloader, mean, std)
-
-
-# def create_test_train_split2_no_weather(
-#     data,
-#     split_len,
-#     batch_size,
-#     normalize=False,
-#     train_frac=0.8,
-#     shuffle_train=True,
-#     shuffle_test=False,
-# ):
-#     demand_tensor = torch.Tensor(data).permute(1, 0)
-
-#     # Calculate mean of the training part of the data
-#     mean = demand_tensor[: int(train_frac * len(demand_tensor))].mean()
-#     std = demand_tensor[: int(train_frac * len(demand_tensor))].std()
-#     if normalize:
-#         demand_tensor = (demand_tensor - mean) / std
-
-#     splits = []
-#     for i in range(demand_tensor.shape[0] - split_len):
-#         splits.append(demand_tensor[i : i + split_len])
-
-#     train_splits = splits[: int(train_frac * len(splits))]
-#     test_splits = splits[int(train_frac * len(splits)) :]
-
-#     list_ids = range(len(train_splits))
-#     train_data = Nyc_no_Weather2(train_splits, list_ids)
-#     train_dataloader = DataLoader(
-#         train_data, batch_size=batch_size, pin_memory=True, shuffle=shuffle_train
-#     )
-
-#     test_list_ids = range(len(test_splits))
-#     test_data = Nyc_no_Weather2(test_splits, test_list_ids)
-#     test_dataloader = DataLoader(
-#         test_data, batch_size=batch_size, pin_memory=True, shuffle=shuffle_test
-#     )
-#     return (train_dataloader, test_dataloader, mean, std)
-
-
-def create_test_train_split_max_min_normalize(
-    data,
-    weather_data,
-    split_len,
-    batch_size,
-    normalize=False,
-    train_frac=0.8,
-    fixed_max=None,
-    fixed_min=None,
-):
-    if len(data.shape) == 2:
-        demand_tensor = torch.Tensor(data).permute(1, 0).unsqueeze(-1)
-    else:
-        demand_tensor = torch.Tensor(data).permute(1, 0, 2)
-
-    weather_tensor = torch.Tensor(weather_data)
-
-    # do max-min normal of data
-    if fixed_max is not None:
-        train_max = fixed_max
-    else:
-        train_max = demand_tensor[: int(train_frac * len(demand_tensor))].amax(
-            dim=(0, 1)
-        )
-
-    if fixed_min is not None:
-        train_min = fixed_min
-    else:
-        train_min = demand_tensor[: int(train_frac * len(demand_tensor))].amin(
-            dim=(0, 1)
-        )
-
-    if normalize:
-        # demand_tensor = (demand_tensor - train_min) * 2 / (train_max - train_min) - 1  // between -1 and 1
-        demand_tensor = (demand_tensor - train_min) / (train_max - train_min)
-
-    splits = []
-    weather_splits = []
-    for i in range(demand_tensor.shape[0] - split_len):
-        splits.append(demand_tensor[i : i + split_len])
-        weather_splits.append(weather_tensor[i : i + split_len])
-    splits = torch.stack(splits).transpose(1, 2)
-    weather_splits = torch.stack(weather_splits)
-    train_splits = splits[: int(train_frac * len(splits))]
-    test_splits = splits[int(train_frac * len(splits)) :]
-
-    print(f"train splits shape: {train_splits.shape}")
-    print(f"test splits shape: {test_splits.shape}")
-
-    train_weather = weather_splits[: int(train_frac * len(splits))]
-    test_weather = weather_splits[int(train_frac * len(splits)) :]
-
-    train_dataset = TensorDataset(train_splits, train_weather)
-    test_dataset = TensorDataset(test_splits, test_weather)
-
-    train_dataloader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        pin_memory=True,
-        shuffle=True,
-        num_workers=2,
-    )
-
-    test_dataloader = DataLoader(
-        test_dataset,
-        batch_size=batch_size,
-        pin_memory=True,
-        shuffle=False,
-        num_workers=2,
-    )
-
-    return (train_dataloader, test_dataloader, train_max, train_min)
-
+from .data_preprocess import get_ha_normalization_matrices, ha_batch_renormalization, ha_normalization, ha_renormalization
 
 def create_dataloaders(
     data,
@@ -208,13 +19,6 @@ def create_dataloaders(
     fixed_max=None,
     fixed_min=None,
 ):
-    # TODO CLEAN THIS
-    train_mean = None
-    train_std = None
-    normalization_dict = None
-
-
-
     if len(data.shape) == 2:
         demand_tensor = torch.Tensor(data).permute(1, 0).unsqueeze(-1)
     else:
@@ -242,8 +46,12 @@ def create_dataloaders(
         # )
     elif normalize == "ha":
         train_index = int(train_frac * len(demand_tensor))
-        normalization_dict = get_ha_normalization_dict(demand_tensor[:train_index], time_list[:train_index])
-        demand_tensor = ha_normalization(demand_tensor, time_list, normalization_dict)
+        train_mean, train_std = get_ha_normalization_matrices(demand_tensor[:train_index], time_list[:train_index])
+        
+        # Fix for zone/day/hour combinations with only zero observation in train but observations in the val/test
+        train_std[train_std == 0] = 1
+
+        demand_tensor = ha_normalization(demand_tensor, time_list, mean_matrix=train_mean, std_matrix=train_std)
 
 
     splits = []
@@ -305,63 +113,7 @@ def create_dataloaders(
         num_workers=2,
     )
 
-    return (train_dataloader, val_dataloader, test_dataloader, train_mean, train_std, normalization_dict)
-
-
-def create_test_train_split_max_min_normalize_no_split(
-    data,
-    weather_data,
-    normalize=False,
-    train_frac=0.8,
-    fixed_max=None,
-    fixed_min=None,
-):
-    if len(data.shape) == 2:
-        demand_tensor = torch.Tensor(data).permute(1, 0).unsqueeze(-1)
-    else:
-        demand_tensor = torch.Tensor(data).permute(1, 0, 2)
-
-    weather_tensor = torch.Tensor(weather_data)
-
-    # do max-min normal of data
-    if fixed_max is not None:
-        train_max = fixed_max
-    else:
-        train_max = demand_tensor[: int(train_frac * len(demand_tensor))].amax(
-            dim=(0, 1)
-        )
-
-    if fixed_min is not None:
-        train_min = fixed_min
-    else:
-        train_min = demand_tensor[: int(train_frac * len(demand_tensor))].amin(
-            dim=(0, 1)
-        )
-
-    if normalize:
-        # demand_tensor = (demand_tensor - train_min) * 2 / (train_max - train_min) - 1  // between -1 and 1
-        demand_tensor = (demand_tensor - train_min) / (train_max - train_min)
-
-    train_weather = weather_tensor[: int(train_frac * len(weather_tensor))]
-    test_weather = weather_tensor[int(train_frac * len(weather_tensor)) :]
-
-    train_demand = demand_tensor[: int(train_frac * len(demand_tensor))]
-    test_demand = demand_tensor[int(train_frac * len(demand_tensor)) :]
-
-    train_dataset = TensorDataset(train_demand, train_weather)
-    test_dataset = TensorDataset(test_demand, test_weather)
-
-    return (train_dataset, test_dataset, train_max, train_min)
-
-
-def renormalize_data(data, data_min, data_max, new_way=True):
-    if new_way:
-        return data * (data_max - data_min) + data_min
-    else:
-        return (data + 1) * (data_max - data_min) / 2 + data_min
-
-def restandardize_data(data, data_mean, data_std):
-    return data * data_std + data_mean
+    return (train_dataloader, val_dataloader, test_dataloader, train_mean, train_std)
 
 def create_dataloaders_bike(x_data, y_data, weather_tensor, batch_size, normalize):
     full_data = torch.cat([x_data, y_data], dim=1)
@@ -380,24 +132,39 @@ def create_dataloaders_bike(x_data, y_data, weather_tensor, batch_size, normaliz
         )
 
     # Code from https://github.com/Essaim/CGCDemandPrediction to make sure it matches their data
+
+        # TODO ADD IDXS SPLITS HERE
+
     X_list = [12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
     Y_list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     X_, Y_ = list(), list()
+    index_X_, index_Y_ = list(), list()
     weather_tensor = weather_tensor.numpy()
+    index_tensor = torch.arange(weather_tensor.shape[0])
     for i in range(max(X_list), weather_tensor.shape[0] - max(Y_list)):
         X_.append([weather_tensor[i - j] for j in X_list])
         Y_.append([weather_tensor[i + j] for j in Y_list])
+        index_X_.append([index_tensor[i - j] for j in X_list])
+        index_Y_.append([index_tensor[i + j] for j in Y_list])
     X_ = torch.from_numpy(np.asarray(X_)).float()
     Y_ = torch.from_numpy(np.asarray(Y_)).float()
+    index_X_ = torch.from_numpy(np.asarray(index_X_)).float()
+    index_Y_ = torch.from_numpy(np.asarray(index_Y_)).float()
+
     weather_tensor = torch.cat([X_, Y_], dim=1)
     train_weather = weather_tensor[:3001, :, :]
     val_weather = weather_tensor[3001:-672, :, :]
     test_weather = weather_tensor[-672:, :, :]
 
+    index_tensor = torch.cat([index_X_, index_Y_], dim=1)
+    train_index = index_tensor[:3001, :]
+    val_index = index_tensor[3001:-672, :]
+    test_index = index_tensor[-672:, :]
+
     # packing on dummy weather to make the data fit rest of code
-    train_dataset = TensorDataset(train_data, train_weather)
-    val_dataset = TensorDataset(val_data, val_weather)
-    test_dataset = TensorDataset(test_data, test_weather)
+    train_dataset = TensorDataset(train_data, train_weather, train_index)
+    val_dataset = TensorDataset(val_data, val_weather, val_index)
+    test_dataset = TensorDataset(test_data, test_weather, test_index)
 
     train_dataloader = DataLoader(
         train_dataset, shuffle=True, batch_size=batch_size, num_workers=4, pin_memory=True
@@ -434,11 +201,14 @@ def create_dataloaders_road(train_data, val_data, test_data, batch_size, normali
     val_weather = torch.zeros_like(val_data)
     test_weather = torch.zeros_like(test_data)
 
+    train_index = torch.stack([torch.arange(i, i+24) for i in torch.arange(train_weather.shape[0])], 0)
+    val_index = torch.stack([torch.arange(i, i+24) for i in torch.arange(val_weather.shape[0])], 0)
+    test_index = torch.stack([torch.arange(i, i+24) for i in torch.arange(test_weather.shape[0])], 0)
 
     # packing on dummy weather to make the data fit rest of code
-    train_dataset = TensorDataset(train_data, train_weather)
-    val_dataset = TensorDataset(val_data, val_weather)
-    test_dataset = TensorDataset(test_data, test_weather)
+    train_dataset = TensorDataset(train_data, train_weather, train_index)
+    val_dataset = TensorDataset(val_data, val_weather, val_index)
+    test_dataset = TensorDataset(test_data, test_weather, test_index)
 
     train_dataloader = DataLoader(
         train_dataset, shuffle=True, batch_size=batch_size, num_workers=4, pin_memory=True
@@ -452,3 +222,4 @@ def create_dataloaders_road(train_data, val_data, test_data, batch_size, normali
 
     # mean and std values are grabbed from https://github.com/Essaim/CGCDemandPrediction
     return (train_dataloader, val_dataloader, test_dataloader, train_mean, train_std)
+

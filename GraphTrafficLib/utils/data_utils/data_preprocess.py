@@ -271,59 +271,50 @@ def preprocess_NYC_borough_pickup(file_paths, location_ids):
     full_time_list = time_list[0].union_many(time_list[1:])
     return full_year_vector, full_time_list
 
-def get_ha_normalization_dict(data, datetime_list):
-    # Get indexes of tod and weekday pairs as sets
+def get_ha_normalization_matrices(data, datetime_list):
     weekday_idx = [np.where(datetime_list.weekday == i)[0] for i in range(7)]
     hour_idx = [np.where(datetime_list.hour == i)[0] for i in range(24)]
     weekday_idx_set = [set(x) for x in weekday_idx]
     hour_idx_set = [set(x) for x in hour_idx]
 
-    # Calculate the mean and stds of the pairs
-    normalization_dict = {}
+    mean_matrix = torch.zeros(7, 24, 66, 2)
+    std_matrix = torch.zeros(7, 24, 66, 2)
     for i in range(len(weekday_idx_set)):
-        normalization_dict[i] = {}
-        for j in range(len(hour_idx_set)):
-            normalization_dict[i][j] = {}
+        for j in range(len(hour_idx)):
             day_hour_idxs = weekday_idx_set[i].intersection(hour_idx_set[j])
-            normalization_dict[i][j]['mean'] = data[list(day_hour_idxs)].mean((0,1))
-            normalization_dict[i][j]['std'] = data[list(day_hour_idxs)].std((0,1))
-    
-    return normalization_dict
+            mean_matrix[i, j] = data[list(day_hour_idxs)].mean(0)
+            std_matrix[i, j] = data[list(day_hour_idxs)].std(0)
 
-def ha_normalization(data, datetime_list, normalization_dict):
-    tmp = []
-    for i, date in enumerate(datetime_list):
-        day = date.weekday()
-        hour = date.hour
-        normalized_step = (data[i] - normalization_dict[day][hour]['mean']) / normalization_dict[day][hour]['std']
-        tmp.append(normalized_step)
-    tmp = torch.stack(tmp)
+    device = torch.device(torch.cuda.current_device())
+    mean_matrix = mean_matrix.to(device)
+    std_matrix = std_matrix.to(device)
 
-    return tmp
+    return mean_matrix, std_matrix
 
-def ha_renormalization(data, datetime_list, normalization_dict):
-    tmp = []
-    for i, date in enumerate(datetime_list):
-        day = date.weekday()
-        hour = date.hour
-        renormalized_step = (data[i] * normalization_dict[day][hour]['std']) + normalization_dict[day][hour]['mean']
-        tmp.append(renormalized_step)
-    tmp = torch.stack(tmp)
-    return tmp
+def ha_normalization(data, datetime_list, mean_matrix, std_matrix):    
+    days = np.array(datetime_list.weekday)
+    hours = np.array(datetime_list.hour)
+    normalized_data = ((data.cuda() - mean_matrix[days, hours]) / std_matrix[days, hours]).cpu()
+    normalized_data = torch.nan_to_num(normalized_data)
+    return normalized_data
 
-def ha_batch_renormalization(batch, batch_idxs, datetime_list, normalization_dict):
-    tmp = []
-    for i, seq in enumerate(batch):
-        tmp_seq = []
-        seq_idxs = batch_idxs[i]
-        days = datetime_list.weekday[seq_idxs]
-        hours = datetime_list.hour[seq_idxs]
-        for t in range(seq.shape[1]):
-            t_std = normalization_dict[days[t]][hours[t]]['std'].cuda()
-            t_mean = normalization_dict[days[t]][hours[t]]['mean'].cuda()
-            renormalized_step = (seq[:,t,:] * t_std) + t_mean
-            tmp_seq.append(renormalized_step)
-        tmp_seq = torch.stack(tmp_seq, 1)
-        tmp.append(tmp_seq)
-    tmp = torch.stack(tmp)
-    return tmp
+def ha_renormalization(data, datetime_list, mean_matrix, std_matrix):
+    days = datetime_list.weekday
+    hours = datetime_list.hour
+    renormalized_data = (data * std_matrix[days, hours] + mean_matrix[days, hours])
+    return renormalized_data
+
+def ha_batch_renormalization(batch, batch_idxs, datetime_list, mean_matrix, std_matrix):
+    days = datetime_list.weekday[batch_idxs]
+    hours = datetime_list.hour[batch_idxs]
+    renormalized_batch = (batch.permute(0,2,1,3) * std_matrix[days,  hours] + mean_matrix[days, hours]).permute(0,2,1,3)
+    return renormalized_batch
+
+def renormalize_data(data, data_min, data_max, new_way=True):
+    if new_way:
+        return data * (data_max - data_min) + data_min
+    else:
+        return (data + 1) * (data_max - data_min) / 2 + data_min
+
+def restandardize_data(data, data_mean, data_std):
+    return data * data_std + data_mean

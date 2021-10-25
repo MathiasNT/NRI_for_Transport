@@ -205,6 +205,11 @@ if __name__ == "__main__":
 
     if args.fixed_adj_matrix_path is not None:
         args.fixed_adj_matrix_path = f"{proc_folder}/{args.fixed_adj_matrix_path}"
+    
+    if args.normalize not in ["z", "ha"]:
+        raise NotImplementedError('Please choose "z" or "ha" normalization')
+
+
 
     print(f"Args are {args}")
 
@@ -269,12 +274,16 @@ if __name__ == "__main__":
             weather_data_name=args.weather_data_name,
         )
     elif args.pickup_data_name.split("_")[0] == "bike":
+        if args.normalize == "ha":
+            raise NotImplementedError('Only "z" normalization is implemented for bike')
         trainer.load_data_bike(
             proc_folder=proc_folder,
             bike_folder=args.pickup_data_name,
             weather_data_path=args.weather_data_name,
         )
     elif args.pickup_data_name.split("_")[0] == "pems":
+        if args.normalize == "ha":
+            raise NotImplementedError('Only "z" normalization is implemented for pems')
         trainer.load_data_road(
             proc_folder=proc_folder,
             road_folder=args.pickup_data_name,
