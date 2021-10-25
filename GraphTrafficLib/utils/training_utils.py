@@ -127,7 +127,7 @@ def train(
         kl += loss_kl.detach() * len(data)
 
 
-        pred_idxs = idxs[:,1:]
+        pred_idxs = idxs[:,-pred_steps:]
         if normalization == "ha":
             renormalized_pred = ha_batch_renormalization(batch=pred, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean, std_matrix=norm_std)
             renormalized_target = ha_batch_renormalization(batch=target, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean, std_matrix=norm_std)
@@ -238,7 +238,7 @@ def val(
         kl += loss_kl.detach() * len(data)
 
 
-        pred_idxs = idxs[:,1:]
+        pred_idxs = idxs[:,-pred_steps:]
 
         if normalization == "ha":
             renormalized_pred = ha_batch_renormalization(batch=pred, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean, std_matrix=norm_std)
