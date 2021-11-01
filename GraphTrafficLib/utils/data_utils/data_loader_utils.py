@@ -31,27 +31,25 @@ def create_dataloaders(
 
     # Normalize data
     if normalize == "z":
-         train_mean = demand_tensor[: int(train_frac * len(demand_tensor))].mean()
-         train_std = demand_tensor[: int(train_frac * len(demand_tensor))].std()
+        train_mean = demand_tensor[: int(train_frac * len(demand_tensor))].mean()
+        train_std = demand_tensor[: int(train_frac * len(demand_tensor))].std()
          
-         weather_train_mean = weather_tensor[: int(train_frac * len(weather_tensor))].mean()
-         weather_train_std = weather_tensor[: int(train_frac * len(weather_tensor))].std()
+        weather_train_mean = weather_tensor[: int(train_frac * len(weather_tensor))].mean()
+        weather_train_std = weather_tensor[: int(train_frac * len(weather_tensor))].std()
 
-         demand_tensor = (demand_tensor - train_mean) / train_std
-         weather_tensor = (weather_tensor - weather_train_mean) / weather_train_std
-        # demand_tensor = (demand_tensor - train_min) * 2 / (train_max - train_min) - 1  // between -1 and 1
-        # demand_tensor = (demand_tensor - train_min) / (train_max - train_min)
-        # weather_tensor = (weather_tensor - weather_train_min) / (
-        #    weather_train_max - weather_train_min
-        # )
+        demand_tensor = (demand_tensor - train_mean) / train_std
+        weather_tensor = (weather_tensor - weather_train_mean) / weather_train_std
+        
     elif normalize == "ha":
         train_index = int(train_frac * len(demand_tensor))
         train_mean, train_std = get_ha_normalization_matrices(demand_tensor[:train_index], time_list[:train_index])
-        
         # Fix for zone/day/hour combinations with only zero observation in train but observations in the val/test
         train_std[train_std == 0] = 1
-
         demand_tensor = ha_normalization(demand_tensor, time_list, mean_matrix=train_mean, std_matrix=train_std)
+
+        weather_train_mean = weather_tensor[: int(train_frac * len(weather_tensor))].mean()
+        weather_train_std = weather_tensor[: int(train_frac * len(weather_tensor))].std()
+        weather_tensor = (weather_tensor - weather_train_mean) / weather_train_std
 
 
     splits = []

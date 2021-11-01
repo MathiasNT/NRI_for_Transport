@@ -498,6 +498,7 @@ def create_predictions(
                 )
             pred = pred_arr.transpose(1, 2).contiguous()
             target = data[:, :, 1:, :]
+            target_idxs = idxs[:, ]
 
             y_true.append(target)
             y_pred.append(pred)
@@ -512,6 +513,93 @@ def create_predictions(
     rmse = mse ** 0.5
     return y_pred, y_true, mse, rmse
 
+
+def create_predictions_ha(
+    encoder,
+    decoder,
+    test_dataloader,
+    rel_rec,
+    rel_send,
+    burn_in,
+    burn_in_steps,
+    split_len,
+    use_weather,
+    sample_graph,
+    device,
+    tau,
+    time_list,
+    subset_dim=None
+):
+    y_true = []
+    y_pred = []
+    graph_list = []
+    graph_probs = []
+    mse = 0
+    pred_steps = split_len - burn_in_steps
+    steps = 0
+    encoder.eval()
+    decoder.eval()
+    for _, (data, weather, idxs) in tqdm(enumerate(test_dataloader)):
+        with torch.no_grad():
+            steps += len(data)
+            data = data.to(device)
+
+            if use_weather:
+                weather = weather.cuda()
+                logits = encoder(
+                    data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send
+                )
+            else:
+                logits = encoder(data[:, :, :burn_in_steps, :], rel_rec, rel_send)
+
+            edge_probs = F.softmax(logits, dim=-1)
+            if sample_graph:
+                edges = F.gumbel_softmax(logits, tau=tau, hard=True)
+                graph_probs.append(edge_probs.cpu())
+            else:
+                edges = edge_probs == edge_probs.max(dim=2, keepdims=True).values
+
+            graph_list.append(edges.cpu())
+
+            if subset_dim is not None:
+                data = data[..., subset_dim ].unsqueeze(-1)
+
+            if use_weather:
+                pred_arr = decoder(
+                    data.transpose(1, 2),
+                    weather,
+                    rel_rec,
+                    rel_send,
+                    edges,
+                    burn_in=burn_in,
+                    burn_in_steps=burn_in_steps,
+                    split_len=split_len,
+                )
+            else:
+                pred_arr = decoder(
+                    data.transpose(1, 2),
+                    rel_rec,
+                    rel_send,
+                    edges,
+                    burn_in=burn_in,
+                    burn_in_steps=burn_in_steps,
+                    split_len=split_len,
+                )
+            pred = pred_arr.transpose(1, 2).contiguous()
+            target = data[:, :, 1:, :]
+
+            y_true.append(target)
+            y_pred.append(pred)
+
+            rmse_pred = pred[:, :, -pred_steps:, :]
+            rmse_target = data[:, :, -pred_steps:, :]
+            mse += F.mse_loss(rmse_pred, rmse_target).item() * len(data)
+
+    y_true = torch.cat(y_true).cpu().detach()
+    y_pred = torch.cat(y_pred).squeeze().cpu().detach()
+    mse = mse / steps
+    rmse = mse ** 0.5
+    return y_pred, y_true, mse, rmse
 
 def create_predictions_gru(
     encoder,
