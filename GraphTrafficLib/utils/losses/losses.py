@@ -81,3 +81,9 @@ def pcc(x, y):
 
 def mape(pred, y):
     return ((y-pred).abs() / (y.abs() + 1e-8))
+
+def masked_mape(pred, y):
+    abs_error = (y-pred).abs()
+    mask = y == 0
+    abs_error[mask] = 0
+    return (abs_error / (y.abs() + 1e-8))
