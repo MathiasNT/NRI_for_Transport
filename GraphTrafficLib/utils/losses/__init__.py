@@ -6,7 +6,8 @@ from .losses import (
     get_prior_from_adj,
     get_simple_prior,
     pcc,
-    mape
+    mape,
+    masked_mape
 )
 
 __all__ = [
@@ -17,6 +18,6 @@ __all__ = [
     "get_prior_from_adj",
     "get_simple_prior",
     "pcc",
-    "mape"
+    "mape",
+    "masked_mape"
 ]
-
