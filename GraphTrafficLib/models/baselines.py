@@ -10,7 +10,7 @@ def create_lag1_and_ha_predictions(
 ):
     y_true = []
     y_lag1 = []
-    for i, (data, weather) in tqdm(enumerate(test_dataloader)):
+    for i, (data, weather, _) in tqdm(enumerate(test_dataloader)):
 
         y_true.append(data[:, :, burn_in_steps, :].squeeze())
         y_lag1.append(data[:, :, burn_in_steps - 1, :].squeeze())

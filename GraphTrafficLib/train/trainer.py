@@ -300,6 +300,10 @@ class Trainer:
             time_list=self.time_list
         )
 
+        if self.subset_dim is not None and self.normalize == 'ha':
+            self.norm_mean = self.norm_mean[..., self.subset_dim].unsqueeze(-1)
+            self.norm_std = self.norm_std[..., self.subset_dim].unsqueeze(-1)
+
         self.data_type = "taxi"
 
         # Generate off-diagonal interaction graph

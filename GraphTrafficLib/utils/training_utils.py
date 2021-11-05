@@ -82,8 +82,6 @@ def train(
 
         if subset_dim is not None:
             data = data[..., subset_dim ].unsqueeze(-1)
-            norm_mean_tmp = norm_mean[..., subset_dim].unsqueeze(-1)
-            norm_std_tmp = norm_std[..., subset_dim].unsqueeze(-1)
 
         if use_weather:
             pred_arr = decoder(
@@ -131,11 +129,11 @@ def train(
 
         pred_idxs = idxs[:,-pred_steps:]
         if normalization == "ha":
-            renormalized_pred = ha_batch_renormalization(batch=pred, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean_tmp, std_matrix=norm_std_tmp)
-            renormalized_target = ha_batch_renormalization(batch=target, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean_tmp, std_matrix=norm_std_tmp)
+            renormalized_pred = ha_batch_renormalization(batch=pred, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean, std_matrix=norm_std)
+            renormalized_target = ha_batch_renormalization(batch=target, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean, std_matrix=norm_std)
         elif normalization == "z":
-            renormalized_pred = restandardize_data(data=pred, data_mean=norm_mean_tmp, data_std=norm_std_tmp)
-            renormalized_target = restandardize_data(data=target, data_mean=norm_mean_tmp, data_std=norm_std_tmp)
+            renormalized_pred = restandardize_data(data=pred, data_mean=norm_mean, data_std=norm_std)
+            renormalized_target = restandardize_data(data=target, data_mean=norm_mean, data_std=norm_std)
 
         
         mse_batch = F.mse_loss(
@@ -207,8 +205,6 @@ def val(
                 
             if subset_dim is not None:
                 data = data[..., subset_dim ].unsqueeze(-1)
-                norm_mean_tmp = norm_mean[..., subset_dim].unsqueeze(-1)
-                norm_std_tmp = norm_std[..., subset_dim].unsqueeze(-1)
 
             if use_weather:
                 pred_arr = decoder(
@@ -245,11 +241,11 @@ def val(
         pred_idxs = idxs[:,-pred_steps:]
 
         if normalization == "ha":
-            renormalized_pred = ha_batch_renormalization(batch=pred, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean_tmp, std_matrix=norm_std_tmp)
-            renormalized_target = ha_batch_renormalization(batch=target, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean_tmp, std_matrix=norm_std_tmp)
+            renormalized_pred = ha_batch_renormalization(batch=pred, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean, std_matrix=norm_std)
+            renormalized_target = ha_batch_renormalization(batch=target, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean, std_matrix=norm_std)
         elif normalization == "z":
-            renormalized_pred = restandardize_data(data=pred, data_mean=norm_mean_tmp, data_std=norm_std_tmp)
-            renormalized_target = restandardize_data(data=target, data_mean=norm_mean_tmp, data_std=norm_std_tmp)
+            renormalized_pred = restandardize_data(data=pred, data_mean=norm_mean, data_std=norm_std)
+            renormalized_target = restandardize_data(data=target, data_mean=norm_mean, data_std=norm_std)
 
 
         mse_batch = F.mse_loss(
