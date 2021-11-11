@@ -16,7 +16,11 @@ import torch.nn.functional as F
 from torchvision.utils import make_grid
 import matplotlib.pyplot as plt
 
-from ..utils.data_utils import create_dataloaders, create_dataloaders_bike, create_dataloaders_road
+from ..utils.data_utils import (
+    create_dataloaders,
+    create_dataloaders_bike,
+    create_dataloaders_road,
+)
 from ..utils import encode_onehot
 from ..utils import val, train, dnri_train, dnri_val, gumbel_tau_scheduler
 from ..utils.losses import (
@@ -232,7 +236,7 @@ class Trainer:
             "use_weather": self.use_weather,
             "nll_vairance": self.nll_variance,
             "prior_adj_path": self.prior_adj_path,
-            "subset_dim": self.subset_dim
+            "subset_dim": self.subset_dim,
         }
 
         # Save all parameters to txt file and add to tensorboard
@@ -281,15 +285,13 @@ class Trainer:
         max_date = pd.Timestamp(year=2020, month=1, day=1)
         self.time_list = pd.date_range(start=min_date, end=max_date, freq="1H")[:-1]
 
-
-
         # Create data loader with max min normalization
         (
             self.train_dataloader,
             self.val_dataloader,
             self.test_dataloader,
             self.norm_mean,
-            self.norm_std
+            self.norm_std,
         ) = create_dataloaders(
             data=data_tensor,
             weather_data=weather_tensor,
@@ -297,10 +299,10 @@ class Trainer:
             batch_size=self.batch_size,
             normalize=self.normalize,
             train_frac=self.train_frac,
-            time_list=self.time_list
+            time_list=self.time_list,
         )
 
-        if self.subset_dim is not None and self.normalize == 'ha':
+        if self.subset_dim is not None and self.normalize == "ha":
             self.norm_mean = self.norm_mean[..., self.subset_dim].unsqueeze(-1)
             self.norm_std = self.norm_std[..., self.subset_dim].unsqueeze(-1)
 
@@ -408,7 +410,7 @@ class Trainer:
 
         self.data_type = "road"
         self.time_list = None
-        
+
         # Generate off-diagonal interaction graph
         self.n_nodes = self.train_dataloader.dataset[0][0].shape[0]
         off_diag = np.ones([self.n_nodes, self.n_nodes]) - np.eye(self.n_nodes)
@@ -540,7 +542,7 @@ class Trainer:
         self.lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer=self.optimizer,
             factor=0.2,
-            patience=15,
+            patience=50,
             threshold=0.001,
             min_lr=0.0000001,
             verbose=True,
@@ -548,12 +550,20 @@ class Trainer:
 
     def _load_model(self):
         torch.cuda.current_device()
-        self.encoder, self.decoder, self.optimizer, self.lr_scheduler, _, _ = load_model(experiment_path=self.checkpoint_path,
-                                                                                         device=torch.cuda.current_device(),
-                                                                                         encoder_type=self.encoder_type,
-                                                                                         load_checkpoint=True)
+        (
+            self.encoder,
+            self.decoder,
+            self.optimizer,
+            self.lr_scheduler,
+            _,
+            _,
+        ) = load_model(
+            experiment_path=self.checkpoint_path,
+            device=torch.cuda.current_device(),
+            encoder_type=self.encoder_type,
+            load_checkpoint=True,
+        )
 
-        
     def train(self):
         print("Starting training")
         train_mse_arr = []
@@ -630,7 +640,7 @@ class Trainer:
                     gumbel_hard=self.gumbel_hard,
                     use_weather=self.use_weather,
                     nll_variance=self.nll_variance,
-                    subset_dim=self.subset_dim
+                    subset_dim=self.subset_dim,
                 )
 
             self.lr_scheduler.step(train_nll)
@@ -680,7 +690,7 @@ class Trainer:
                         n_nodes=self.n_nodes,
                         use_weather=self.use_weather,
                         nll_variance=self.nll_variance,
-                        subset_dim=self.subset_dim
+                        subset_dim=self.subset_dim,
                     )
                     self._save_graph_examples(epoch)  # Double check placement
                 self.writer.add_scalar("Val/MSE", val_mse, epoch)
@@ -728,7 +738,7 @@ class Trainer:
                         n_nodes=self.n_nodes,
                         use_weather=self.use_weather,
                         nll_variance=self.nll_variance,
-                        subset_dim=self.subset_dim
+                        subset_dim=self.subset_dim,
                     )
                     self._save_graph_examples(epoch)  # Double check placement
                 self.writer.add_scalar("Test/MSE", val_mse, epoch)
@@ -780,7 +790,7 @@ class Trainer:
                 "train_res": self.train_dict,
                 "optimizer": self.optimizer.state_dict(),
                 "params": self.parameters,
-                "lr_scheduler": self.lr_scheduler.state_dict()
+                "lr_scheduler": self.lr_scheduler.state_dict(),
             },
             checkpoint_path,
         )
@@ -953,7 +963,7 @@ class Trainer:
                 "train_res": self.train_dict,
                 "optimizer": self.optimizer.state_dict(),
                 "params": self.parameters,
-                "lr_scheduler": self.lr_scheduler.state_dict()
+                "lr_scheduler": self.lr_scheduler.state_dict(),
             },
             model_path,
         )

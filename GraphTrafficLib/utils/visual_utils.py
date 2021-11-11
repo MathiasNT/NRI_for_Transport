@@ -7,6 +7,7 @@ from folium.plugins import PolyLineTextPath
 import numpy as np
 import matplotlib
 from matplotlib import cm
+import contextily as cx
 
 
 class Encoder_Visualizer(object):
@@ -373,8 +374,58 @@ def plot_adj_and_time(adj, time_str):
     ax.set_title(time_str)
     return fig
 
+
 def plot_diff_adj_and_time(adj, time_str):
     fig, ax = plt.subplots(1, figsize=(10, 10))
     ax.imshow(adj, cmap="bwr")
     ax.set_title(time_str)
+    return fig
+
+
+def plot_pems_adj_on_map(
+    zone_idx, map_shp, adj, text=None, timestep=None, vmin=None, vmax=None
+):
+    fig, ax = plt.subplots(1, figsize=(10, 10))
+    ax.axis("off")
+
+    # plot map and loop detectors
+    if timestep is not None:
+        map_shp.plot(
+            column=f"ts_{timestep}",
+            ax=ax,
+            cmap="bwr",
+            vmin=vmin,
+            vmax=vmax,
+        )
+    else:
+        map_shp.plot(ax=ax)
+    # cx.add_basemap(ax, source=cx.providers.OpenStreetMap.HOT, alpha=0.5)
+    cx.add_basemap(ax, source=cx.providers.CartoDB.DarkMatter, alpha=0.75)
+
+    if text is not None:
+        ax.set_title(text)
+
+    for idx, row in enumerate(adj):
+        sender_idxs = torch.nonzero(row)
+        zone_centroid = [
+            map_shp.iloc[idx].geometry.centroid.y,
+            map_shp.iloc[idx].geometry.centroid.x,
+        ]
+        if row.sum() != 0:
+            for sender_idx in sender_idxs:
+                sender_centroid = [
+                    map_shp.iloc[sender_idx.squeeze().numpy()].geometry.centroid.y,
+                    map_shp.iloc[sender_idx.squeeze().numpy()].geometry.centroid.x,
+                ]
+                x_values = np.array([zone_centroid[1], sender_centroid[1]])
+                y_values = np.array([zone_centroid[0], sender_centroid[0]])
+                val = row[sender_idx]
+                if idx == zone_idx:  # if they match it is a receiving edge
+                    color = cm.Reds(val.numpy())[0]
+                    ax.plot(x_values, y_values, color=color, linewidth=1.5)
+                    # ax.plot(x_values, y_values, color='red', linewidth=1.5)
+                else:
+                    color = cm.Greens(val.numpy())[0]
+                    ax.plot(x_values, y_values, color=color, linewidth=1.5)
+                    # ax.plot(x_values, y_values, color='green', linewidth=1.5)
     return fig

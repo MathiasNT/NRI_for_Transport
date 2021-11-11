@@ -205,6 +205,7 @@ if __name__ == "__main__":
 
     if args.fixed_adj_matrix_path is not None:
         args.fixed_adj_matrix_path = f"{proc_folder}/{args.fixed_adj_matrix_path}"
+        args.encoder_type = 'fixed'
     
     if args.normalize not in ["z", "ha"]:
         raise NotImplementedError('Please choose "z" or "ha" normalization')
