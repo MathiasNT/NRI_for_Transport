@@ -429,3 +429,13 @@ def plot_pems_adj_on_map(
                     ax.plot(x_values, y_values, color=color, linewidth=1.5)
                     # ax.plot(x_values, y_values, color='green', linewidth=1.5)
     return fig
+
+
+def update_pos(temp):
+    """
+    Used to update the positions to unclutter pems plot
+    """
+    offset = temp[0] - temp[1]
+    new_1 = temp[0] + 5 * offset
+    new_2 = temp[1] - 5 * offset
+    return np.array([new_1, new_2])

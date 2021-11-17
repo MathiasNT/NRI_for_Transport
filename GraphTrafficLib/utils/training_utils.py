@@ -25,6 +25,45 @@ def plot_training(train_mse_arr, train_nll_arr, train_kl_arr, train_acc_arr):
     # axs[3].title.set_text("Edge Acc")
     plt.show()
 
+def pretrain_encoder_epoch(encoder,
+                           train_dataloader,
+                           optimizer,
+                           n_nodes,
+                           log_prior,
+                           rel_rec,
+                           rel_send,
+                           use_weather,
+                           burn_in_steps):
+    kl = 0
+    steps = 0
+    for _, (data, weather, _) in enumerate(tqdm(train_dataloader, desc="Pretrain encoder", leave=False)):
+        optimizer.zero_grad()
+        steps += len(data)
+
+        data = data.cuda()
+        
+        if use_weather:
+            weather = weather.cuda()
+            logits = encoder(data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send)
+        else:
+            logits = encoder(data[:, :, :burn_in_steps, :], rel_rec, rel_send)
+        
+        edge_probs = F.softmax(logits, dim=-1)
+        
+        loss_kl = kl_categorical(
+            preds=edge_probs,
+            log_prior=log_prior,
+            num_atoms=n_nodes,
+        )
+        
+        loss_kl.backward()
+        optimizer.step()
+
+        steps += steps
+        kl += loss_kl.detach() * len(data)
+
+    kl = kl / steps
+    return kl
 
 def train(
     encoder,

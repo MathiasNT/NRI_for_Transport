@@ -17,6 +17,9 @@ train_frac = 0.8
 burn_in = True
 kl_frac = 1
 
+# Pretraining settings
+pretrain_n_epochs = 30
+
 # Net sizes
 # Encoder
 # enc_n_hid = 128
@@ -45,6 +48,14 @@ if __name__ == "__main__":
     # Cuda args
     parser.add_argument(
         "--cuda_device", type=int, default=1, help="Which cuda device to run on"
+    )
+
+    # Pretraining args
+    parser.add_argument(
+        "--pretrain_encoder",
+        action="store_true",
+        default=False,
+        help="Pretrain encoder with prior",
     )
 
     # Training args
@@ -183,12 +194,15 @@ if __name__ == "__main__":
         help="The amount of features on pr. timestep on nodes",
     )
     parser.add_argument(
-        "--subset_dim",
-        type=int,
-        help="Dimension to subset the output to."
+        "--subset_dim", type=int, help="Dimension to subset the output to."
     )
     parser.add_argument("--use_seed", type=int, help="Seed for torch RNG")
-    parser.add_argument("--normalize", type=str, help='"ha"=historical normalize, "z"=z-score', default='z')
+    parser.add_argument(
+        "--normalize",
+        type=str,
+        help='"ha"=historical normalize, "z"=z-score',
+        default="z",
+    )
 
     args = parser.parse_args()
 
@@ -205,12 +219,10 @@ if __name__ == "__main__":
 
     if args.fixed_adj_matrix_path is not None:
         args.fixed_adj_matrix_path = f"{proc_folder}/{args.fixed_adj_matrix_path}"
-        args.encoder_type = 'fixed'
-    
+        args.encoder_type = "fixed"
+
     if args.normalize not in ["z", "ha"]:
         raise NotImplementedError('Please choose "z" or "ha" normalization')
-
-
 
     print(f"Args are {args}")
 
@@ -264,6 +276,7 @@ if __name__ == "__main__":
         nll_variance=args.nll_variance,
         prior_adj_path=args.prior_adj_path,
         checkpoint_path=args.checkpoint_path,
+        pretrain_n_epochs=pretrain_n_epochs,
     )
 
     print("Initialized")
@@ -292,8 +305,14 @@ if __name__ == "__main__":
     else:
         raise NameError("data path is neither bike or taxi")
     print("Data loaded")
-    trainer.train()
+
+    if args.pretrain_encoder:
+        print("Pretraining encoder")
+        trainer.pretrain_encoder()
+
     print("Training")
+    trainer.train()
+
     trainer.save_model()
 
 

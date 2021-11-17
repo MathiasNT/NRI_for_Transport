@@ -9,8 +9,10 @@ from .training_utils import (
     train_lstm,
     dnri_train,
     dnri_val,
-    gumbel_tau_scheduler
+    gumbel_tau_scheduler,
+    pretrain_encoder_epoch
 )
+
 from .visual_utils import (
     Encoder_Visualizer,
     visualize_all_graph_adj,
@@ -46,5 +48,6 @@ __all__ = [
     "plot_adj_and_time",
     "get_rels_from_topk",
     "get_rels_from_zone_id",
-    "gumbel_tau_scheduler"
+    "gumbel_tau_scheduler",
+    "pretrain_encoder_epoch"
 ]

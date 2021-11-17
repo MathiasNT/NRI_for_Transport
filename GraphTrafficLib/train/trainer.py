@@ -22,7 +22,14 @@ from ..utils.data_utils import (
     create_dataloaders_road,
 )
 from ..utils import encode_onehot
-from ..utils import val, train, dnri_train, dnri_val, gumbel_tau_scheduler
+from ..utils import (
+    val,
+    train,
+    dnri_train,
+    dnri_val,
+    gumbel_tau_scheduler,
+    pretrain_encoder_epoch,
+)
 from ..utils.losses import (
     torch_nll_gaussian,
     kl_categorical,
@@ -95,7 +102,10 @@ class Trainer:
         nll_variance,
         prior_adj_path,
         checkpoint_path,
+        pretrain_n_epochs,
     ):
+        # Pretrain settings
+        self.pretrain_n_epochs = pretrain_n_epochs
 
         # Training settings
         self.batch_size = batch_size
@@ -237,6 +247,7 @@ class Trainer:
             "nll_vairance": self.nll_variance,
             "prior_adj_path": self.prior_adj_path,
             "subset_dim": self.subset_dim,
+            "pretrain_n_epochs": self.pretrain_n_epochs,
         }
 
         # Save all parameters to txt file and add to tensorboard
@@ -563,6 +574,26 @@ class Trainer:
             encoder_type=self.encoder_type,
             load_checkpoint=True,
         )
+
+    def pretrain_encoder(self):
+        pretraining_optimizer = optim.Adam(
+            self.encoder.parameters(), lr=0.001, weight_decay=0.5
+        )
+        print(f"Beginning pretraining")
+        for epoch in range(self.pretrain_n_epochs):
+            kl = pretrain_encoder_epoch(
+                self.encoder,
+                self.train_dataloader,
+                pretraining_optimizer,
+                self.n_nodes,
+                self.log_prior,
+                rel_rec=self.rel_rec,
+                rel_send=self.rel_send,
+                use_weather=self.use_weather,
+                burn_in_steps=self.burn_in_steps,
+            )
+            print(f"Pretrain epoch {epoch}: KL {kl}")
+        print(f"Pretraining encoder finished")
 
     def train(self):
         print("Starting training")
