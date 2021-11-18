@@ -59,7 +59,6 @@ def pretrain_encoder_epoch(encoder,
         loss_kl.backward()
         optimizer.step()
 
-        steps += steps
         kl += loss_kl.detach() * len(data)
 
     kl = kl / steps
