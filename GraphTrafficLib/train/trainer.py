@@ -577,7 +577,7 @@ class Trainer:
 
     def pretrain_encoder(self):
         pretraining_optimizer = optim.Adam(
-            self.encoder.parameters(), lr=0.001, weight_decay=0.5
+            self.encoder.parameters(), lr=0.001, weight_decay=0.01
         )
         print(f"Beginning pretraining")
         for epoch in range(self.pretrain_n_epochs):
