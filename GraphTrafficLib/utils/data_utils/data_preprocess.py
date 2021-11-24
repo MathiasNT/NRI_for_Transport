@@ -91,7 +91,7 @@ def create_OD_matrix_ts(df, n_spatial_bins, n_bins_dt, pu_bins_name, do_bins_nam
             output_vector[:, do_idx, pu_idx] = OD_timeseries.values
     return output_vector, group_idx
 
-def preprocess_NYC_borough_dropoff(file_paths, location_ids):
+def preprocess_NYC_borough_dropoff(file_paths, location_ids, year=2019):
 
     # As we do not need the precision of 64 bits we change the precision to 32 bits for all numerical columns
     important_cols = ["tpep_pickup_datetime", "tpep_dropoff_datetime", "trip_distance", "PULocationID", "DOLocationID", "fare_amount"]
@@ -140,12 +140,12 @@ def preprocess_NYC_borough_dropoff(file_paths, location_ids):
 
 
         # Remove observations with wrong dates and sort by time at the same time
-        df = df.loc[(df.tpep_dropoff_datetime.dt.year == 2019) & (df.tpep_dropoff_datetime.dt.month == (idx + 1))].sort_values('tpep_dropoff_datetime')
+        df = df.loc[(df.tpep_dropoff_datetime.dt.year == year) & (df.tpep_dropoff_datetime.dt.month == (idx + 1))].sort_values('tpep_dropoff_datetime')
         print(f"removed {df_len - len(df)} trips with wrong datetime")
         df_len = len(df)
 
         # Add temporal bins on dopoff time
-        df, n_bins_dt, bins_dt = add_temporal_bins(df, "tpep_dropoff_datetime", dt_freq="1H", year=2019, month=(idx + 1))
+        df, n_bins_dt, bins_dt = add_temporal_bins(df, "tpep_dropoff_datetime", dt_freq="1H", year=year, month=(idx + 1))
         #print(f"Data from {df.tpep_dropoff_datetime.min()} to {df.tpep_dropoff_datetime.max()}")
 
         # Add spatial bins on dropoff zone
@@ -182,7 +182,7 @@ def preprocess_NYC_borough_dropoff(file_paths, location_ids):
     
     return full_year_vector, full_time_list
 
-def preprocess_NYC_borough_pickup(file_paths, location_ids):
+def preprocess_NYC_borough_pickup(file_paths, location_ids, year=2019):
 
     # As we do not need the precision of 64 bits we change the precision to 32 bits for all numerical columns
     important_cols = ["tpep_pickup_datetime", "tpep_dropoff_datetime", "trip_distance", "PULocationID", "DOLocationID", "fare_amount"]
@@ -231,12 +231,12 @@ def preprocess_NYC_borough_pickup(file_paths, location_ids):
 
 
         # Remove observations with wrong dates and sort by time at the same time
-        df = df.loc[(df.tpep_pickup_datetime.dt.year == 2019) & (df.tpep_pickup_datetime.dt.month == (idx + 1))].sort_values('tpep_pickup_datetime')
+        df = df.loc[(df.tpep_pickup_datetime.dt.year == year) & (df.tpep_pickup_datetime.dt.month == (idx + 1))].sort_values('tpep_pickup_datetime')
         #print(f"removed {df_len - len(df)} trips with wrong datetime")
         df_len = len(df)
 
         # Add temporal bins
-        df, n_bins_dt, bins_dt = add_temporal_bins(df, "tpep_pickup_datetime", dt_freq="1H", year=2019, month=(idx + 1))
+        df, n_bins_dt, bins_dt = add_temporal_bins(df, "tpep_pickup_datetime", dt_freq="1H", year=year, month=(idx + 1))
         print(f"Data from {df.tpep_pickup_datetime.min()} to {df.tpep_pickup_datetime.max()}")
 
         n_spatial_bins = len(df.PULocationID.unique())

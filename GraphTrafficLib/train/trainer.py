@@ -5,6 +5,7 @@ import os
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from datetime import timedelta
 
 
 import torch
@@ -283,7 +284,8 @@ class Trainer:
         data_tensor = torch.Tensor(data)
 
         # load weather data
-        weather_df = pd.read_csv(weather_data_path, parse_dates=[0, 7])
+        weather_df = pd.read_csv(weather_data_path)
+
         # temp fix for na temp
         weather_df.loc[weather_df.temperature.isna(), "temperature"] = 0
         assert sum(weather_df.temperature.isna()) == 0
@@ -292,8 +294,9 @@ class Trainer:
         weather_tensor = torch.Tensor(weather_vector)
 
         # Create time list
-        min_date = pd.Timestamp(year=2019, month=1, day=1)
-        max_date = pd.Timestamp(year=2020, month=1, day=1)
+        min_date = pd.Timestamp(year=2019, month=1, day=1)  # TODO fix this hardcode
+        max_date = min_date + timedelta(hours=data_tensor.shape[1])
+        # max_date = pd.Timestamp(year=2020, month=1, day=1) TODO remove this if is uneeded
         self.time_list = pd.date_range(start=min_date, end=max_date, freq="1H")[:-1]
 
         # Create data loader with max min normalization
@@ -827,7 +830,7 @@ class Trainer:
         )
         print(f"Model at epoch {epoch} checkpointed model at {checkpoint_path}")
 
-    def _save_graph_examples(self, epoch):
+    def _save_graph_examples(self, epoch, figure_name="adj_examples_val"):
         with torch.no_grad():
             # Calc edge probs
             _, (val_batch, weather, _) = next(enumerate(self.val_dataloader))
@@ -869,9 +872,7 @@ class Trainer:
                 im = axs[i % 5][i % 2].imshow(adj_matrices[i])
                 fig.colorbar(im, ax=axs[i % 5, i % 2])
 
-            self.writer.add_figure(
-                "adj_examples_test", fig, global_step=epoch, close=True
-            )
+            self.writer.add_figure(figure_name, fig, global_step=epoch, close=True)
         return
 
     def _save_graph_examples_dnri(self, epoch):
