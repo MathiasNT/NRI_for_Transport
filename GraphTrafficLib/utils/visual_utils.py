@@ -5,9 +5,10 @@ import matplotlib.pyplot as plt
 import folium
 from folium.plugins import PolyLineTextPath
 import numpy as np
-import matplotlib
 from matplotlib import cm
 import contextily as cx
+import matplotlib.dates as mdates
+import matplotlib
 
 
 class Encoder_Visualizer(object):
@@ -55,13 +56,13 @@ class Encoder_Visualizer(object):
                 graph_probs.append(edge_probs.cpu())
         return graph_list, graph_probs
 
-    def infer_max_graphs(self, data):
-        graph_list = []
-        self.encoder.evel()
-        for _, data in enumerate(data):
-            with torch.no_grad():
-                data.unsqueeze(dim=0).cuda()
-                logits = self.encoder(data, self.rel_rec, self.rel_send)
+    # def infer_max_graphs(self, data):
+    #     graph_list = []
+    #     self.encoder.evel()
+    #     for _, data in enumerate(data):
+    #         with torch.no_grad():
+    #             data.unsqueeze(dim=0).cuda()
+    #             logits = self.encoder(data, self.rel_rec, self.rel_send)
 
 
 def visualize_all_graph_adj(graph_list, rel_send, rel_rec, dates):
@@ -225,12 +226,8 @@ def plot_top_bot_k_rels(adj, topk_idxs, botk_idxs=None):
 
     if botk_idxs is not None:
         for i, botk_idx in enumerate(botk_idxs):
-            plt.axvline(
-                x=botk_idx, color="green", alpha=1, linewidth=(len(botk_idxs) - i)
-            )
-            plt.axhline(
-                y=botk_idx, color="green", alpha=1, linewidth=(len(botk_idxs) - i)
-            )
+            plt.axvline(x=botk_idx, color="green", alpha=1, linewidth=(len(botk_idxs) - i))
+            plt.axhline(y=botk_idx, color="green", alpha=1, linewidth=(len(botk_idxs) - i))
 
 
 def get_rels_from_topk(topk_idxs, adj):
@@ -261,9 +258,7 @@ def plot_adj_w_grid(adj):
     return ax
 
 
-def plot_zone_and_map(
-    adj, zone_idx, map_shp, text=None, timestep=None, fig=None, ax=None
-):
+def plot_zone_and_map(adj, zone_idx, map_shp, text=None, timestep=None, fig=None, ax=None):
     if fig is None or ax is None:
         fig, ax = plt.subplots(figsize=(20, 10))
         ax.axis("off")
@@ -354,9 +349,7 @@ def merge_on_and_off_diagonal(on_diag, off_diag):
     tmp = torch.cat(
         (
             on_diag[:, :, :-1].unsqueeze(dim),
-            off_diag.view(
-                (*off_diag.shape[0 : (dim - 1)], off_diag.shape[-1], off_diag.shape[-2])
-            ),
+            off_diag.view((*off_diag.shape[0 : (dim - 1)], off_diag.shape[-1], off_diag.shape[-2])),
         ),
         dim=dim,
     )
@@ -382,9 +375,7 @@ def plot_diff_adj_and_time(adj, time_str):
     return fig
 
 
-def plot_pems_adj_on_map(
-    zone_idx, map_shp, adj, text=None, timestep=None, vmin=None, vmax=None
-):
+def plot_pems_adj_on_map(zone_idx, map_shp, adj, text=None, timestep=None, vmin=None, vmax=None):
     fig, ax = plt.subplots(1, figsize=(10, 10))
     ax.axis("off")
 
@@ -421,13 +412,13 @@ def plot_pems_adj_on_map(
                 y_values = np.array([zone_centroid[0], sender_centroid[0]])
                 val = row[sender_idx]
                 if idx == zone_idx:  # if they match it is a receiving edge
+                    color = cm.Blues(val.numpy())[0]
+                    ax.plot(x_values, y_values, color=color, linewidth=1.5)
+                    # ax.plot(x_values, y_values, color="blue", linewidth=1.5)
+                else:
                     color = cm.Reds(val.numpy())[0]
                     ax.plot(x_values, y_values, color=color, linewidth=1.5)
-                    # ax.plot(x_values, y_values, color='red', linewidth=1.5)
-                else:
-                    color = cm.Greens(val.numpy())[0]
-                    ax.plot(x_values, y_values, color=color, linewidth=1.5)
-                    # ax.plot(x_values, y_values, color='green', linewidth=1.5)
+                    # ax.plot(x_values, y_values, color="red", linewidth=1.5)
     return fig
 
 
@@ -439,3 +430,83 @@ def update_pos(temp):
     new_1 = temp[0] + 5 * offset
     new_2 = temp[1] - 5 * offset
     return np.array([new_1, new_2])
+
+
+def plot_pems_timeseries_and_map(
+    zone_idxs,
+    test_dates,
+    in_sum_ts,
+    out_sum_ts,
+    yn_true,
+    first_pred_step,
+    gdf,
+    map_xlim,
+    map_ylim,
+    df,
+    time_slice=None,
+):
+
+    matplotlib.rcParams.update({"font.size": 18})
+
+    if time_slice is None:
+        time_slice = slice(0, len(test_dates))
+
+    myFmt = mdates.DateFormatter("%A %H:%M")
+    n_zones = len(zone_idxs)
+
+    fig, ax = plt.subplots(
+        n_zones, 2, figsize=(25, 7 * n_zones), gridspec_kw={"width_ratios": [5, 1]}
+    )
+    for i, zone_idx in enumerate(zone_idxs):
+        ax[i, 0].set_title(f"Sensor ID: {df.T.index[zone_idx]}")
+        lns1 = ax[i, 0].plot(
+            test_dates[time_slice],
+            in_sum_ts[zone_idx, time_slice],
+            color="tab:blue",
+            label="Mean ingoing edge probability",
+        )
+        lns2 = ax[i, 0].plot(
+            test_dates[time_slice],
+            out_sum_ts[zone_idx, time_slice],
+            color="tab:red",
+            label="Mean outgoing edge probability",
+        )
+        ax2 = ax[i, 0].twinx()
+        lns3 = ax2.plot(
+            test_dates[time_slice],
+            yn_true[time_slice, zone_idx, first_pred_step - 1],
+            color="tab:green",
+            alpha=1,
+            label="Traffic speed",
+        )
+        lns4 = ax2.plot(
+            test_dates[time_slice],
+            yn_true[time_slice, :, first_pred_step - 1].mean(1),
+            color="tab:green",
+            alpha=0.5,
+            linestyle="--",
+            label="Mean Traffic speed",
+        )
+        ax[i, 0].set_ylim(0, 1)
+        ax[i, 0].xaxis.set_major_locator(mdates.HourLocator(interval=6))
+        ax[i, 0].xaxis.set_major_formatter(myFmt)
+        ax[i, 0].set_ylabel("Mean edge probability")
+        ax2.set_ylim(0, 80)
+        ax2.set_ylabel("Traffic speed (mph)")
+
+        lns = lns1 + lns2 + lns3 + lns4
+        labs = [l.get_label() for l in lns]
+        ax[i, 0].legend(lns, labs, loc="upper center", bbox_to_anchor=(0.5, -0.05), ncol=5)
+
+        sensor = gdf.iloc[[zone_idx]]
+        ax[i, 1].set_title("Sensor location")
+        ax[i, 1].set_xlim(map_xlim)
+        ax[i, 1].set_ylim(map_ylim)
+        sensor.plot(ax=ax[i, 1], legend=True, alpha=1)
+        cx.add_basemap(
+            ax[i, 1], source=cx.providers.Stamen.TonerLite, alpha=0.75, attribution=False
+        )
+        ax[i, 1].set_xticks([])
+        ax[i, 1].set_yticks([])
+
+    fig.tight_layout(h_pad=3)

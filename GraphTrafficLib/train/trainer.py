@@ -180,9 +180,7 @@ class Trainer:
             self.enc_n_in = self.node_f_dim
             self.rnn_enc_n_hid = rnn_enc_n_hid
         elif self.encoder_type == "fixed":
-            assert (
-                fixed_adj_matrix_path is not None
-            ), "fixed encoder need fixed adj matrix"
+            assert fixed_adj_matrix_path is not None, "fixed encoder need fixed adj matrix"
             self.fixed_adj_matrix = torch.Tensor(np.load(fixed_adj_matrix_path))
             self.enc_n_in = self.node_f_dim
         self.enc_n_hid = enc_n_hid
@@ -258,15 +256,11 @@ class Trainer:
             if not x in (["encoder", "decoder", "model_params"])
         ]
         self.parameters = [x + ": " + str(y) + "\n" for x, y in locals().items()]
-        with open(
-            os.path.join(self.experiment_folder_path, "parameters.txt"), "w"
-        ) as f:
+        with open(os.path.join(self.experiment_folder_path, "parameters.txt"), "w") as f:
             f.writelines(self.parameters)
         self.writer.add_text("parameters", "\n".join(self.parameters))
 
-        with open(
-            os.path.join(self.experiment_folder_path, "self_parameters.txt"), "w"
-        ) as f:
+        with open(os.path.join(self.experiment_folder_path, "self_parameters.txt"), "w") as f:
             f.writelines(self.self_parameters)
         self.writer.add_text("self_parameters", "\n".join(self.self_parameters))
 
@@ -564,14 +558,7 @@ class Trainer:
 
     def _load_model(self):
         torch.cuda.current_device()
-        (
-            self.encoder,
-            self.decoder,
-            self.optimizer,
-            self.lr_scheduler,
-            _,
-            _,
-        ) = load_model(
+        (self.encoder, self.decoder, self.optimizer, self.lr_scheduler, _, _,) = load_model(
             experiment_path=self.checkpoint_path,
             device=torch.cuda.current_device(),
             encoder_type=self.encoder_type,
@@ -579,9 +566,7 @@ class Trainer:
         )
 
     def pretrain_encoder(self):
-        pretraining_optimizer = optim.Adam(
-            self.encoder.parameters(), lr=0.001, weight_decay=0.01
-        )
+        pretraining_optimizer = optim.Adam(self.encoder.parameters(), lr=0.001, weight_decay=0.01)
         print(f"Beginning pretraining")
         for epoch in range(self.pretrain_n_epochs):
             kl = pretrain_encoder_epoch(
@@ -891,9 +876,7 @@ class Trainer:
             pred_all = []
 
             hidden = torch.autograd.Variable(
-                torch.zeros(
-                    batch_subset.size(0), batch_subset.size(2), self.decoder.gru_hid
-                )
+                torch.zeros(batch_subset.size(0), batch_subset.size(2), self.decoder.gru_hid)
             )
             edges = torch.autograd.Variable(
                 torch.zeros(
@@ -923,9 +906,7 @@ class Trainer:
             for step in range(0, batch_subset.shape[1] - 1):
                 if self.burn_in:
                     if step <= self.burn_in_steps - 1:
-                        ins = batch_subset[
-                            :, step, :, :
-                        ]  # obs step different here to be time dim
+                        ins = batch_subset[:, step, :, :]  # obs step different here to be time dim
                     else:
                         ins = pred_all[step - 1]
                         prior_logits, prior_state = self.encoder.single_step_forward(
@@ -934,9 +915,7 @@ class Trainer:
                         edges[:, :, step : step + 1, :] = F.gumbel_softmax(
                             prior_logits, tau=0.5, hard=True
                         )  # RelaxedOneHotCategorical
-                        edge_probs[:, :, step : step + 1, :] = F.softmax(
-                            prior_logits, dim=-1
-                        )
+                        edge_probs[:, :, step : step + 1, :] = F.softmax(prior_logits, dim=-1)
 
                 pred, hidden = self.decoder.do_single_step_forward(
                     ins, self.rel_rec, self.rel_send, edges, hidden, step
@@ -957,9 +936,7 @@ class Trainer:
                     )
                 adj_matrices.append(torch.stack(batch_adj_matrices))
             adj_matrices = torch.stack(adj_matrices)
-            adj_matrices = adj_matrices.reshape(
-                -1, adj_matrices.shape[-2], adj_matrices.shape[-1]
-            )
+            adj_matrices = adj_matrices.reshape(-1, adj_matrices.shape[-2], adj_matrices.shape[-1])
             adj_matrices = adj_matrices.unsqueeze(1)
 
             adj_matrices = torch.nn.functional.interpolate(
@@ -977,9 +954,7 @@ class Trainer:
                     im = axs[i][j].imshow(adj_matrices[j, i])
                     fig.colorbar(im, ax=axs[i, j])
 
-            self.writer.add_figure(
-                "adj_examples_test", fig, global_step=epoch, close=True
-            )
+            self.writer.add_figure("adj_examples_test", fig, global_step=epoch, close=True)
 
         return
 
@@ -1015,9 +990,7 @@ class Trainer:
                 data = data.cuda()
 
                 logits = self.encoder(data, self.rel_rec, self.rel_send)
-                edges = F.gumbel_softmax(
-                    logits, tau=0.5, hard=True
-                )  # RelaxedOneHotCategorical
+                edges = F.gumbel_softmax(logits, tau=0.5, hard=True)  # RelaxedOneHotCategorical
                 edge_probs = F.softmax(logits, dim=-1)
 
                 pred_arr = self.decoder(

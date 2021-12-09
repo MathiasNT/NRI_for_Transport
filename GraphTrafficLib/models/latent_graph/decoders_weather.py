@@ -4,12 +4,10 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 
 
-
-
 class GRUDecoder_multistep_weather(nn.Module):
     """summary"""
 
-    def __init__(self, n_hid, f_in, msg_hid, gru_hid, edge_types, skip_first, do_prob, w_in = 2):
+    def __init__(self, n_hid, f_in, msg_hid, gru_hid, edge_types, skip_first, do_prob, w_in=2):
         super().__init__()
 
         self.edge_types = edge_types
@@ -18,9 +16,7 @@ class GRUDecoder_multistep_weather(nn.Module):
         self.msg_fc1 = nn.ModuleList(
             [
                 nn.Linear(in_features=gru_hid * 2 + w_in, out_features=msg_hid)
-                for _ in range(
-                    self.edge_types
-                )  # 2*n_hid, n_hid is their implementation
+                for _ in range(self.edge_types)  # 2*n_hid, n_hid is their implementation
             ]
         )
         self.msg_fc2 = nn.ModuleList(
@@ -55,10 +51,10 @@ class GRUDecoder_multistep_weather(nn.Module):
         self.skip_first = skip_first
         self.dropout_prob = do_prob
 
-    def edge2node(self, x, rel_rec):
-        """This function makes the aggregation over the incomming edge embeddings"""
-        incoming = torch.matmul(rel_rec.t(), x)
-        return incoming / incoming.size(1)
+    # def edge2node(self, x, rel_rec):
+    #     """This function makes the aggregation over the incomming edge embeddings"""
+    #     incoming = torch.matmul(rel_rec.t(), x)
+    #     return incoming / incoming.size(1)
 
     def node2edge(self, x, rel_rec, rel_send):
         """This function makes a matrix of [node_i, node_j] rows for the edge embeddings"""
@@ -114,9 +110,7 @@ class GRUDecoder_multistep_weather(nn.Module):
         pred = self.out_fc3(pred)
 
         # Do a skip connection
-        assert (
-            inputs.shape == pred.shape
-        ), "Input feature dim should match output feature dim"
+        assert inputs.shape == pred.shape, "Input feature dim should match output feature dim"
         pred = inputs + pred
 
         return pred, hidden
@@ -136,7 +130,9 @@ class GRUDecoder_multistep_weather(nn.Module):
 
         pred_all = []
 
-        hidden = Variable(torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid, device=inputs.device))
+        hidden = Variable(
+            torch.zeros(inputs.size(0), inputs.size(2), self.gru_hid, device=inputs.device)
+        )
 
         for step in range(0, inputs.shape[1] - 1):
             if burn_in:
