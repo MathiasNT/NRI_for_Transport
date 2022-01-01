@@ -375,10 +375,138 @@ def plot_diff_adj_and_time(adj, time_str):
     return fig
 
 
-def plot_pems_adj_on_map(zone_idx, map_shp, adj, text=None, timestep=None, vmin=None, vmax=None):
-    fig, ax = plt.subplots(1, figsize=(10, 10))
-    ax.axis("off")
+def plot_pems_adj_connection_map(
+    zone_idx,
+    map_shp,
+    adj,
+    text=None,
+    timestep=None,
+    vmin=None,
+    vmax=None,
+    xlim=None,
+    ylim=None,
+    cmap="bwr",
+):
+    fig, ax = plt.subplots(2, figsize=(5, 10))
+    ax[0].set_xticks([])
+    ax[0].set_yticks([])
+    ax[1].set_xticks([])
+    ax[1].set_yticks([])
+    # plot map and loop detectors
+    if timestep is not None:
+        map_shp.plot(
+            column=f"ts_{timestep}",
+            ax=ax[0],
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            alpha=0.75,
+            markersize=16,
+            zorder=2,
+            legend=True,
+            legend_kwds={"pad": 0.04, "fraction": 0.043, "label": "Traffic speed (mph)"},
+        )
+    else:
+        map_shp.plot(ax=ax[0])
+    cx.add_basemap(
+        ax[0],
+        source=cx.providers.Stamen.TonerLines,
+        attribution=False,
+        zorder=1,
+        alpha=0.5,
+        zoom=12,
+    )
+    ax[0].set_xlim(xlim)
+    ax[0].set_ylim(ylim)
+    # cx.add_basemap(ax[0], source=cx.providers.OpenStreetMap.HOT, alpha=0.5)
 
+    if text is not None:
+        ax[0].set_title(text)
+
+    important_ids = []
+    for idx, row in enumerate(adj):
+        sender_idxs = torch.nonzero(row)
+        zone_centroid = [
+            map_shp.iloc[idx].geometry.centroid.y,
+            map_shp.iloc[idx].geometry.centroid.x,
+        ]
+        if row.sum() != 0:
+            for sender_idx in sender_idxs:
+                sender_centroid = [
+                    map_shp.iloc[sender_idx.squeeze().numpy()].geometry.centroid.y,
+                    map_shp.iloc[sender_idx.squeeze().numpy()].geometry.centroid.x,
+                ]
+                x_values = np.array([zone_centroid[1], sender_centroid[1]])
+                y_values = np.array([zone_centroid[0], sender_centroid[0]])
+                val = row[sender_idx]
+                if idx == zone_idx:  # if they match it is a receiving edge
+                    map_shp.iloc[[sender_idx]].plot(
+                        column=f"ts_{timestep}",
+                        ax=ax[0],
+                        cmap=cmap,
+                        vmin=vmin,
+                        vmax=vmax,
+                        zorder=3,
+                        markersize=60,
+                    )
+                    color = cm.Blues(val.numpy())[0]
+                    ax[0].plot(x_values, y_values, color=color, linewidth=3, linestyle="--")
+                    important_ids.append(sender_idx)
+                    # ax.plot(x_values, y_values, color="blue", linewidth=1.5)
+                else:
+                    map_shp.iloc[[idx]].plot(
+                        column=f"ts_{timestep}",
+                        ax=ax[0],
+                        cmap=cmap,
+                        vmin=vmin,
+                        vmax=vmax,
+                        zorder=3,
+                        markersize=60,
+                    )
+                    color = cm.Reds(val.numpy())[0]
+                    ax[0].plot(x_values, y_values, color=color, linewidth=3, linestyle="--")
+                    important_ids.append(idx)
+                    # ax.plot(x_values, y_values, color="red", linewidth=1.5)
+
+    map_shp.iloc[[zone_idx]].plot(
+        column=f"ts_{timestep}",
+        ax=ax[0],
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        zorder=3,
+        markersize=100,
+    )
+    important_ids.append(zone_idx)
+
+    map_shp.iloc[important_ids].plot(
+        ax=ax[1], column="id", legend=True, alpha=1, zorder=2, markersize=80
+    )
+    map_shp.plot(ax=ax[1], alpha=0, zorder=2)
+    cx.add_basemap(
+        ax[1],
+        source=cx.providers.Stamen.TonerLines,
+        attribution=False,
+        zorder=1,
+        alpha=0.5,
+        zoom=12,
+    )
+    ax[1].set_xlim(xlim)
+    ax[1].set_ylim(ylim)
+
+    ax[1].set_title("Loop sensor ids")
+
+    fig.tight_layout(h_pad=-8)
+
+    return fig
+
+
+def plot_pems_adj_on_map(
+    zone_idx, map_shp, adj, text=None, timestep=None, vmin=None, vmax=None, xlim=None, ylim=None
+):
+    fig, ax = plt.subplots(1, figsize=(5, 5))
+    ax.set_xticks([])
+    ax.set_yticks([])
     # plot map and loop detectors
     if timestep is not None:
         map_shp.plot(
@@ -387,11 +515,18 @@ def plot_pems_adj_on_map(zone_idx, map_shp, adj, text=None, timestep=None, vmin=
             cmap="bwr",
             vmin=vmin,
             vmax=vmax,
+            alpha=0.75,
+            markersize=16,
+            zorder=2,
         )
     else:
         map_shp.plot(ax=ax)
+    cx.add_basemap(
+        ax, source=cx.providers.Stamen.TonerLines, attribution=False, zorder=1, alpha=0.5, zoom=12
+    )
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
     # cx.add_basemap(ax, source=cx.providers.OpenStreetMap.HOT, alpha=0.5)
-    cx.add_basemap(ax, source=cx.providers.CartoDB.DarkMatter, alpha=0.75)
 
     if text is not None:
         ax.set_title(text)
@@ -412,13 +547,42 @@ def plot_pems_adj_on_map(zone_idx, map_shp, adj, text=None, timestep=None, vmin=
                 y_values = np.array([zone_centroid[0], sender_centroid[0]])
                 val = row[sender_idx]
                 if idx == zone_idx:  # if they match it is a receiving edge
+                    map_shp.iloc[[sender_idx]].plot(
+                        column=f"ts_{timestep}",
+                        ax=ax,
+                        cmap="bwr",
+                        vmin=vmin,
+                        vmax=vmax,
+                        zorder=3,
+                        markersize=60,
+                    )
                     color = cm.Blues(val.numpy())[0]
-                    ax.plot(x_values, y_values, color=color, linewidth=1.5)
+                    ax.plot(x_values, y_values, color=color, linewidth=3, linestyle="--")
                     # ax.plot(x_values, y_values, color="blue", linewidth=1.5)
                 else:
+                    map_shp.iloc[[idx]].plot(
+                        column=f"ts_{timestep}",
+                        ax=ax,
+                        cmap="bwr",
+                        vmin=vmin,
+                        vmax=vmax,
+                        zorder=3,
+                        markersize=60,
+                    )
                     color = cm.Reds(val.numpy())[0]
-                    ax.plot(x_values, y_values, color=color, linewidth=1.5)
+                    ax.plot(x_values, y_values, color=color, linewidth=3, linestyle="--")
                     # ax.plot(x_values, y_values, color="red", linewidth=1.5)
+
+    map_shp.iloc[[zone_idx]].plot(
+        column=f"ts_{timestep}",
+        ax=ax,
+        cmap="bwr",
+        vmin=vmin,
+        vmax=vmax,
+        zorder=3,
+        markersize=100,
+    )
+
     return fig
 
 
@@ -440,10 +604,87 @@ def plot_pems_timeseries_and_map(
     yn_true,
     first_pred_step,
     gdf,
+    df,
+    xtick_hour_interval=6,
+    time_slice=None,
+    time_emp=None,
+    fontsize=18,
+):
+
+    matplotlib.rcParams.update({"font.size": fontsize})
+
+    if time_slice is None:
+        time_slice = slice(0, len(test_dates))
+
+    myFmt = mdates.DateFormatter("%A %H:%M")
+    n_zones = len(zone_idxs)
+
+    fig, ax = plt.subplots(n_zones, 1, figsize=(15, 5 * n_zones))
+    for i, zone_idx in enumerate(zone_idxs):
+        ax[i].set_title(f"Sensor ID: {df.T.index[zone_idx]}", fontsize=fontsize + 1)
+        lns1 = ax[i].plot(
+            test_dates[time_slice],
+            in_sum_ts[zone_idx, time_slice],
+            color="tab:blue",
+            label="Mean ingoing edge probability",
+        )
+        lns2 = ax[i].plot(
+            test_dates[time_slice],
+            out_sum_ts[zone_idx, time_slice],
+            color="tab:red",
+            label="Mean outgoing edge probability",
+        )
+        ax2 = ax[i].twinx()
+        lns3 = ax2.plot(
+            test_dates[time_slice],
+            yn_true[time_slice, zone_idx, first_pred_step - 1],
+            color="tab:green",
+            alpha=1,
+            label="Traffic speed",
+        )
+        lns4 = ax2.plot(
+            test_dates[time_slice],
+            yn_true[time_slice, :, first_pred_step - 1].mean(1),
+            color="tab:green",
+            alpha=0.5,
+            linestyle="--",
+            label="Mean Traffic speed",
+        )
+
+        if time_emp is not None:
+            ax[i].axvline(time_emp, linestyle="--", color="black")
+
+        ax[i].set_ylim(0, 1)
+        ax[i].xaxis.set_major_locator(mdates.HourLocator(interval=xtick_hour_interval))
+        ax[i].xaxis.set_major_formatter(myFmt)
+        ax[i].set_ylabel("Mean edge probability")
+        ax2.set_ylim(0, 80)
+        ax2.set_ylabel("Traffic speed (mph)")
+
+        lns = lns1 + lns2 + lns3 + lns4
+        labs = [l.get_label() for l in lns]
+        # ax[i].legend(lns, labs, loc="upper center", bbox_to_anchor=(0.5, -0.05), ncol=3)
+
+    handles, labels = ax[0].get_legend_handles_labels()
+    fig.legend(lns, labs, loc="upper center", ncol=2, bbox_to_anchor=(0.5, 0.005))
+
+    fig.tight_layout(h_pad=1)
+
+
+def plot_pems_timeseries_and_map_old(
+    zone_idxs,
+    test_dates,
+    in_sum_ts,
+    out_sum_ts,
+    yn_true,
+    first_pred_step,
+    gdf,
     map_xlim,
     map_ylim,
     df,
+    xtick_hour_interval=6,
     time_slice=None,
+    time_emp=None,
 ):
 
     matplotlib.rcParams.update({"font.size": 18})
@@ -487,8 +728,12 @@ def plot_pems_timeseries_and_map(
             linestyle="--",
             label="Mean Traffic speed",
         )
+
+        if time_emp is not None:
+            ax[i, 0].axvline(time_emp, linestyle="--", color="black")
+
         ax[i, 0].set_ylim(0, 1)
-        ax[i, 0].xaxis.set_major_locator(mdates.HourLocator(interval=6))
+        ax[i, 0].xaxis.set_major_locator(mdates.HourLocator(interval=xtick_hour_interval))
         ax[i, 0].xaxis.set_major_formatter(myFmt)
         ax[i, 0].set_ylabel("Mean edge probability")
         ax2.set_ylim(0, 80)
@@ -502,9 +747,14 @@ def plot_pems_timeseries_and_map(
         ax[i, 1].set_title("Sensor location")
         ax[i, 1].set_xlim(map_xlim)
         ax[i, 1].set_ylim(map_ylim)
-        sensor.plot(ax=ax[i, 1], legend=True, alpha=1)
+        sensor.plot(ax=ax[i, 1], legend=True, alpha=1, zorder=2, color="red")
         cx.add_basemap(
-            ax[i, 1], source=cx.providers.Stamen.TonerLite, alpha=0.75, attribution=False
+            ax[i, 1],
+            source=cx.providers.Stamen.TonerLines,
+            zoom=12,
+            zorder=1,
+            alpha=0.5,
+            attribution=False,
         )
         ax[i, 1].set_xticks([])
         ax[i, 1].set_yticks([])

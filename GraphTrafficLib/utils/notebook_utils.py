@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from datetime import timedelta
 
 from GraphTrafficLib.models.latent_graph import (
     MLPEncoder,
@@ -20,7 +21,7 @@ from GraphTrafficLib.models.latent_graph import (
 from GraphTrafficLib.models import SimpleLSTM
 from GraphTrafficLib.utils import encode_onehot
 from GraphTrafficLib.utils.data_utils import (
-    #create_test_train_split_max_min_normalize,
+    # create_test_train_split_max_min_normalize,
     create_dataloaders,
     create_dataloaders_bike,
     create_dataloaders_road,
@@ -35,9 +36,7 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
             map_location=torch.device(device),
         )
     else:
-        model_dict = torch.load(
-            f"{experiment_path}/model_dict.pth", map_location=device
-        )
+        model_dict = torch.load(f"{experiment_path}/model_dict.pth", map_location=device)
     model_settings = model_dict["settings"]
     train_res = model_dict["train_res"]
 
@@ -45,8 +44,8 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
     if "node_f_dim" not in model_dict["settings"].keys():
         model_dict["settings"]["node_f_dim"] = model_dict["settings"]["dec_f_in"]
 
-    if "decoder_f_dim" not in model_dict['settings'].keys():
-        model_settings['decoder_f_dim'] = model_dict['settings']['node_f_dim']
+    if "decoder_f_dim" not in model_dict["settings"].keys():
+        model_settings["decoder_f_dim"] = model_dict["settings"]["node_f_dim"]
 
     print(f"Model settings are: {model_settings}")
 
@@ -104,17 +103,15 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
         ).to(device)
     elif encoder_type == "fixed":
         if model_settings["use_weather"]:
-            encoder = FixedEncoder_weather(
-                adj_matrix=model_dict["encoder"]["adj_matrix"]
-            ).to(device)
-        else:
-            encoder = FixedEncoder(adj_matrix=model_dict["encoder"]["adj_matrix"]).to(
+            encoder = FixedEncoder_weather(adj_matrix=model_dict["encoder"]["adj_matrix"]).to(
                 device
             )
+        else:
+            encoder = FixedEncoder(adj_matrix=model_dict["encoder"]["adj_matrix"]).to(device)
     if model_settings["use_weather"]:
         decoder = GRUDecoder_multistep_weather(
             n_hid=model_settings["dec_n_hid"],
-            f_in=model_settings["node_f_dim"],
+            f_in=model_settings["decoder_f_dim"],
             msg_hid=model_settings["dec_msg_hid"],
             gru_hid=model_settings["dec_gru_hid"],
             edge_types=model_settings["dec_edge_types"],
@@ -144,9 +141,7 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
             },
             {"params": decoder.parameters(), "lr": model_settings["lr"]},
         ]
-        optimizer = optim.Adam(
-            model_params, weight_decay=model_settings["weight_decay"]
-        )
+        optimizer = optim.Adam(model_params, weight_decay=model_settings["weight_decay"])
         optimizer.load_state_dict(model_dict["optimizer"])
 
         lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -209,7 +204,7 @@ def load_data(
         data_tensor = torch.Tensor(data)
 
     # load weather data
-    weather_df = pd.read_csv(weather_data_path, parse_dates=[0, 7])
+    weather_df = pd.read_csv(weather_data_path)
     # temp fix for na temp
     weather_df.loc[weather_df.temperature.isna(), "temperature"] = 0
     sum(weather_df.temperature.isna())
@@ -218,11 +213,15 @@ def load_data(
     weather_tensor = torch.Tensor(weather_vector)
 
     # Create time list
-    min_date = pd.Timestamp(year=2019, month=1, day=1)
-    max_date = pd.Timestamp(year=2020, month=1, day=1)
+    #min_date = pd.Timestamp(year=2019, month=1, day=1)
+    #max_date = pd.Timestamp(year=2020, month=1, day=1)
+    #time_list = pd.date_range(start=min_date, end=max_date, freq="1H")[:-1]
+
+    # Create time list
+    min_date = pd.Timestamp(year=2019, month=1, day=1)  # TODO fix this hardcode
+    max_date = min_date + timedelta(hours=data_tensor.shape[1])
+    # max_date = pd.Timestamp(year=2020, month=1, day=1) TODO remove this if is uneeded
     time_list = pd.date_range(start=min_date, end=max_date, freq="1H")[:-1]
-
-
 
     # Create data loader with max min normalization
     (
@@ -238,7 +237,7 @@ def load_data(
         batch_size=batch_size,
         normalize=normalize,
         train_frac=train_frac,
-        time_list=time_list
+        time_list=time_list,
     )
 
     return (
@@ -248,7 +247,7 @@ def load_data(
         test_dataloader,
         train_mean,
         train_std,
-        time_list
+        time_list,
     )
 
 
@@ -273,13 +272,7 @@ def load_data_bike(
     weather_vector = weather_df.loc[:, ("temperature", "precipDepth")].values
     weather_tensor = torch.Tensor(weather_vector)
 
-    (
-        train_dataloader,
-        val_dataloader,
-        test_dataloader,
-        mean,
-        std,
-    ) = create_dataloaders_bike(
+    (train_dataloader, val_dataloader, test_dataloader, mean, std,) = create_dataloaders_bike(
         x_data=x_data,
         y_data=y_data,
         weather_tensor=weather_tensor,
@@ -289,27 +282,16 @@ def load_data_bike(
     return data_tensor, train_dataloader, val_dataloader, test_dataloader, mean, std
 
 
-def load_data_road(
-    road_folder,
-    batch_size,
-    normalize,
-    test_subset_size=None
-):
+def load_data_road(road_folder, batch_size, normalize, test_subset_size=None):
 
     train_data = np.load(f"{road_folder}/train_data.npy")
     val_data = np.load(f"{road_folder}/val_data.npy")
     test_data = np.load(f"{road_folder}/test_data.npy")
 
     if test_subset_size is not None:
-        test_data = test_data[:test_subset_size, :, :,:]
+        test_data = test_data[:test_subset_size, :, :, :]
 
-    (
-        train_dataloader,
-        val_dataloader,
-        test_dataloader,
-        mean,
-        std,
-    ) = create_dataloaders_road(
+    (train_dataloader, val_dataloader, test_dataloader, mean, std,) = create_dataloaders_road(
         train_data=train_data,
         val_data=val_data,
         test_data=test_data,
@@ -439,7 +421,7 @@ def create_predictions(
     sample_graph,
     device,
     tau,
-    subset_dim=None
+    subset_dim=None,
 ):
     y_true = []
     y_pred = []
@@ -457,9 +439,7 @@ def create_predictions(
 
             if use_weather:
                 weather = weather.cuda()
-                logits = encoder(
-                    data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send
-                )
+                logits = encoder(data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send)
             else:
                 logits = encoder(data[:, :, :burn_in_steps, :], rel_rec, rel_send)
 
@@ -473,7 +453,7 @@ def create_predictions(
             graph_list.append(edges.cpu())
 
             if subset_dim is not None:
-                data = data[..., subset_dim ].unsqueeze(-1)
+                data = data[..., subset_dim].unsqueeze(-1)
 
             if use_weather:
                 pred_arr = decoder(
@@ -498,7 +478,9 @@ def create_predictions(
                 )
             pred = pred_arr.transpose(1, 2).contiguous()
             target = data[:, :, 1:, :]
-            target_idxs = idxs[:, ]
+            target_idxs = idxs[
+                :,
+            ]
 
             y_true.append(target)
             y_pred.append(pred)
@@ -528,7 +510,7 @@ def create_predictions_ha(
     device,
     tau,
     time_list,
-    subset_dim=None
+    subset_dim=None,
 ):
     y_true = []
     y_pred = []
@@ -546,9 +528,7 @@ def create_predictions_ha(
 
             if use_weather:
                 weather = weather.cuda()
-                logits = encoder(
-                    data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send
-                )
+                logits = encoder(data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send)
             else:
                 logits = encoder(data[:, :, :burn_in_steps, :], rel_rec, rel_send)
 
@@ -562,7 +542,7 @@ def create_predictions_ha(
             graph_list.append(edges.cpu())
 
             if subset_dim is not None:
-                data = data[..., subset_dim ].unsqueeze(-1)
+                data = data[..., subset_dim].unsqueeze(-1)
 
             if use_weather:
                 pred_arr = decoder(
@@ -600,6 +580,7 @@ def create_predictions_ha(
     mse = mse / steps
     rmse = mse ** 0.5
     return y_pred, y_true, mse, rmse
+
 
 def create_predictions_gru(
     encoder,
@@ -666,9 +647,7 @@ def create_predictions_gru(
             for step in range(0, data.shape[1] - 1):
                 if burn_in:
                     if step <= burn_in_steps - 1:
-                        ins = data[
-                            :, step, :, :
-                        ]  # obs step different here to be time dim
+                        ins = data[:, step, :, :]  # obs step different here to be time dim
                     else:
                         ins = pred_all[step - 1]
                         prior_logits, prior_state = encoder.single_step_forward(
@@ -677,13 +656,9 @@ def create_predictions_gru(
                         edges[:, :, step : step + 1, :] = F.gumbel_softmax(
                             prior_logits, tau=0.5, hard=True
                         )  # RelaxedOneHotCategorical
-                        edge_probs[:, :, step : step + 1, :] = F.softmax(
-                            prior_logits, dim=-1
-                        )
+                        edge_probs[:, :, step : step + 1, :] = F.softmax(prior_logits, dim=-1)
 
-                pred, hidden = decoder.do_single_step_forward(
-                    ins, rel_rec, rel_send, edges, hidden
-                )
+                pred, hidden = decoder.do_single_step_forward(ins, rel_rec, rel_send, edges, hidden)
                 pred_all.append(pred)
 
             pred_arr = torch.stack(pred_all, dim=1)
@@ -708,9 +683,7 @@ def create_lstm_predictions(model, test_dataloader, burn_in_steps, split_len):
             data = data.cuda()
             burn_in_data = data[:, :, :burn_in_steps, :].reshape(-1, burn_in_steps, 1)
             target = data[:, :, (burn_in_steps):, :]
-            pred = model(x=burn_in_data, pred_steps=split_len - burn_in_steps).reshape(
-                target.shape
-            )
+            pred = model(x=burn_in_data, pred_steps=split_len - burn_in_steps).reshape(target.shape)
 
             y_true.append(target[:, :, 0, :].cpu().squeeze())
             y_pred.append(pred[:, :, 0, :].cpu())
@@ -730,9 +703,7 @@ def create_adj_vectors(n_nodes, device):
     return rel_rec, rel_send
 
 
-def create_lag1_and_ha_predictions(
-    test_dataloader, burn_in, burn_in_steps, split_len, ha
-):
+def create_lag1_and_ha_predictions(test_dataloader, burn_in, burn_in_steps, split_len, ha):
     y_true = []
     y_lag1 = []
     for i, (data, weather) in tqdm(enumerate(test_dataloader)):
