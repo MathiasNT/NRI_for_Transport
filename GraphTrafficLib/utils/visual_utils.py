@@ -596,6 +596,83 @@ def update_pos(temp):
     return np.array([new_1, new_2])
 
 
+def plot_pems_timeseries_and_map_two_col(
+    zone_idxs,
+    test_dates,
+    in_sum_ts,
+    out_sum_ts,
+    yn_true,
+    first_pred_step,
+    gdf,
+    df,
+    xtick_hour_interval=6,
+    time_slice=None,
+    time_emp=None,
+    fontsize=18,
+):
+
+    matplotlib.rcParams.update({"font.size": fontsize})
+
+    if time_slice is None:
+        time_slice = slice(0, len(test_dates))
+
+    myFmt = mdates.DateFormatter("%A %H:%M")
+    n_rows = np.int(np.ceil(len(zone_idxs) // 2))
+
+    fig, ax = plt.subplots(n_rows, 2, figsize=(15 * 2, 5 * n_rows))
+    for i, zone_idx in enumerate(zone_idxs):
+        row = int(np.ceil(i // 2))
+        col = i % 2
+        ax[row, col].set_title(f"Sensor ID: {df.T.index[zone_idx]}", fontsize=fontsize + 1)
+        lns1 = ax[row, col].plot(
+            test_dates[time_slice],
+            in_sum_ts[zone_idx, time_slice],
+            color="tab:blue",
+            label="Mean ingoing edge probability",
+        )
+        lns2 = ax[row, col].plot(
+            test_dates[time_slice],
+            out_sum_ts[zone_idx, time_slice],
+            color="tab:red",
+            label="Mean outgoing edge probability",
+        )
+        ax2 = ax[row, col].twinx()
+        lns3 = ax2.plot(
+            test_dates[time_slice],
+            yn_true[time_slice, zone_idx, first_pred_step - 1],
+            color="tab:green",
+            alpha=1,
+            label="Traffic speed",
+        )
+        lns4 = ax2.plot(
+            test_dates[time_slice],
+            yn_true[time_slice, :, first_pred_step - 1].mean(1),
+            color="tab:green",
+            alpha=0.5,
+            linestyle="--",
+            label="Mean Traffic speed",
+        )
+
+        if time_emp is not None:
+            ax[row, col].axvline(time_emp, linestyle="--", color="black")
+
+        ax[row, col].set_ylim(0, 1)
+        ax[row, col].xaxis.set_major_locator(mdates.HourLocator(interval=xtick_hour_interval))
+        ax[row, col].xaxis.set_major_formatter(myFmt)
+        ax[row, col].set_ylabel("Mean edge probability")
+        ax2.set_ylim(0, 80)
+        ax2.set_ylabel("Traffic speed (mph)")
+
+        lns = lns1 + lns2 + lns3 + lns4
+        labs = [l.get_label() for l in lns]
+        # ax[i].legend(lns, labs, loc="upper center", bbox_to_anchor=(0.5, -0.05), ncol=3)
+
+    handles, labels = ax[0, 0].get_legend_handles_labels()
+    fig.legend(lns, labs, loc="upper center", ncol=4, bbox_to_anchor=(0.5, 0.005))
+
+    fig.tight_layout(h_pad=1)
+
+
 def plot_pems_timeseries_and_map(
     zone_idxs,
     test_dates,
