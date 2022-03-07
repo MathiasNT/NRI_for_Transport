@@ -5,7 +5,10 @@ from .losses import torch_nll_gaussian, kl_categorical
 import numpy as np
 import torch
 from tqdm import tqdm
-from GraphTrafficLib.utils.data_utils.data_preprocess import ha_batch_renormalization, restandardize_data
+from GraphTrafficLib.utils.data_utils.data_preprocess import (
+    ha_batch_renormalization,
+    restandardize_data,
+)
 
 
 def plot_training(train_mse_arr, train_nll_arr, train_kl_arr, train_acc_arr):
@@ -25,37 +28,42 @@ def plot_training(train_mse_arr, train_nll_arr, train_kl_arr, train_acc_arr):
     # axs[3].title.set_text("Edge Acc")
     plt.show()
 
-def pretrain_encoder_epoch(encoder,
-                           train_dataloader,
-                           optimizer,
-                           n_nodes,
-                           log_prior,
-                           rel_rec,
-                           rel_send,
-                           use_weather,
-                           burn_in_steps):
+
+def pretrain_encoder_epoch(
+    encoder,
+    train_dataloader,
+    optimizer,
+    n_nodes,
+    log_prior,
+    rel_rec,
+    rel_send,
+    use_weather,
+    burn_in_steps,
+):
     kl = 0
     steps = 0
-    for _, (data, weather, _) in enumerate(tqdm(train_dataloader, desc="Pretrain encoder", leave=False)):
+    for _, (data, weather, _) in enumerate(
+        tqdm(train_dataloader, desc="Pretrain encoder", leave=False)
+    ):
         optimizer.zero_grad()
         steps += len(data)
 
         data = data.cuda()
-        
+
         if use_weather:
             weather = weather.cuda()
             logits = encoder(data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send)
         else:
             logits = encoder(data[:, :, :burn_in_steps, :], rel_rec, rel_send)
-        
+
         edge_probs = F.softmax(logits, dim=-1)
-        
+
         loss_kl = kl_categorical(
             preds=edge_probs,
             log_prior=log_prior,
             num_atoms=n_nodes,
         )
-        
+
         loss_kl.backward()
         optimizer.step()
 
@@ -63,6 +71,7 @@ def pretrain_encoder_epoch(encoder,
 
     kl = kl / steps
     return kl
+
 
 def train(
     encoder,
@@ -88,7 +97,7 @@ def train(
     gumbel_hard,
     use_weather,
     nll_variance,
-    subset_dim = None
+    subset_dim=None,
 ):
     nll = 0
     kl = 0
@@ -100,13 +109,11 @@ def train(
     encoder.train()
     decoder.train()
 
-    for _, (data, weather, idxs) in enumerate(
-        tqdm(train_dataloader, desc="Training", leave=False)
-    ):
+    for _, (data, weather, idxs) in enumerate(tqdm(train_dataloader, desc="Training", leave=False)):
         optimizer.zero_grad()
         steps += len(data)
         data = data.cuda()
-        #idxs = idxs.cuda()
+        # idxs = idxs.cuda()
 
         if use_weather:
             weather = weather.cuda()
@@ -119,7 +126,7 @@ def train(
         edge_probs = F.softmax(logits, dim=-1)
 
         if subset_dim is not None:
-            data = data[..., subset_dim ].unsqueeze(-1)
+            data = data[..., subset_dim].unsqueeze(-1)
 
         if use_weather:
             pred_arr = decoder(
@@ -144,7 +151,7 @@ def train(
             )
         pred = pred_arr.transpose(1, 2)[:, :, -pred_steps:, :]  # TODO .contiguous?
         target = data[:, :, -pred_steps:, :]
-        
+
         loss_nll = torch_nll_gaussian(pred, target, variance=nll_variance)
         loss_kl = kl_categorical(
             preds=edge_probs,
@@ -164,16 +171,30 @@ def train(
         nll += loss_nll.detach() * len(data)
         kl += loss_kl.detach() * len(data)
 
-
-        pred_idxs = idxs[:,-pred_steps:]
+        pred_idxs = idxs[:, -pred_steps:]
         if normalization == "ha":
-            renormalized_pred = ha_batch_renormalization(batch=pred, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean, std_matrix=norm_std)
-            renormalized_target = ha_batch_renormalization(batch=target, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean, std_matrix=norm_std)
+            renormalized_pred = ha_batch_renormalization(
+                batch=pred,
+                batch_idxs=pred_idxs,
+                datetime_list=time_list,
+                mean_matrix=norm_mean,
+                std_matrix=norm_std,
+            )
+            renormalized_target = ha_batch_renormalization(
+                batch=target,
+                batch_idxs=pred_idxs,
+                datetime_list=time_list,
+                mean_matrix=norm_mean,
+                std_matrix=norm_std,
+            )
         elif normalization == "z":
-            renormalized_pred = restandardize_data(data=pred, data_mean=norm_mean, data_std=norm_std)
-            renormalized_target = restandardize_data(data=target, data_mean=norm_mean, data_std=norm_std)
+            renormalized_pred = restandardize_data(
+                data=pred, data_mean=norm_mean, data_std=norm_std
+            )
+            renormalized_target = restandardize_data(
+                data=target, data_mean=norm_mean, data_std=norm_std
+            )
 
-        
         mse_batch = F.mse_loss(
             input=renormalized_pred[:, :, -(split_len - burn_in_steps) :, :],
             target=renormalized_target[:, :, -(split_len - burn_in_steps) :, :],
@@ -210,7 +231,7 @@ def val(
     n_nodes,
     use_weather,
     nll_variance,
-    subset_dim=None
+    subset_dim=None,
 ):
     nll = 0
     kl = 0
@@ -221,9 +242,7 @@ def val(
     encoder.eval()
     decoder.eval()
 
-    for _, (data, weather, idxs) in enumerate(
-        tqdm(val_dataloader, desc="Validation", leave=False)
-    ):
+    for _, (data, weather, idxs) in enumerate(tqdm(val_dataloader, desc="Validation", leave=False)):
         optimizer.zero_grad()
         with torch.no_grad():
             data = data.cuda()
@@ -231,18 +250,16 @@ def val(
 
             if use_weather:
                 weather = weather.cuda()
-                logits = encoder(
-                    data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send
-                )
+                logits = encoder(data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send)
             else:
                 logits = encoder(data[:, :, :burn_in_steps, :], rel_rec, rel_send)
 
             edges = F.gumbel_softmax(logits, tau=0.01, hard=True)
             edge_probs = F.softmax(logits, dim=-1)
             mean_edge_prob.append(edge_probs.mean(dim=(1, 0)).tolist())
-                
+
             if subset_dim is not None:
-                data = data[..., subset_dim ].unsqueeze(-1)
+                data = data[..., subset_dim].unsqueeze(-1)
 
             if use_weather:
                 pred_arr = decoder(
@@ -275,16 +292,30 @@ def val(
         nll += loss_nll.detach() * len(data)
         kl += loss_kl.detach() * len(data)
 
-
-        pred_idxs = idxs[:,-pred_steps:]
+        pred_idxs = idxs[:, -pred_steps:]
 
         if normalization == "ha":
-            renormalized_pred = ha_batch_renormalization(batch=pred, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean, std_matrix=norm_std)
-            renormalized_target = ha_batch_renormalization(batch=target, batch_idxs=pred_idxs, datetime_list=time_list, mean_matrix=norm_mean, std_matrix=norm_std)
+            renormalized_pred = ha_batch_renormalization(
+                batch=pred,
+                batch_idxs=pred_idxs,
+                datetime_list=time_list,
+                mean_matrix=norm_mean,
+                std_matrix=norm_std,
+            )
+            renormalized_target = ha_batch_renormalization(
+                batch=target,
+                batch_idxs=pred_idxs,
+                datetime_list=time_list,
+                mean_matrix=norm_mean,
+                std_matrix=norm_std,
+            )
         elif normalization == "z":
-            renormalized_pred = restandardize_data(data=pred, data_mean=norm_mean, data_std=norm_std)
-            renormalized_target = restandardize_data(data=target, data_mean=norm_mean, data_std=norm_std)
-
+            renormalized_pred = restandardize_data(
+                data=pred, data_mean=norm_mean, data_std=norm_std
+            )
+            renormalized_target = restandardize_data(
+                data=target, data_mean=norm_mean, data_std=norm_std
+            )
 
         mse_batch = F.mse_loss(
             input=renormalized_pred[:, :, -(split_len - burn_in_steps) :, :],
@@ -328,7 +359,7 @@ def dnri_train(
     encoder.train()
     decoder.train()
 
-    for _, (data, _) in enumerate(tqdm(train_dataloader, desc="Training", leave=False)):
+    for _, (data, weather, idxs) in enumerate(tqdm(train_dataloader, desc="Training", leave=False)):
         optimizer.zero_grad()
         steps += len(data)
         data = data.cuda()
@@ -393,6 +424,11 @@ def dnri_val(
     split_len,
     log_prior,
     n_nodes,
+    normalization,
+    norm_mean,
+    norm_std,
+    time_list,
+    nll_variance,
 ):
     nll = 0
     kl = 0
@@ -404,7 +440,7 @@ def dnri_val(
     encoder.eval()
     decoder.eval()
 
-    for _, (data, _) in enumerate(tqdm(val_dataloader, desc="Validation", leave=False)):
+    for _, (data, weather, idxs) in enumerate(tqdm(val_dataloader, desc="Validation", leave=False)):
         temp_mean_edge_probs = []
         with torch.no_grad():
             steps += len(data)
@@ -453,9 +489,7 @@ def dnri_val(
             for step in range(0, data.shape[1] - 1):
                 if burn_in:
                     if step <= burn_in_steps - 1:
-                        ins = data[
-                            :, step, :, :
-                        ]  # obs step different here to be time dim
+                        ins = data[:, step, :, :]  # obs step different here to be time dim
                     else:
                         ins = pred_all[step - 1]
                         prior_logits, prior_state = encoder.single_step_forward(
@@ -464,9 +498,7 @@ def dnri_val(
                         edges[:, :, step : step + 1, :] = F.gumbel_softmax(
                             prior_logits, tau=0.01, hard=True
                         )  # RelaxedOneHotCategorical
-                        edge_probs[:, :, step : step + 1, :] = F.softmax(
-                            prior_logits, dim=-1
-                        )
+                        edge_probs[:, :, step : step + 1, :] = F.softmax(prior_logits, dim=-1)
 
                 pred, hidden = decoder.do_single_step_forward(
                     ins, rel_rec, rel_send, edges, hidden, step
@@ -477,13 +509,38 @@ def dnri_val(
 
             pred = pred_arr.transpose(1, 2).contiguous()
 
-            loss_nll = torch_nll_gaussian(pred, target, 5e-5)
+            loss_nll = torch_nll_gaussian(pred, target, nll_variance)
             loss_kl = kl_categorical(
                 preds=edge_probs, log_prior=log_prior, num_atoms=n_nodes
             )  # Here I chose theirs since my implementation runs out of RAM :(
         nll += loss_nll.detach() * len(data)
         kl += loss_kl.detach() * len(data)
 
+        pred_idxs = idxs[:, -pred_steps:]  # This needs to match the target for the dynamic training
+
+        if normalization == "ha":
+            renormalized_pred = ha_batch_renormalization(
+                batch=pred,
+                batch_idxs=pred_idxs,
+                datetime_list=time_list,
+                mean_matrix=norm_mean,
+                std_matrix=norm_std,
+            )
+            renormalized_target = ha_batch_renormalization(
+                batch=target,
+                batch_idxs=pred_idxs,
+                datetime_list=time_list,
+                mean_matrix=norm_mean,
+                std_matrix=norm_std,
+            )
+        elif normalization == "z":
+            renormalized_pred = restandardize_data(
+                data=pred, data_mean=norm_mean, data_std=norm_std
+            )
+            renormalized_target = restandardize_data(
+                data=target, data_mean=norm_mean, data_std=norm_std
+            )
+        # todo Fix to use the renormalized stuff here
         mse_batch = F.mse_loss(pred, target).detach()
         mse += mse_batch * len(data)
         rmse += mse_batch ** 0.5 * len(data)
@@ -492,7 +549,7 @@ def dnri_val(
     kl = kl / steps
     nll = nll / steps
     rmse = rmse / steps
-    return mse, rmse, nll, kl
+    return mse, rmse, nll, kl, mean_edge_prob
 
 
 def train_lstm(model, train_dataloader, optimizer, burn_in, burn_in_steps, split_len):
@@ -506,9 +563,7 @@ def train_lstm(model, train_dataloader, optimizer, burn_in, burn_in_steps, split
         data = data.cuda()
         burn_in_data = data[:, :, :burn_in_steps, :].reshape(-1, burn_in_steps, 1)
         target = data[:, :, burn_in_steps:, :]
-        pred = model(x=burn_in_data, pred_steps=split_len - burn_in_steps).reshape(
-            target.shape
-        )
+        pred = model(x=burn_in_data, pred_steps=split_len - burn_in_steps).reshape(target.shape)
 
         loss = F.mse_loss(pred, target)
 
@@ -539,9 +594,7 @@ def val_lstm(
             data = data.cuda()
             burn_in_data = data[:, :, :burn_in_steps, :].reshape(-1, burn_in_steps, 1)
             target = data[:, :, burn_in_steps:, :]
-            pred = model(x=burn_in_data, pred_steps=split_len - burn_in_steps).reshape(
-                target.shape
-            )
+            pred = model(x=burn_in_data, pred_steps=split_len - burn_in_steps).reshape(target.shape)
 
             mse_val.append(F.mse_loss(pred, target).detach())
         mse = np.mean(mse_val)
