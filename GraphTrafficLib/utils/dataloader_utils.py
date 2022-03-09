@@ -1,20 +1,15 @@
-"""
-Dataloader stuff
-"""
-from torch.utils.data import DataLoader
 import torch
-from .Nyc_w_Weather import Nyc_w_Weather, Nyc_w_Weather2, Nyc_no_Weather2
-from torch.utils.data.dataset import TensorDataset, Dataset
+from torch.utils.data import DataLoader
+from torch.utils.data.dataset import TensorDataset
 import numpy as np
-from .data_preprocess import (
+
+from .normalization_utils import (
     get_ha_normalization_matrices,
-    ha_batch_renormalization,
     ha_normalization,
-    ha_renormalization,
 )
 
 
-def create_dataloaders(
+def create_dataloaders_taxi(
     data,
     weather_data,
     split_len,
@@ -22,8 +17,6 @@ def create_dataloaders(
     time_list,
     normalize=False,
     train_frac=0.8,
-    fixed_max=None,
-    fixed_min=None,
 ):
     if len(data.shape) == 2:
         demand_tensor = torch.Tensor(data).permute(1, 0).unsqueeze(-1)
@@ -51,7 +44,7 @@ def create_dataloaders(
         train_mean, train_std = get_ha_normalization_matrices(
             demand_tensor[:train_index], time_list[:train_index]
         )
-        # Fix for zone/day/hour combinations with only zero observation in train but observations in the val/test
+        # Hotfix for zone/day/hour combinations with only zero observation in train but observations in the val/test
         train_std[train_std == 0] = 1
         demand_tensor = ha_normalization(
             demand_tensor, time_list, mean_matrix=train_mean, std_matrix=train_std
@@ -140,8 +133,6 @@ def create_dataloaders_bike(x_data, y_data, weather_tensor, batch_size, normaliz
 
     # Code from https://github.com/Essaim/CGCDemandPrediction to make sure it matches their data
 
-    # TODO ADD IDXS SPLITS HERE
-
     X_list = [12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
     Y_list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     X_, Y_ = list(), list()
@@ -190,7 +181,6 @@ def create_dataloaders_bike(x_data, y_data, weather_tensor, batch_size, normaliz
 
 
 def create_dataloaders_road(train_data, val_data, test_data, batch_size, normalize):
-    # TODO think about this
     # Currently I ignore the timestamp data
     train_data = torch.Tensor(train_data[..., :1]).permute(0, 2, 1, 3)
     val_data = torch.Tensor(val_data[..., :1]).permute(0, 2, 1, 3)

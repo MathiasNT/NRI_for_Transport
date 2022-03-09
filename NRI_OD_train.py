@@ -3,42 +3,14 @@ import torch
 import argparse
 
 
-# Training settings
-shuffle_train = True
-shuffle_val = False
-
-# Model settings
-encoder_factor = True
-
-# Data settings
-train_frac = 0.8
-
-# Model settings
-burn_in = True
-kl_frac = 1
-
-# Pretraining settings
-pretrain_n_epochs = 30
-
-# Net sizes
-# Encoder
-# enc_n_hid = 128
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    # Parse args
     # Data args
-    # TODO fix the pickup data naming
     parser.add_argument(
         "--pickup_data_name", help="path from datafolder to pickupdata", required=True
     )
-    parser.add_argument(
-        "--dropoff_data_name", help="path from datafolder to dropoffdata"
-    )
-    parser.add_argument(
-        "--weather_data_name", help="path from datafolder to weaher data"
-    )
+    parser.add_argument("--dropoff_data_name", help="path from datafolder to dropoffdata")
+    parser.add_argument("--weather_data_name", help="path from datafolder to weaher data")
 
     # General args
     parser.add_argument("--experiment_name", help="Name used for saving", required=True)
@@ -46,9 +18,7 @@ if __name__ == "__main__":
         "--checkpoint_path", help="Path to model experiment to load checkpoint from"
     )
     # Cuda args
-    parser.add_argument(
-        "--cuda_device", type=int, default=1, help="Which cuda device to run on"
-    )
+    parser.add_argument("--cuda_device", type=int, default=1, help="Which cuda device to run on")
 
     # Pretraining args
     parser.add_argument(
@@ -60,9 +30,7 @@ if __name__ == "__main__":
 
     # Training args
     parser.add_argument("--epochs", type=int, default=1, help="The number of epochs")
-    parser.add_argument(
-        "--kl_cyc", type=int, help="The period for the cyclical annealing"
-    )
+    parser.add_argument("--kl_cyc", type=int, help="The period for the cyclical annealing")
     parser.add_argument("--batch_size", type=int, help="The batch size, default 25")
     parser.add_argument("--lr", type=float, help="Learning rate", default=0.001)
     parser.add_argument(
@@ -103,12 +71,8 @@ if __name__ == "__main__":
         help="The L2 regularization for the optimizer (default=0)",
         default=0,
     )
-    parser.add_argument(
-        "--dropout_p", type=float, default=0, help="Dropout rate (1-keep)"
-    )
-    parser.add_argument(
-        "--nll_variance", type=float, default=5e-5, help="Variance for NLL loss"
-    )
+    parser.add_argument("--dropout_p", type=float, default=0, help="Dropout rate (1-keep)")
+    parser.add_argument("--nll_variance", type=float, default=5e-5, help="Variance for NLL loss")
 
     # Model args
     parser.add_argument(
@@ -120,9 +84,7 @@ if __name__ == "__main__":
         type=int,
         default=2,
     )
-    parser.add_argument(
-        "--enc_n_hid", help="The hidden dim of the encoder", type=int, default=128
-    )
+    parser.add_argument("--enc_n_hid", help="The hidden dim of the encoder", type=int, default=128)
     parser.add_argument(
         "--init_weights",
         dest="init_weights",
@@ -193,9 +155,7 @@ if __name__ == "__main__":
         default=2,
         help="The amount of features on pr. timestep on nodes",
     )
-    parser.add_argument(
-        "--subset_dim", type=int, help="Dimension to subset the output to."
-    )
+    parser.add_argument("--subset_dim", type=int, help="Dimension to subset the output to.")
     parser.add_argument("--use_seed", type=int, help="Seed for torch RNG")
     parser.add_argument(
         "--normalize",
@@ -204,29 +164,38 @@ if __name__ == "__main__":
         default="z",
     )
 
+    # Args that currently can't be changed through arguments.
+    shuffle_train = True
+    shuffle_val = False
+    encoder_factor = True
+    train_frac = 0.8
+    burn_in = True
+    kl_frac = 1
+    pretrain_n_epochs = 30
+    skip_first = True
+
     args = parser.parse_args()
 
+    # Set seed to argument seed
     if args.use_seed is not None:
         torch.manual_seed(args.use_seed)
 
+    # Infer steps sizes
     pred_steps = args.split_len - args.burn_in_steps
     encoder_steps = args.split_len
 
-    node_f_dim = args.node_f_dim
-
-    dataset_folder = "../datafolder"
-    proc_folder = f"{dataset_folder}/procdata"
+    proc_folder = f"../datafolder/procdata"
 
     if args.fixed_adj_matrix_path is not None:
         args.fixed_adj_matrix_path = f"{proc_folder}/{args.fixed_adj_matrix_path}"
-        args.encoder_type = "fixed"
+        assert (
+            args.encoder_type == "fixed"
+        ), "If fixed adjacancy matrix is passed the encoder should also be fixed"
 
     if args.normalize not in ["z", "ha"]:
         raise NotImplementedError('Please choose "z" or "ha" normalization')
 
     print(f"Args are {args}")
-
-    print("Starting")
 
     print(f"Selecting GPU {args.cuda_device}")
     torch.cuda.set_device(args.cuda_device)
@@ -243,7 +212,7 @@ if __name__ == "__main__":
         lr_decay_step=args.lr_decay_step,
         lr_decay_gamma=args.lr_decay_gamma,
         encoder_factor=encoder_factor,
-        skip_first=True,
+        skip_first=skip_first,
         experiment_name=args.experiment_name,
         normalize=args.normalize,
         train_frac=train_frac,
@@ -256,10 +225,9 @@ if __name__ == "__main__":
         loss_type=args.loss_type,
         edge_rate=args.edge_rate,
         encoder_type=args.encoder_type,
-        node_f_dim=node_f_dim,
+        node_f_dim=args.node_f_dim,
         subset_dim=args.subset_dim,
         enc_n_hid=args.enc_n_hid,
-        rnn_enc_n_hid=None,
         n_edge_types=args.n_edge_types,
         dec_n_hid=args.dec_n_hid,
         dec_msg_hid=args.dec_msg_hid,
@@ -279,8 +247,7 @@ if __name__ == "__main__":
         pretrain_n_epochs=pretrain_n_epochs,
     )
 
-    print("Initialized")
-
+    # Load data
     if args.pickup_data_name.split("_")[0] == "taxi":
         trainer.load_data(
             proc_folder=proc_folder,
@@ -303,54 +270,14 @@ if __name__ == "__main__":
             road_folder=args.pickup_data_name,
         )
     else:
-        raise NameError("data path is neither bike or taxi")
+        raise NameError("data path is neither bike, taxi or road")
     print("Data loaded")
 
     if args.pretrain_encoder:
         print("Pretraining encoder")
         trainer.pretrain_encoder()
 
-    print("Training")
+    print("Starting training")
     trainer.train()
 
     trainer.save_model()
-
-
-# batch_size=25,
-# n_epochs=100,
-# dropout_p=0,
-# shuffle_train=True,
-# shuffle_val=False,
-# encoder_factor=True,
-# experiment_name="test",
-# normalize=True,
-# train_frac=0.8,
-# burn_in_steps=30,
-# split_len=40,
-# burn_in=True,  # maybe remove this
-# kl_frac=1,
-# kl_cyc=None,
-# loss_type=None,
-# edge_rate=0.01,
-# encoder_type="mlp",
-# node_f_dim=1,
-# enc_n_hid=128,
-# rnn_enc_n_hid=None,
-# n_edge_types=2,
-# dec_n_hid=16,
-# dec_msg_hid=8,
-# dec_gru_hid=8,
-# skip_first=True,
-# lr=0.001,
-# lr_decay_step=100,
-# lr_decay_gamma=0.5,
-# fixed_adj_matrix_path=None,
-# encoder_lr_frac=1,
-# use_bn=True,
-# init_weights=False,
-# gumbel_tau=0.5,
-# gumbel_hard=True,
-# gumbel_anneal=None,
-# weight_decay=0,
-# use_weather=False,
-# nll_variance=5e-5

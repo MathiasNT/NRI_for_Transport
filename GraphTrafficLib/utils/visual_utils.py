@@ -1,14 +1,17 @@
 import warnings
+import numpy as np
+import matplotlib
+import matplotlib.dates as mdates
+from matplotlib import cm
+import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
 import folium
 from folium.plugins import PolyLineTextPath
-import numpy as np
-from matplotlib import cm
 import contextily as cx
-import matplotlib.dates as mdates
-import matplotlib
+
+
+# TODO: remove all of the code that is not used for final plots.
 
 
 class Encoder_Visualizer(object):
@@ -56,14 +59,6 @@ class Encoder_Visualizer(object):
                 graph_probs.append(edge_probs.cpu())
         return graph_list, graph_probs
 
-    # def infer_max_graphs(self, data):
-    #     graph_list = []
-    #     self.encoder.evel()
-    #     for _, data in enumerate(data):
-    #         with torch.no_grad():
-    #             data.unsqueeze(dim=0).cuda()
-    #             logits = self.encoder(data, self.rel_rec, self.rel_send)
-
 
 def visualize_all_graph_adj(graph_list, rel_send, rel_rec, dates):
     _, axs = plt.subplots(len(graph_list), 1, figsize=(50, 50))
@@ -86,16 +81,6 @@ def visualize_prob_adj(edge_list, rel_send, rel_rec):
         rec = rel_rec[i].argmax().item()
         adj_matrix[send, rec] = row[1]
     return adj_matrix
-
-
-def get_prior_from_adj(adj_matrix, adj_prior, rel_send, rel_rec):
-    edge_prior = torch.ones(adj_matrix.shape[0] * adj_matrix[0] - 1, 2)
-    edge_prior *= 1 - adj_prior
-    for i in range(len(edge_prior)):
-        send = rel_send[i].argmax().item()
-        rec = rel_rec[i].argmax().item()
-        edge_prior[i, adj_matrix[send, rec]] += adj_prior
-    return edge_prior
 
 
 def visualize_mean_graph_adj(graph_list, rel_send, rel_rec):

@@ -1,64 +1,45 @@
-"""The trainer clases
-"""
-import time
 import os
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 from datetime import timedelta
+import matplotlib.pyplot as plt
 
 
 import torch
 from torch import optim
 from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
-from torch.profiler import tensorboard_trace_handler
 import torch.nn.functional as F
-from torchvision.utils import make_grid
-import matplotlib.pyplot as plt
 
-from ..utils.data_utils import (
-    create_dataloaders,
+
+from ..models.latent_graph import (
+    MLPEncoder,
+    GRUDecoder,
+    FixedEncoder,
+    MLPEncoder_global,
+    GRUDecoder_global,
+    FixedEncoder_global,
+)
+from ..utils.dataloader_utils import (
+    create_dataloaders_taxi,
     create_dataloaders_bike,
     create_dataloaders_road,
 )
-from ..utils import encode_onehot
-from ..utils import (
+from ..utils.general_utils import encode_onehot
+from ..utils.training_utils import (
     val,
     train,
-    dnri_train,
-    dnri_val,
     gumbel_tau_scheduler,
     pretrain_encoder_epoch,
-)
-from ..utils.losses import (
-    torch_nll_gaussian,
-    kl_categorical,
     cyc_anneal,
-    get_simple_prior,
-    get_prior_from_adj,
 )
+from ..utils.prior_utils import get_prior_from_adj, get_simple_prior
 from ..utils.visual_utils import visualize_prob_adj
 from ..utils.general_utils import count_parameters
 from ..utils.notebook_utils import load_model
 
-from ..models.latent_graph import (
-    MLPEncoder,
-    CNNEncoder,
-    GRUDecoder_multistep,
-    FixedEncoder,
-    RecurrentEncoder,
-    DynamicGRUDecoder_multistep,
-    MLPEncoder_weather,
-    GRUDecoder_multistep_weather,
-    FixedEncoder_weather,
-    CNNEncoder_weather,
-)
-
 
 class Trainer:
-    """The trainer class"""
-
     def __init__(
         self,
         batch_size,
@@ -73,7 +54,7 @@ class Trainer:
         burn_in_steps,
         split_len,
         pred_steps,
-        burn_in,  # maybe remove this
+        burn_in,
         kl_frac,
         kl_cyc,
         loss_type,
@@ -82,7 +63,6 @@ class Trainer:
         node_f_dim,
         subset_dim,
         enc_n_hid,
-        rnn_enc_n_hid,
         n_edge_types,
         dec_n_hid,
         dec_msg_hid,
@@ -173,12 +153,7 @@ class Trainer:
         # Encoder
         if self.encoder_type == "mlp":
             self.enc_n_in = self.encoder_steps * self.node_f_dim
-            self.enc_n_in_weather = (
-                self.split_len * 2
-            )  # hardcoded 2 two weather values atm TODO fix
-        elif self.encoder_type in ["cnn", "gru", "lstm"]:
-            self.enc_n_in = self.node_f_dim
-            self.rnn_enc_n_hid = rnn_enc_n_hid
+            self.enc_n_in_weather = self.split_len * 2
         elif self.encoder_type == "fixed":
             assert fixed_adj_matrix_path is not None, "fixed encoder need fixed adj matrix"
             self.fixed_adj_matrix = torch.Tensor(np.load(fixed_adj_matrix_path))
@@ -288,9 +263,8 @@ class Trainer:
         weather_tensor = torch.Tensor(weather_vector)
 
         # Create time list
-        min_date = pd.Timestamp(year=2019, month=1, day=1)  # TODO fix this hardcode
+        min_date = pd.Timestamp(year=2019, month=1, day=1)
         max_date = min_date + timedelta(hours=data_tensor.shape[1])
-        # max_date = pd.Timestamp(year=2020, month=1, day=1) TODO remove this if is uneeded
         self.time_list = pd.date_range(start=min_date, end=max_date, freq="1H")[:-1]
 
         # Create data loader with max min normalization
@@ -300,7 +274,7 @@ class Trainer:
             self.test_dataloader,
             self.norm_mean,
             self.norm_std,
-        ) = create_dataloaders(
+        ) = create_dataloaders_taxi(
             data=data_tensor,
             weather_data=weather_tensor,
             split_len=self.split_len,
@@ -328,23 +302,8 @@ class Trainer:
             log_prior = get_simple_prior(self.n_edge_types, self.edge_rate)
         else:
             adj_prior_matrix = np.load(f"{proc_folder}/{self.prior_adj_path}")
-            log_prior = get_prior_from_adj(
-                adj_prior_matrix, 0.75, rel_send, rel_rec
-            )  # TODO fix hard code
+            log_prior = get_prior_from_adj(adj_prior_matrix, 0.75, rel_send, rel_rec)
         self.log_prior = Variable(log_prior).cuda()
-
-        # min_date = pd.Timestamp(year=2019, month=1, day=1)
-        # max_date = pd.Timestamp(year=2019 + 1, month=1, day=1)
-
-        # # Note that this misses a bit from the beginning but this will not be a big problem when we index finer
-        # bins_dt = pd.date_range(start=min_date, end=max_date, freq="1H")
-        # split_bins_dt = bins_dt[: -(self.split_len + 1)]
-
-        # # self.test_dates = split_bins_dt[int(self.train_frac * len(split_bins_dt)) :]
-        # # self.train_dates = split_bins_dt[: int(self.train_frac * len(split_bins_dt))]
-
-        # # print(f"train_dates len: {len(self.train_dates)}")
-        # # print(f"test_dates len: {len(self.test_dates)}")
 
     def load_data_bike(self, proc_folder, bike_folder, weather_data_path):
         x_data = torch.load(f"{proc_folder}/{bike_folder}/nyc_bike_cgc_x_standardised")
@@ -389,18 +348,13 @@ class Trainer:
             log_prior = get_simple_prior(self.n_edge_types, self.edge_rate)
         else:
             adj_prior_matrix = np.load(f"{proc_folder}/{self.prior_adj_path}")
-            log_prior = get_prior_from_adj(
-                adj_prior_matrix, 0.75, rel_send, rel_rec
-            )  # TODO fix hard code
+            log_prior = get_prior_from_adj(adj_prior_matrix, 0.75, rel_send, rel_rec)
         self.log_prior = Variable(log_prior).cuda()
 
     def load_data_road(self, proc_folder, road_folder):
         train_data = np.load(f"{proc_folder}/{road_folder}/train_data.npy")
         val_data = np.load(f"{proc_folder}/{road_folder}/val_data.npy")
         test_data = np.load(f"{proc_folder}/{road_folder}/test_data.npy")
-
-        # load weather data
-        ## TODO maybe?
 
         (
             self.train_dataloader,
@@ -431,18 +385,17 @@ class Trainer:
             log_prior = get_simple_prior(self.n_edge_types, self.edge_rate)
         else:
             adj_prior_matrix = np.load(f"{proc_folder}/{self.prior_adj_path}")
-            log_prior = get_prior_from_adj(
-                adj_prior_matrix, 0.75, rel_send, rel_rec
-            )  # TODO fix hard code
+            log_prior = get_prior_from_adj(adj_prior_matrix, 0.75, rel_send, rel_rec)
         self.log_prior = Variable(log_prior).cuda()
 
     def _init_model(self):
 
+        # Init encoder
         if self.encoder_type == "mlp":
             if self.use_weather:
-                self.encoder = MLPEncoder_weather(
+                self.encoder = MLPEncoder_global(
                     n_in=self.enc_n_in,
-                    n_in_weather=self.enc_n_in_weather,
+                    n_in_global=self.enc_n_in_weather,
                     n_hid=self.enc_n_hid,
                     n_out=self.n_edge_types,
                     do_prob=self.dropout_p,
@@ -456,83 +409,37 @@ class Trainer:
                     n_out=self.n_edge_types,
                     do_prob=self.dropout_p,
                     factor=self.encoder_factor,
-                    use_bn=self.use_bn,  # TODO not checked
-                ).cuda()
-        elif self.encoder_type == "cnn":
-            if self.use_weather:
-                self.encoder = CNNEncoder_weather(
-                    n_in=self.enc_n_in,
-                    n_hid=self.enc_n_hid,
-                    n_out=self.n_edge_types,
-                    do_prob=self.dropout_p,
-                    factor=self.encoder_factor,
-                    use_bn=self.use_bn,
-                    init_weights=self.init_weights,
-                ).cuda()
-            else:
-                self.encoder = CNNEncoder(
-                    n_in=self.enc_n_in,
-                    n_hid=self.enc_n_hid,
-                    n_out=self.n_edge_types,
-                    do_prob=self.dropout_p,
-                    factor=self.encoder_factor,
-                    use_bn=self.use_bn,
-                    init_weights=self.init_weights,
-                ).cuda()
-        elif self.encoder_type == "gru" or self.encoder_type == "lstm":
-            if self.use_weather:
-                raise NotImplementedError
-            else:
-                self.encoder = RecurrentEncoder(
-                    n_in=self.enc_n_in,
-                    n_hid=self.enc_n_hid,
-                    n_out=self.n_edge_types,
-                    rnn_hid=self.rnn_enc_n_hid,
-                    do_prob=self.dropout_p,
-                    factor=self.encoder_factor,
-                    rnn_type=self.encoder_type,
                     use_bn=self.use_bn,
                 ).cuda()
         elif self.encoder_type == "fixed":
             if self.use_weather:
-                self.encoder = FixedEncoder_weather(adj_matrix=self.fixed_adj_matrix)
+                self.encoder = FixedEncoder_global(adj_matrix=self.fixed_adj_matrix)
             else:
                 self.encoder = FixedEncoder(adj_matrix=self.fixed_adj_matrix)
 
-        if self.encoder_type in ["gru", "lstm"]:
-            if self.use_weather:
-                raise NotImplementedError
-            else:
-                self.decoder = DynamicGRUDecoder_multistep(
-                    n_hid=self.dec_n_hid,
-                    f_in=self.decoder_f_dim,
-                    msg_hid=self.dec_msg_hid,
-                    gru_hid=self.dec_gru_hid,
-                    edge_types=self.n_edge_types,
-                    skip_first=self.skip_first,
-                ).cuda()
+        # Init decoder
+        if self.use_weather:
+            self.decoder = GRUDecoder_global(
+                n_hid=self.dec_n_hid,
+                f_in=self.decoder_f_dim,
+                msg_hid=self.dec_msg_hid,
+                gru_hid=self.dec_gru_hid,
+                edge_types=self.n_edge_types,
+                skip_first=self.skip_first,
+                do_prob=self.dropout_p,
+            ).cuda()
         else:
-            if self.use_weather:
-                self.decoder = GRUDecoder_multistep_weather(
-                    n_hid=self.dec_n_hid,
-                    f_in=self.decoder_f_dim,
-                    msg_hid=self.dec_msg_hid,
-                    gru_hid=self.dec_gru_hid,
-                    edge_types=self.n_edge_types,
-                    skip_first=self.skip_first,
-                    do_prob=self.dropout_p,
-                ).cuda()
-            else:
-                self.decoder = GRUDecoder_multistep(
-                    n_hid=self.dec_n_hid,
-                    f_in=self.decoder_f_dim,
-                    msg_hid=self.dec_msg_hid,
-                    gru_hid=self.dec_gru_hid,
-                    edge_types=self.n_edge_types,
-                    skip_first=self.skip_first,
-                    do_prob=self.dropout_p,
-                ).cuda()
+            self.decoder = GRUDecoder(
+                n_hid=self.dec_n_hid,
+                f_in=self.decoder_f_dim,
+                msg_hid=self.dec_msg_hid,
+                gru_hid=self.dec_gru_hid,
+                edge_types=self.n_edge_types,
+                skip_first=self.skip_first,
+                do_prob=self.dropout_p,
+            ).cuda()
 
+        # Init optimize and scheduler
         self.model_params = [
             {
                 "params": self.encoder.parameters(),
@@ -540,13 +447,7 @@ class Trainer:
             },
             {"params": self.decoder.parameters(), "lr": self.lr},
         ]
-
         self.optimizer = optim.Adam(self.model_params, weight_decay=self.weight_decay)
-        # self.lr_scheduler = optim.lr_scheduler.StepLR(
-        #    optimizer=self.optimizer,
-        #    step_size=self.lr_decay_step,
-        #    gamma=self.lr_decay_gamma,
-        # )
         self.lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer=self.optimizer,
             factor=0.2,
@@ -597,70 +498,44 @@ class Trainer:
         test_nll_arr = []
         test_kl_arr = []
 
-        print("save init graph")
-        # self._save_graph_examples(-1)
-
         for epoch in range(self.n_epochs):
 
             if self.kl_cyc is not None:
                 self.kl_frac = cyc_anneal(epoch, self.kl_cyc)
 
             if self.gumbel_anneal:
-                # TODO Notice hard coded start tau
                 self.gumbel_curr_tau = gumbel_tau_scheduler(
                     2, self.gumbel_tau, epoch, self.n_epochs
                 )
             else:
                 self.gumbel_curr_tau = self.gumbel_tau
 
-            if self.encoder_type in ["gru", "lstm"]:
-                train_mse, train_nll, train_kl, mean_edge_prob = dnri_train(
-                    encoder=self.encoder,
-                    decoder=self.decoder,
-                    train_dataloader=self.train_dataloader,
-                    optimizer=self.optimizer,
-                    rel_rec=self.rel_rec,
-                    rel_send=self.rel_send,
-                    burn_in=self.burn_in,
-                    burn_in_steps=self.burn_in_steps,
-                    split_len=self.split_len,
-                    log_prior=self.log_prior,
-                    kl_frac=self.kl_frac,
-                    loss_type=self.loss_type,
-                    pred_steps=self.pred_steps,
-                    skip_first=self.skip_first,
-                    n_nodes=self.n_nodes,
-                    gumbel_tau=self.gumbel_curr_tau,
-                    gumbel_hard=self.gumbel_hard,
-                )
-                mean_edge_prob = np.mean(mean_edge_prob, 0)
-            else:
-                train_mse, train_rmse, train_nll, train_kl, mean_edge_prob = train(
-                    encoder=self.encoder,
-                    decoder=self.decoder,
-                    train_dataloader=self.train_dataloader,
-                    norm_mean=self.norm_mean,
-                    norm_std=self.norm_std,
-                    normalization=self.normalize,
-                    time_list=self.time_list,
-                    optimizer=self.optimizer,
-                    rel_rec=self.rel_rec,
-                    rel_send=self.rel_send,
-                    burn_in=self.burn_in,
-                    burn_in_steps=self.burn_in_steps,
-                    split_len=self.split_len,
-                    log_prior=self.log_prior,
-                    kl_frac=self.kl_frac,
-                    loss_type=self.loss_type,
-                    pred_steps=self.pred_steps,
-                    skip_first=self.skip_first,
-                    n_nodes=self.n_nodes,
-                    gumbel_tau=self.gumbel_curr_tau,
-                    gumbel_hard=self.gumbel_hard,
-                    use_weather=self.use_weather,
-                    nll_variance=self.nll_variance,
-                    subset_dim=self.subset_dim,
-                )
+            train_mse, train_rmse, train_nll, train_kl, mean_edge_prob = train(
+                encoder=self.encoder,
+                decoder=self.decoder,
+                train_dataloader=self.train_dataloader,
+                norm_mean=self.norm_mean,
+                norm_std=self.norm_std,
+                normalization=self.normalize,
+                time_list=self.time_list,
+                optimizer=self.optimizer,
+                rel_rec=self.rel_rec,
+                rel_send=self.rel_send,
+                burn_in=self.burn_in,
+                burn_in_steps=self.burn_in_steps,
+                split_len=self.split_len,
+                log_prior=self.log_prior,
+                kl_frac=self.kl_frac,
+                loss_type=self.loss_type,
+                pred_steps=self.pred_steps,
+                skip_first=self.skip_first,
+                n_nodes=self.n_nodes,
+                gumbel_tau=self.gumbel_curr_tau,
+                gumbel_hard=self.gumbel_hard,
+                use_weather=self.use_weather,
+                nll_variance=self.nll_variance,
+                subset_dim=self.subset_dim,
+            )
 
             self.lr_scheduler.step(train_nll)
 
@@ -674,44 +549,28 @@ class Trainer:
             self.writer.add_scalar("Train/rescaled_RMSE", train_rmse, epoch)
 
             if epoch % 5 == 0:
-                # Validate on validation set
-                if self.encoder_type in ["gru", "lstm"]:
-                    val_mse, val_nll, val_kl = dnri_val(
-                        encoder=self.encoder,
-                        decoder=self.decoder,
-                        val_dataloader=self.val_dataloader,
-                        rel_rec=self.rel_rec,
-                        rel_send=self.rel_send,
-                        burn_in=self.burn_in,
-                        burn_in_steps=self.burn_in_steps,
-                        split_len=self.split_len,
-                        log_prior=self.log_prior,
-                        n_nodes=self.n_nodes,
-                    )
-                    self._save_graph_examples_dnri(epoch)  # Double check placement
-                else:
-                    val_mse, val_rmse, val_nll, val_kl, mean_edge_prob = val(
-                        encoder=self.encoder,
-                        decoder=self.decoder,
-                        val_dataloader=self.val_dataloader,
-                        norm_mean=self.norm_mean,
-                        norm_std=self.norm_std,
-                        normalization=self.normalize,
-                        time_list=self.time_list,
-                        optimizer=self.optimizer,
-                        rel_rec=self.rel_rec,
-                        rel_send=self.rel_send,
-                        burn_in=self.burn_in,
-                        burn_in_steps=self.burn_in_steps,
-                        split_len=self.split_len,
-                        log_prior=self.log_prior,
-                        pred_steps=self.pred_steps,
-                        n_nodes=self.n_nodes,
-                        use_weather=self.use_weather,
-                        nll_variance=self.nll_variance,
-                        subset_dim=self.subset_dim,
-                    )
-                    self._save_graph_examples(epoch)  # Double check placement
+                val_mse, val_rmse, val_nll, val_kl, mean_edge_prob = val(
+                    encoder=self.encoder,
+                    decoder=self.decoder,
+                    val_dataloader=self.val_dataloader,
+                    norm_mean=self.norm_mean,
+                    norm_std=self.norm_std,
+                    normalization=self.normalize,
+                    time_list=self.time_list,
+                    optimizer=self.optimizer,
+                    rel_rec=self.rel_rec,
+                    rel_send=self.rel_send,
+                    burn_in=self.burn_in,
+                    burn_in_steps=self.burn_in_steps,
+                    split_len=self.split_len,
+                    log_prior=self.log_prior,
+                    pred_steps=self.pred_steps,
+                    n_nodes=self.n_nodes,
+                    use_weather=self.use_weather,
+                    nll_variance=self.nll_variance,
+                    subset_dim=self.subset_dim,
+                )
+                self._save_graph_examples(epoch)
                 self.writer.add_scalar("Val/MSE", val_mse, epoch)
                 self.writer.add_scalar("Val/NLL", val_nll, epoch)
                 self.writer.add_scalar("Val/KL", val_kl, epoch)
@@ -723,43 +582,28 @@ class Trainer:
                 val_kl_arr.append(val_kl)
 
                 # get metric of test set
-                if self.encoder_type in ["gru", "lstm"]:
-                    val_mse, val_nll, val_kl = dnri_val(
-                        encoder=self.encoder,
-                        decoder=self.decoder,
-                        val_dataloader=self.test_dataloader,
-                        rel_rec=self.rel_rec,
-                        rel_send=self.rel_send,
-                        burn_in=self.burn_in,
-                        burn_in_steps=self.burn_in_steps,
-                        split_len=self.split_len,
-                        log_prior=self.log_prior,
-                        n_nodes=self.n_nodes,
-                    )
-                    self._save_graph_examples_dnri(epoch)  # Double check placement
-                else:
-                    val_mse, val_rmse, val_nll, val_kl, mean_edge_prob = val(
-                        encoder=self.encoder,
-                        decoder=self.decoder,
-                        val_dataloader=self.test_dataloader,
-                        norm_mean=self.norm_mean,
-                        norm_std=self.norm_std,
-                        normalization=self.normalize,
-                        time_list=self.time_list,
-                        optimizer=self.optimizer,
-                        rel_rec=self.rel_rec,
-                        rel_send=self.rel_send,
-                        burn_in=self.burn_in,
-                        burn_in_steps=self.burn_in_steps,
-                        split_len=self.split_len,
-                        log_prior=self.log_prior,
-                        pred_steps=self.pred_steps,
-                        n_nodes=self.n_nodes,
-                        use_weather=self.use_weather,
-                        nll_variance=self.nll_variance,
-                        subset_dim=self.subset_dim,
-                    )
-                    self._save_graph_examples(epoch)  # Double check placement
+                val_mse, val_rmse, val_nll, val_kl, mean_edge_prob = val(
+                    encoder=self.encoder,
+                    decoder=self.decoder,
+                    val_dataloader=self.test_dataloader,
+                    norm_mean=self.norm_mean,
+                    norm_std=self.norm_std,
+                    normalization=self.normalize,
+                    time_list=self.time_list,
+                    optimizer=self.optimizer,
+                    rel_rec=self.rel_rec,
+                    rel_send=self.rel_send,
+                    burn_in=self.burn_in,
+                    burn_in_steps=self.burn_in_steps,
+                    split_len=self.split_len,
+                    log_prior=self.log_prior,
+                    pred_steps=self.pred_steps,
+                    n_nodes=self.n_nodes,
+                    use_weather=self.use_weather,
+                    nll_variance=self.nll_variance,
+                    subset_dim=self.subset_dim,
+                )
+                self._save_graph_examples(epoch)
                 self.writer.add_scalar("Test/MSE", val_mse, epoch)
                 self.writer.add_scalar("Test/NLL", val_nll, epoch)
                 self.writer.add_scalar("Test/KL", val_kl, epoch)
@@ -860,104 +704,6 @@ class Trainer:
             self.writer.add_figure(figure_name, fig, global_step=epoch, close=True)
         return
 
-    def _save_graph_examples_dnri(self, epoch):
-        with torch.no_grad():
-            _, (val_batch, _) = next(enumerate(self.val_dataloader))
-            batch_subset = val_batch[:2].cuda()
-            _, posterior_logits, prior_state = self.encoder(
-                batch_subset[:, :, : self.burn_in_steps, :], self.rel_rec, self.rel_send
-            )
-            burn_in_edges = F.gumbel_softmax(
-                posterior_logits, tau=0.5, hard=True
-            )  # RelaxedOneHotCategorical
-            burn_in_edge_probs = F.softmax(posterior_logits, dim=-1)
-
-            batch_subset = batch_subset.transpose(1, 2)
-            pred_all = []
-
-            hidden = torch.autograd.Variable(
-                torch.zeros(batch_subset.size(0), batch_subset.size(2), self.decoder.gru_hid)
-            )
-            edges = torch.autograd.Variable(
-                torch.zeros(
-                    burn_in_edges.size(0),
-                    burn_in_edges.size(1),
-                    batch_subset.size(1),
-                    burn_in_edges.size(3),
-                )
-            )
-            edge_probs = torch.autograd.Variable(
-                torch.zeros(
-                    burn_in_edges.size(0),
-                    burn_in_edges.size(1),
-                    batch_subset.size(1),
-                    burn_in_edges.size(3),
-                )
-            )
-
-            if batch_subset.is_cuda:
-                hidden = hidden.cuda()
-                edges = edges.cuda()
-                edge_probs = edge_probs.cuda()
-
-            edges[:, :, : self.burn_in_steps, :] = burn_in_edges
-            edge_probs[:, :, : self.burn_in_steps, :] = burn_in_edge_probs
-
-            for step in range(0, batch_subset.shape[1] - 1):
-                if self.burn_in:
-                    if step <= self.burn_in_steps - 1:
-                        ins = batch_subset[:, step, :, :]  # obs step different here to be time dim
-                    else:
-                        ins = pred_all[step - 1]
-                        prior_logits, prior_state = self.encoder.single_step_forward(
-                            ins, self.rel_rec, self.rel_send, prior_state
-                        )
-                        edges[:, :, step : step + 1, :] = F.gumbel_softmax(
-                            prior_logits, tau=0.5, hard=True
-                        )  # RelaxedOneHotCategorical
-                        edge_probs[:, :, step : step + 1, :] = F.softmax(prior_logits, dim=-1)
-
-                pred, hidden = self.decoder.do_single_step_forward(
-                    ins, self.rel_rec, self.rel_send, edges, hidden, step
-                )
-                pred_all.append(pred)
-
-            # Create matrices
-            adj_matrices = []
-            for i in range(edge_probs.shape[0]):
-                batch_adj_matrices = []
-                for j in range(self.burn_in_steps - 10, self.burn_in_steps + 10):
-                    batch_adj_matrices.append(
-                        visualize_prob_adj(
-                            edge_list=edge_probs[i, :, j, :],
-                            rel_send=self.rel_send,
-                            rel_rec=self.rel_rec,
-                        )
-                    )
-                adj_matrices.append(torch.stack(batch_adj_matrices))
-            adj_matrices = torch.stack(adj_matrices)
-            adj_matrices = adj_matrices.reshape(-1, adj_matrices.shape[-2], adj_matrices.shape[-1])
-            adj_matrices = adj_matrices.unsqueeze(1)
-
-            adj_matrices = torch.nn.functional.interpolate(
-                adj_matrices, scale_factor=5, mode="nearest"
-            ).squeeze()
-
-            adj_matrices = adj_matrices.reshape(
-                2, -1, adj_matrices.shape[-2], adj_matrices.shape[-1]
-            )
-
-            fig, axs = plt.subplots(20, 2, figsize=(10, 60))
-            [axi.set_axis_off() for axi in axs.ravel()]
-            for j in range(2):
-                for i in range(20):
-                    im = axs[i][j].imshow(adj_matrices[j, i])
-                    fig.colorbar(im, ax=axs[i, j])
-
-            self.writer.add_figure("adj_examples_test", fig, global_step=epoch, close=True)
-
-        return
-
     def save_model(self):
         model_path = f"{self.experiment_folder_path}/model_dict.pth"
 
@@ -976,41 +722,3 @@ class Trainer:
         )
 
         print(f"Model saved at {model_path}")
-
-    def profile_model(self):
-        with torch.profiler.profile(
-            schedule=torch.profiler.schedule(wait=2, warmup=2, active=6),
-            on_trace_ready=tensorboard_trace_handler(self.experiment_log_path),
-            record_shapes=True,
-            with_stack=True,
-            profile_memory=True,
-        ) as profiler:
-            for step, (data, _) in enumerate(self.val_dataloader, 0):
-                print("step:{}".format(step))
-                data = data.cuda()
-
-                logits = self.encoder(data, self.rel_rec, self.rel_send)
-                edges = F.gumbel_softmax(logits, tau=0.5, hard=True)  # RelaxedOneHotCategorical
-                edge_probs = F.softmax(logits, dim=-1)
-
-                pred_arr = self.decoder(
-                    data.transpose(1, 2),
-                    self.rel_rec,
-                    self.rel_send,
-                    edges,
-                    burn_in=self.burn_in,
-                    burn_in_steps=self.burn_in_steps,
-                    split_len=self.split_len,
-                )
-                pred = pred_arr.transpose(1, 2).contiguous()
-                target = data[:, :, 1:, :]
-
-                loss_nll = torch_nll_gaussian(pred, target, 5e-5)
-                loss_kl = kl_categorical(
-                    preds=edge_probs, log_prior=self.log_prior, num_atoms=132
-                )  # Here I chose theirs since my implementation runs out of RAM :(
-                loss = loss_nll + loss_kl
-
-                loss.backward()
-                self.optimizer.step()
-                profiler.step()
