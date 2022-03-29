@@ -14,8 +14,6 @@ def dtw_adj_generator(demand_vector, end_index, coordinate_version=False, **kwar
         n_nodes = demand_vector.shape[0]
 
     adjacancy_matrix = np.zeros((n_nodes, n_nodes))
-    # Might need to double check the direction on this at some point + I've done a simplification
-    # of only looking at the first 500 places
     for i in tqdm(range(n_nodes)):
         dists, _ = zip(
             *Parallel(n_jobs=-1)(
@@ -30,6 +28,7 @@ def dtw_adj_generator(demand_vector, end_index, coordinate_version=False, **kwar
         )
         adjacancy_matrix[i, :] = dists
     return adjacancy_matrix
+
 
 def get_local_adj_matrix(shp):
     adj_matrix = torch.zeros([len(shp), len(shp)])

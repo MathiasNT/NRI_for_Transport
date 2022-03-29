@@ -1,8 +1,6 @@
 import pandas as pd
-import os
 import numpy as np
 import datetime as dt
-import torch
 
 
 def add_spatial_bins(df, n_lat_bins, n_lon_bins):
@@ -32,9 +30,7 @@ def add_temporal_bins(df, time_col_name, dt_freq, year, month):
     # Note that this misses a bit from the beginning but this will not be a big problem when we index finer
     bins_dt = pd.date_range(start=min_date, end=max_date, freq=dt_freq)
     n_bins_dt = len(bins_dt) - 1
-    df.loc[:, "time_bins"] = pd.cut(
-        df[time_col_name], bins=bins_dt, labels=range(n_bins_dt)
-    )
+    df.loc[:, "time_bins"] = pd.cut(df[time_col_name], bins=bins_dt, labels=range(n_bins_dt))
 
     # due to the time indexing we have some values that gets outside the bins - here is a temporary fix
     df = df.dropna()
@@ -56,9 +52,7 @@ def create_binned_matrix(df, n_lat_bins, n_lon_bins, n_bins_dt):
     return binned_matrix
 
 
-def create_binned_vector(
-    df, n_spatial_bins, n_bins_dt, spatial_bins_name, temporal_bins_name
-):
+def create_binned_vector(df, n_spatial_bins, n_bins_dt, spatial_bins_name, temporal_bins_name):
     # Group the data based on the spatial bins. Note that the temporal order is in the data already
     location_groups = [x for _, x in df.groupby(spatial_bins_name)]
     group_idx = [idx for idx, _ in df.groupby(spatial_bins_name)]
@@ -68,19 +62,20 @@ def create_binned_vector(
     for i in range(len(location_groups)):
         location_index = location_groups[i][spatial_bins_name].iloc[0]
         vector_index = group_idx.index(location_index)
-        location_time_series = (
-            location_groups[i][temporal_bins_name].value_counts().sort_index()
-        )
+        location_time_series = location_groups[i][temporal_bins_name].value_counts().sort_index()
         output_vector[vector_index, :] = location_time_series.values
 
     return output_vector, group_idx
 
-def create_OD_matrix_ts(df, n_spatial_bins, n_bins_dt, pu_bins_name, do_bins_name, temporal_bins_name):
+
+def create_OD_matrix_ts(
+    df, n_spatial_bins, n_bins_dt, pu_bins_name, do_bins_name, temporal_bins_name
+):
 
     pu_location_groups = [x for _, x in df.groupby(pu_bins_name)]
     group_idx = [idx for idx, _ in df.groupby(pu_bins_name)]
 
-    output_vector = np.zeros((n_bins_dt,n_spatial_bins,n_spatial_bins))
+    output_vector = np.zeros((n_bins_dt, n_spatial_bins, n_spatial_bins))
     for pu_idx, pu_location_df in enumerate(pu_location_groups):
         pu_location = pu_location_df[pu_bins_name].iloc[0]
         do_location_groups = [x for _, x in pu_location_df.groupby(do_bins_name)]
@@ -91,10 +86,18 @@ def create_OD_matrix_ts(df, n_spatial_bins, n_bins_dt, pu_bins_name, do_bins_nam
             output_vector[:, do_idx, pu_idx] = OD_timeseries.values
     return output_vector, group_idx
 
+
 def preprocess_NYC_borough_dropoff(file_paths, location_ids, year=2019):
 
     # As we do not need the precision of 64 bits we change the precision to 32 bits for all numerical columns
-    important_cols = ["tpep_pickup_datetime", "tpep_dropoff_datetime", "trip_distance", "PULocationID", "DOLocationID", "fare_amount"]
+    important_cols = [
+        "tpep_pickup_datetime",
+        "tpep_dropoff_datetime",
+        "trip_distance",
+        "PULocationID",
+        "DOLocationID",
+        "fare_amount",
+    ]
     df_test = pd.read_csv(file_paths[0], nrows=100, usecols=important_cols)
 
     float_cols = [c for c in df_test if df_test[c].dtype == "float64"]
@@ -110,55 +113,58 @@ def preprocess_NYC_borough_dropoff(file_paths, location_ids, year=2019):
     for idx, path in enumerate(file_paths):
 
         # Load data
-        df = pd.read_csv(path, parse_dates=[0,1], dtype=dtype_cols, usecols=important_cols) # Corrupt data gives errors when coercing the floats :
+        df = pd.read_csv(path, parse_dates=[0, 1], dtype=dtype_cols, usecols=important_cols)
 
         # Extract area
         trip_idxs = df.PULocationID.isin(location_ids) & df.DOLocationID.isin(location_ids)
         df = df.loc[trip_idxs]
 
         print(f"{len(df)} eligble trips")
-        
+
         # Remove too short trips
         df_len = len(df)
         df = df.loc[df.trip_distance > 0.1]
-        #print(f"removed {df_len - len(df)} too spatially short trips")
+        print(f"removed {df_len - len(df)} too spatially short trips")
         df_len = len(df)
-
 
         # Remove to short trips temporally
-        min_duration = dt.timedelta(minutes = 1)
-        df['trip_duration'] = df.tpep_dropoff_datetime - df.tpep_pickup_datetime
+        min_duration = dt.timedelta(minutes=1)
+        df["trip_duration"] = df.tpep_dropoff_datetime - df.tpep_pickup_datetime
         df = df.loc[df.trip_duration > min_duration]
-        #print(f"removed {df_len - len(df)} too temporally short trips")
+        print(f"removed {df_len - len(df)} too temporally short trips")
         df_len = len(df)
-        
 
         # Remove free trips and negative trips
         df = df.loc[df.fare_amount > 0]
-        #print(f"removed {df_len - len(df)} negative trips")
+        print(f"removed {df_len - len(df)} negative trips")
         df_len = len(df)
 
-
         # Remove observations with wrong dates and sort by time at the same time
-        df = df.loc[(df.tpep_dropoff_datetime.dt.year == year) & (df.tpep_dropoff_datetime.dt.month == (idx + 1))].sort_values('tpep_dropoff_datetime')
+        df = df.loc[
+            (df.tpep_dropoff_datetime.dt.year == year)
+            & (df.tpep_dropoff_datetime.dt.month == (idx + 1))
+        ].sort_values("tpep_dropoff_datetime")
         print(f"removed {df_len - len(df)} trips with wrong datetime")
         df_len = len(df)
 
         # Add temporal bins on dopoff time
-        df, n_bins_dt, bins_dt = add_temporal_bins(df, "tpep_dropoff_datetime", dt_freq="1H", year=year, month=(idx + 1))
-        #print(f"Data from {df.tpep_dropoff_datetime.min()} to {df.tpep_dropoff_datetime.max()}")
+        df, n_bins_dt, bins_dt = add_temporal_bins(
+            df, "tpep_dropoff_datetime", dt_freq="1H", year=year, month=(idx + 1)
+        )
+        print(f"Data from {df.tpep_dropoff_datetime.min()} to {df.tpep_dropoff_datetime.max()}")
 
         # Add spatial bins on dropoff zone
         n_spatial_bins = len(df.DOLocationID.unique())
 
         # Create binned vector
-        binned_vector, group_idx = create_binned_vector(df=df,
-                        n_spatial_bins=n_spatial_bins,
-                        n_bins_dt=n_bins_dt,
-                        spatial_bins_name="DOLocationID",
-                        temporal_bins_name="time_bins"
-                        )
-        
+        binned_vector, group_idx = create_binned_vector(
+            df=df,
+            n_spatial_bins=n_spatial_bins,
+            n_bins_dt=n_bins_dt,
+            spatial_bins_name="DOLocationID",
+            temporal_bins_name="time_bins",
+        )
+
         if len(group_idx) != len(location_ids):
             print(f"Missing {set(location_ids) - set(group_idx)}")
             print(f"location_ids {len(location_ids)}")
@@ -167,25 +173,32 @@ def preprocess_NYC_borough_dropoff(file_paths, location_ids, year=2019):
             print(group_idx)
             raise NameError("Not all groups represented!")
 
-
         if group_idx != sorted(group_idx):
             raise NameError("Group index is not sorted!")
         data_list.append(binned_vector)
         time_list.append(bins_dt[:-1])
-        
+
         print(f"added {binned_vector.shape}")
-        
+
         print(f"{path} done")
 
     full_year_vector = np.concatenate(data_list, axis=1)
     full_time_list = time_list[0].union_many(time_list[1:])
-    
+
     return full_year_vector, full_time_list
+
 
 def preprocess_NYC_borough_pickup(file_paths, location_ids, year=2019):
 
     # As we do not need the precision of 64 bits we change the precision to 32 bits for all numerical columns
-    important_cols = ["tpep_pickup_datetime", "tpep_dropoff_datetime", "trip_distance", "PULocationID", "DOLocationID", "fare_amount"]
+    important_cols = [
+        "tpep_pickup_datetime",
+        "tpep_dropoff_datetime",
+        "trip_distance",
+        "PULocationID",
+        "DOLocationID",
+        "fare_amount",
+    ]
     df_test = pd.read_csv(file_paths[0], nrows=100, usecols=important_cols)
 
     float_cols = [c for c in df_test if df_test[c].dtype == "float64"]
@@ -201,54 +214,57 @@ def preprocess_NYC_borough_pickup(file_paths, location_ids, year=2019):
     for idx, path in enumerate(file_paths):
 
         # Load data
-        df = pd.read_csv(path, parse_dates=[0,1], dtype=dtype_cols, usecols=important_cols) # Corrupt data gives errors when coercing the floats :
+        df = pd.read_csv(path, parse_dates=[0, 1], dtype=dtype_cols, usecols=important_cols)
 
         # Extract area
         trip_idxs = df.PULocationID.isin(location_ids) & df.DOLocationID.isin(location_ids)
         df = df.loc[trip_idxs]
 
         print(f"{len(df)} eligble trips")
-        
+
         # Remove too short trips
         df_len = len(df)
         df = df.loc[df.trip_distance > 0.1]
-        #print(f"removed {df_len - len(df)} too spatially short trips")
+        print(f"removed {df_len - len(df)} too spatially short trips")
         df_len = len(df)
-
 
         # Remove to short trips temporally
-        min_duration = dt.timedelta(minutes = 1)
-        df['trip_duration'] = df.tpep_dropoff_datetime - df.tpep_pickup_datetime
+        min_duration = dt.timedelta(minutes=1)
+        df["trip_duration"] = df.tpep_dropoff_datetime - df.tpep_pickup_datetime
         df = df.loc[df.trip_duration > min_duration]
-        #print(f"removed {df_len - len(df)} too temporally short trips")
+        print(f"removed {df_len - len(df)} too temporally short trips")
         df_len = len(df)
-        
 
         # Remove free trips and negative trips
         df = df.loc[df.fare_amount > 0]
-        #print(f"removed {df_len - len(df)} negative trips")
+        print(f"removed {df_len - len(df)} negative trips")
         df_len = len(df)
 
-
         # Remove observations with wrong dates and sort by time at the same time
-        df = df.loc[(df.tpep_pickup_datetime.dt.year == year) & (df.tpep_pickup_datetime.dt.month == (idx + 1))].sort_values('tpep_pickup_datetime')
-        #print(f"removed {df_len - len(df)} trips with wrong datetime")
+        df = df.loc[
+            (df.tpep_pickup_datetime.dt.year == year)
+            & (df.tpep_pickup_datetime.dt.month == (idx + 1))
+        ].sort_values("tpep_pickup_datetime")
+        print(f"removed {df_len - len(df)} trips with wrong datetime")
         df_len = len(df)
 
         # Add temporal bins
-        df, n_bins_dt, bins_dt = add_temporal_bins(df, "tpep_pickup_datetime", dt_freq="1H", year=year, month=(idx + 1))
+        df, n_bins_dt, bins_dt = add_temporal_bins(
+            df, "tpep_pickup_datetime", dt_freq="1H", year=year, month=(idx + 1)
+        )
         print(f"Data from {df.tpep_pickup_datetime.min()} to {df.tpep_pickup_datetime.max()}")
 
         n_spatial_bins = len(df.PULocationID.unique())
 
         # Create binned vector
-        binned_vector, group_idx = create_binned_vector(df=df,
-                        n_spatial_bins=n_spatial_bins,
-                        n_bins_dt=n_bins_dt,
-                        spatial_bins_name="PULocationID",
-                        temporal_bins_name="time_bins"
-                        )
-        
+        binned_vector, group_idx = create_binned_vector(
+            df=df,
+            n_spatial_bins=n_spatial_bins,
+            n_bins_dt=n_bins_dt,
+            spatial_bins_name="PULocationID",
+            temporal_bins_name="time_bins",
+        )
+
         if len(group_idx) != len(location_ids):
             print(f"Missing {set(location_ids) - set(group_idx)}")
             print(f"location_ids {len(location_ids)}")
@@ -257,64 +273,15 @@ def preprocess_NYC_borough_pickup(file_paths, location_ids, year=2019):
             print(group_idx)
             raise NameError("Not all groups represented!")
 
-
         if group_idx != sorted(group_idx):
             raise NameError("Group index is not sorted!")
         data_list.append(binned_vector)
         time_list.append(bins_dt[:-1])
-              
+
         print(f"added {binned_vector.shape}")
-              
+
         print(f"{path} done")
 
     full_year_vector = np.concatenate(data_list, axis=1)
     full_time_list = time_list[0].union_many(time_list[1:])
     return full_year_vector, full_time_list
-
-def get_ha_normalization_matrices(data, datetime_list):
-    weekday_idx = [np.where(datetime_list.weekday == i)[0] for i in range(7)]
-    hour_idx = [np.where(datetime_list.hour == i)[0] for i in range(24)]
-    weekday_idx_set = [set(x) for x in weekday_idx]
-    hour_idx_set = [set(x) for x in hour_idx]
-
-    mean_matrix = torch.zeros(7, 24, 66, 2)
-    std_matrix = torch.zeros(7, 24, 66, 2)
-    for i in range(len(weekday_idx_set)):
-        for j in range(len(hour_idx)):
-            day_hour_idxs = weekday_idx_set[i].intersection(hour_idx_set[j])
-            mean_matrix[i, j] = data[list(day_hour_idxs)].mean(0)
-            std_matrix[i, j] = data[list(day_hour_idxs)].std(0)
-
-    device = torch.device(torch.cuda.current_device())
-    mean_matrix = mean_matrix.to(device)
-    std_matrix = std_matrix.to(device)
-
-    return mean_matrix, std_matrix
-
-def ha_normalization(data, datetime_list, mean_matrix, std_matrix):    
-    days = np.array(datetime_list.weekday)
-    hours = np.array(datetime_list.hour)
-    normalized_data = ((data.cuda() - mean_matrix[days, hours]) / std_matrix[days, hours]).cpu()
-    normalized_data = torch.nan_to_num(normalized_data)
-    return normalized_data
-
-def ha_renormalization(data, datetime_list, mean_matrix, std_matrix):
-    days = datetime_list.weekday
-    hours = datetime_list.hour
-    renormalized_data = (data * std_matrix[days, hours] + mean_matrix[days, hours])
-    return renormalized_data
-
-def ha_batch_renormalization(batch, batch_idxs, datetime_list, mean_matrix, std_matrix):
-    days = datetime_list.weekday[batch_idxs]
-    hours = datetime_list.hour[batch_idxs]
-    renormalized_batch = (batch.permute(0,2,1,3) * std_matrix[days,  hours] + mean_matrix[days, hours]).permute(0,2,1,3)
-    return renormalized_batch
-
-def renormalize_data(data, data_min, data_max, new_way=True):
-    if new_way:
-        return data * (data_max - data_min) + data_min
-    else:
-        return (data + 1) * (data_max - data_min) / 2 + data_min
-
-def restandardize_data(data, data_mean, data_std):
-    return data * data_std + data_mean

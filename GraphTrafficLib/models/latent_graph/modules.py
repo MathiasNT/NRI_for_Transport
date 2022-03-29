@@ -2,6 +2,7 @@ from torch import nn
 import torch.nn.functional as F
 import math
 
+
 class MLP(nn.Module):
     """The standard MLP module w. batchnorm, initializationa and dropout"""
 
@@ -80,7 +81,7 @@ class CNN(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
                 n = m.kernel_size[0] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 m.bias.data.fill_(0.1)
             elif isinstance(m, nn.BatchNorm1d):
                 m.weight.data.fill_(1)
