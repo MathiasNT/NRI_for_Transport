@@ -1,0 +1,40 @@
+Another version of python3 is loaded. Use "module swap python3/3.6.2" instead.
+Loaded module: cuda/10.1
+/bin/bash: bash_scripts/HPC_bash_scripts/bike/mlp_checkpoint.sh: Permission denied
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@hpc.dtu.dk>
+Subject: Job 10559165: <NONAME> in cluster <dcc> Exited
+
+Job <NONAME> was submitted from host <n-62-27-22> by user <mnity> in cluster <dcc> at Mon Oct  4 16:20:16 2021
+Job was executed on host(s) <n-62-31-2>, in queue <hpc>, as user <mnity> in cluster <dcc> at Mon Oct  4 16:20:17 2021
+</zhome/12/8/108668> was used as the home directory.
+</zhome/12/8/108668/Desktop/Demand prediction/GraphDemandDev> was used as the working directory.
+Started at Mon Oct  4 16:20:17 2021
+Terminated at Mon Oct  4 16:20:18 2021
+Results reported at Mon Oct  4 16:20:18 2021
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+bash_scripts/HPC_bash_scripts/bike/mlp_checkpoint.sh
+------------------------------------------------------------
+
+Exited with exit code 126.
+
+Resource usage summary:
+
+    CPU time :                                   0.34 sec.
+    Max Memory :                                 -
+    Average Memory :                             -
+    Total Requested Memory :                     1024.00 MB
+    Delta Memory :                               -
+    Max Swap :                                   -
+    Max Processes :                              -
+    Max Threads :                                -
+    Run time :                                   33 sec.
+    Turnaround time :                            2 sec.
+
+The output (if any) is above this job summary.
+

@@ -1,0 +1,43 @@
+Another version of python3 is loaded. Use "module swap python3/3.6.2" instead.
+
+Loading python3/3.6.2
+  ERROR: Module evaluation aborted
+Loaded module: cuda/10.1
+/bin/bash: bash_scripts/HPC_bash_scripts/final_bash_scripts/pems/empty.sh: Permission denied
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@hpc.dtu.dk>
+Subject: Job 11476766: <NONAME> in cluster <dcc> Exited
+
+Job <NONAME> was submitted from host <n-62-30-7> by user <mnity> in cluster <dcc> at Tue Dec 14 14:50:10 2021
+Job was executed on host(s) <n-62-31-2>, in queue <hpc>, as user <mnity> in cluster <dcc> at Tue Dec 14 14:50:11 2021
+</zhome/12/8/108668> was used as the home directory.
+</zhome/12/8/108668/Desktop/Demand prediction/GraphDemandDev> was used as the working directory.
+Started at Tue Dec 14 14:50:11 2021
+Terminated at Tue Dec 14 14:50:11 2021
+Results reported at Tue Dec 14 14:50:11 2021
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+bash_scripts/HPC_bash_scripts/final_bash_scripts/pems/empty.sh
+------------------------------------------------------------
+
+Exited with exit code 126.
+
+Resource usage summary:
+
+    CPU time :                                   0.44 sec.
+    Max Memory :                                 -
+    Average Memory :                             -
+    Total Requested Memory :                     1024.00 MB
+    Delta Memory :                               -
+    Max Swap :                                   -
+    Max Processes :                              -
+    Max Threads :                                -
+    Run time :                                   0 sec.
+    Turnaround time :                            1 sec.
+
+The output (if any) is above this job summary.
+
