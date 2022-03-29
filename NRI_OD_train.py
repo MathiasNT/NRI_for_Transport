@@ -11,12 +11,32 @@ if __name__ == "__main__":
     )
     parser.add_argument("--dropoff_data_name", help="path from datafolder to dropoffdata")
     parser.add_argument("--weather_data_name", help="path from datafolder to weaher data")
+    parser.add_argument(
+        "--split_len",
+        type=int,
+        help="The overall split len (burn_in_steps + pred_steps = split_len)",
+        required=True,
+    )
+    parser.add_argument(
+        "--pred_steps",
+        type=int,
+        help="How many steps (going backwards from end of sequence) to use in loss (max split_len - 1 and min split_len - burn_in_steps. Note only used in actual training loss and not in reporting",
+        required=True,
+    )
+    parser.add_argument(
+        "--normalize",
+        type=str,
+        help='"ha"=historical normalize, "z"=z-score',
+        default="z",
+    )
 
     # General args
     parser.add_argument("--experiment_name", help="Name used for saving", required=True)
     parser.add_argument(
         "--checkpoint_path", help="Path to model experiment to load checkpoint from"
     )
+    parser.add_argument("--use_seed", type=int, help="Seed for torch RNG")
+
     # Cuda args
     parser.add_argument("--cuda_device", type=int, default=1, help="Which cuda device to run on")
 
@@ -73,6 +93,17 @@ if __name__ == "__main__":
     )
     parser.add_argument("--dropout_p", type=float, default=0, help="Dropout rate (1-keep)")
     parser.add_argument("--nll_variance", type=float, default=5e-5, help="Variance for NLL loss")
+    parser.add_argument(
+        "--loss_type",
+        help="Which loss to use 'nll' or 'mse' (both use KL aswell)",
+        required=True,
+    )
+    parser.add_argument(
+        "--burn_in_steps",
+        type=int,
+        help="The amount of burn in steps for the decoder",
+        required=True,
+    )
 
     # Model args
     parser.add_argument(
@@ -108,40 +139,14 @@ if __name__ == "__main__":
         help="Path to fixed adjacancy matrix for fixed encoder",
         required=False,
     )
-
-    parser.add_argument(
-        "--loss_type",
-        help="Which loss to use 'nll' or 'mse' (both use KL aswell)",
-        required=True,
-    )
     parser.add_argument(
         "--edge_rate",
         help="The prior on the edge probabilities",
         default=0.01,
         type=float,
     )
-
     parser.add_argument(
         "--prior_adj_path", help="path to adj matrix of prior", default=None, type=str
-    )
-
-    parser.add_argument(
-        "--burn_in_steps",
-        type=int,
-        help="The amount of burn in steps for the decoder",
-        required=True,
-    )
-    parser.add_argument(
-        "--split_len",
-        type=int,
-        help="The overall split len (burn_in_steps + pred_steps = split_len)",
-        required=True,
-    )
-    parser.add_argument(
-        "--pred_steps",
-        type=int,
-        help="How many steps (going backwards from end of sequence) to use in loss (max split_len - 1 and min split_len - burn_in_steps. Note only used in actual training loss and not in reporting",
-        required=True,
     )
     parser.add_argument(
         "--use_weather",
@@ -156,15 +161,8 @@ if __name__ == "__main__":
         help="The amount of features on pr. timestep on nodes",
     )
     parser.add_argument("--subset_dim", type=int, help="Dimension to subset the output to.")
-    parser.add_argument("--use_seed", type=int, help="Seed for torch RNG")
-    parser.add_argument(
-        "--normalize",
-        type=str,
-        help='"ha"=historical normalize, "z"=z-score',
-        default="z",
-    )
 
-    # Args that currently can't be changed through arguments.
+    # Args that currently can't be changed through arguments at the moment
     shuffle_train = True
     shuffle_val = False
     encoder_factor = True

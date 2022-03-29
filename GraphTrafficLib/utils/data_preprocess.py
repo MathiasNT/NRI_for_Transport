@@ -87,7 +87,7 @@ def create_OD_matrix_ts(
     return output_vector, group_idx
 
 
-def preprocess_NYC_borough_dropoff(file_paths, location_ids, year=2019):
+def preprocess_NYC_borough_dropoff(file_paths, location_ids, year=2019, verbose=False):
 
     # As we do not need the precision of 64 bits we change the precision to 32 bits for all numerical columns
     important_cols = [
@@ -119,24 +119,34 @@ def preprocess_NYC_borough_dropoff(file_paths, location_ids, year=2019):
         trip_idxs = df.PULocationID.isin(location_ids) & df.DOLocationID.isin(location_ids)
         df = df.loc[trip_idxs]
 
-        print(f"{len(df)} eligble trips")
+        if verbose:
+            print(f"{len(df)} eligble trips")
 
         # Remove too short trips
         df_len = len(df)
         df = df.loc[df.trip_distance > 0.1]
-        print(f"removed {df_len - len(df)} too spatially short trips")
+
+        if verbose:
+            print(f"removed {df_len - len(df)} too spatially short trips")
+
         df_len = len(df)
 
         # Remove to short trips temporally
         min_duration = dt.timedelta(minutes=1)
         df["trip_duration"] = df.tpep_dropoff_datetime - df.tpep_pickup_datetime
         df = df.loc[df.trip_duration > min_duration]
-        print(f"removed {df_len - len(df)} too temporally short trips")
+
+        if verbose:
+            print(f"removed {df_len - len(df)} too temporally short trips")
+
         df_len = len(df)
 
         # Remove free trips and negative trips
         df = df.loc[df.fare_amount > 0]
-        print(f"removed {df_len - len(df)} negative trips")
+
+        if verbose:
+            print(f"removed {df_len - len(df)} negative trips")
+
         df_len = len(df)
 
         # Remove observations with wrong dates and sort by time at the same time
@@ -144,14 +154,19 @@ def preprocess_NYC_borough_dropoff(file_paths, location_ids, year=2019):
             (df.tpep_dropoff_datetime.dt.year == year)
             & (df.tpep_dropoff_datetime.dt.month == (idx + 1))
         ].sort_values("tpep_dropoff_datetime")
-        print(f"removed {df_len - len(df)} trips with wrong datetime")
+
+        if verbose:
+            print(f"removed {df_len - len(df)} trips with wrong datetime")
+
         df_len = len(df)
 
         # Add temporal bins on dopoff time
         df, n_bins_dt, bins_dt = add_temporal_bins(
             df, "tpep_dropoff_datetime", dt_freq="1H", year=year, month=(idx + 1)
         )
-        print(f"Data from {df.tpep_dropoff_datetime.min()} to {df.tpep_dropoff_datetime.max()}")
+
+        if verbose:
+            print(f"Data from {df.tpep_dropoff_datetime.min()} to {df.tpep_dropoff_datetime.max()}")
 
         # Add spatial bins on dropoff zone
         n_spatial_bins = len(df.DOLocationID.unique())
@@ -178,9 +193,7 @@ def preprocess_NYC_borough_dropoff(file_paths, location_ids, year=2019):
         data_list.append(binned_vector)
         time_list.append(bins_dt[:-1])
 
-        print(f"added {binned_vector.shape}")
-
-        print(f"{path} done")
+        print(f"{path} done, added {binned_vector.shape} to df")
 
     full_year_vector = np.concatenate(data_list, axis=1)
     full_time_list = time_list[0].union_many(time_list[1:])
@@ -188,7 +201,7 @@ def preprocess_NYC_borough_dropoff(file_paths, location_ids, year=2019):
     return full_year_vector, full_time_list
 
 
-def preprocess_NYC_borough_pickup(file_paths, location_ids, year=2019):
+def preprocess_NYC_borough_pickup(file_paths, location_ids, year=2019, verbose=False):
 
     # As we do not need the precision of 64 bits we change the precision to 32 bits for all numerical columns
     important_cols = [
@@ -220,24 +233,28 @@ def preprocess_NYC_borough_pickup(file_paths, location_ids, year=2019):
         trip_idxs = df.PULocationID.isin(location_ids) & df.DOLocationID.isin(location_ids)
         df = df.loc[trip_idxs]
 
-        print(f"{len(df)} eligble trips")
+        if verbose:
+            print(f"{len(df)} eligble trips")
 
         # Remove too short trips
         df_len = len(df)
         df = df.loc[df.trip_distance > 0.1]
-        print(f"removed {df_len - len(df)} too spatially short trips")
+        if verbose:
+            print(f"removed {df_len - len(df)} too spatially short trips")
         df_len = len(df)
 
         # Remove to short trips temporally
         min_duration = dt.timedelta(minutes=1)
         df["trip_duration"] = df.tpep_dropoff_datetime - df.tpep_pickup_datetime
         df = df.loc[df.trip_duration > min_duration]
-        print(f"removed {df_len - len(df)} too temporally short trips")
+        if verbose:
+            print(f"removed {df_len - len(df)} too temporally short trips")
         df_len = len(df)
 
         # Remove free trips and negative trips
         df = df.loc[df.fare_amount > 0]
-        print(f"removed {df_len - len(df)} negative trips")
+        if verbose:
+            print(f"removed {df_len - len(df)} negative trips")
         df_len = len(df)
 
         # Remove observations with wrong dates and sort by time at the same time
@@ -245,14 +262,16 @@ def preprocess_NYC_borough_pickup(file_paths, location_ids, year=2019):
             (df.tpep_pickup_datetime.dt.year == year)
             & (df.tpep_pickup_datetime.dt.month == (idx + 1))
         ].sort_values("tpep_pickup_datetime")
-        print(f"removed {df_len - len(df)} trips with wrong datetime")
+        if verbose:
+            print(f"removed {df_len - len(df)} trips with wrong datetime")
         df_len = len(df)
 
         # Add temporal bins
         df, n_bins_dt, bins_dt = add_temporal_bins(
             df, "tpep_pickup_datetime", dt_freq="1H", year=year, month=(idx + 1)
         )
-        print(f"Data from {df.tpep_pickup_datetime.min()} to {df.tpep_pickup_datetime.max()}")
+        if verbose:
+            print(f"Data from {df.tpep_pickup_datetime.min()} to {df.tpep_pickup_datetime.max()}")
 
         n_spatial_bins = len(df.PULocationID.unique())
 
@@ -278,9 +297,7 @@ def preprocess_NYC_borough_pickup(file_paths, location_ids, year=2019):
         data_list.append(binned_vector)
         time_list.append(bins_dt[:-1])
 
-        print(f"added {binned_vector.shape}")
-
-        print(f"{path} done")
+        print(f"{path} done, added {binned_vector.shape} to df")
 
     full_year_vector = np.concatenate(data_list, axis=1)
     full_time_list = time_list[0].union_many(time_list[1:])
