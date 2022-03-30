@@ -9,6 +9,7 @@ import torch.nn.functional as F
 import folium
 from folium.plugins import PolyLineTextPath
 import contextily as cx
+from pyproj import Geod
 
 
 # TODO: remove all of the code that is not used for final plots.
@@ -569,6 +570,64 @@ def plot_pems_adj_on_map(
     )
 
     return fig
+
+
+def PEMS_folium_plot(gdf, adj_matrix, sensor_ind_to_id):
+    map = folium.Map(control_scale=True)
+
+    # add sensors to map
+    loop_sensor_layer = folium.FeatureGroup(name="loop sensors")
+    geo_df_list = [[point.xy[1][0], point.xy[0][0]] for point in gdf.geometry]
+    for i, coordinates in enumerate(geo_df_list):
+        loop_sensor_layer.add_child(
+            folium.CircleMarker(
+                location=coordinates,
+                popup=f"ID: {gdf.index[i]}",
+                color="red",
+                radius=3,
+            )
+        )
+    loop_sensor_layer.add_to(map)
+
+    # add connections to map
+    geodesic = Geod(ellps="WGS84")
+    arrow_layer = folium.FeatureGroup("arrows")
+    for sender, row in enumerate(adj_matrix):
+        receivers = np.nonzero(row)[0]
+        sender_id = int(sensor_ind_to_id[sender])
+        sender_point = list(gdf.loc[sender_id].values)
+        for receiver in receivers:
+            receiver_id = int(sensor_ind_to_id[receiver])
+            receiver_point = list(gdf.loc[receiver_id].values)
+            line = folium.PolyLine(
+                [sender_point[:2], receiver_point[:2]], tooltip=f"{sender_id} to {receiver_id}"
+            )
+            line.add_to(map)
+            rot = (
+                geodesic.inv(
+                    receiver_point[1], receiver_point[0], sender_point[1], sender_point[0]
+                )[0]
+                + 90
+            )
+            # create your arrow
+            folium.RegularPolygonMarker(
+                location=list((np.array(receiver_point[:2]) + np.array(sender_point[:2])) / 2),
+                color="blue",
+                fill=True,
+                fill_color="blue",
+                fill_opacity=1,
+                number_of_sides=3,
+                rotation=rot,
+                radius=5,
+            ).add_to(arrow_layer)
+    arrow_layer.add_to(map)
+
+    map.fit_bounds(
+        [gdf[["lat", "lon"]].min().values.tolist(), gdf[["lat", "lon"]].max().values.tolist()]
+    )
+    folium.LayerControl().add_to(map)
+
+    return map
 
 
 def update_pos(temp):

@@ -3,7 +3,6 @@ from torch import optim
 import torch.nn.functional as F
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 from datetime import timedelta
 
