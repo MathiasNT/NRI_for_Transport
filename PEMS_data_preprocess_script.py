@@ -83,6 +83,14 @@ spatial_adj_matrix[spatial_adj_matrix != 0] = 1
 
 spatial_adj_tensor = torch.Tensor(spatial_adj_matrix)
 
+# Create empty adj
+empty_adj = np.zeros_like(spatial_adj_matrix)
+
+# Create full adj
+full_adj = np.ones_like(spatial_adj_matrix) - np.eye(len(spatial_adj_matrix))
+
 # We save the adj matrices
 np.save(f"{proc_data_folder}/approx_local_adj.npy", adj_mx_no_loop)
 np.save(f"{proc_data_folder}/sparse_local_adj.npy", spatial_adj_matrix)
+np.save(f"{proc_data_folder}/pems_full_adj.npy", full_adj)
+np.save(f"{proc_data_folder}/pems_empty_adj.npy", empty_adj)
