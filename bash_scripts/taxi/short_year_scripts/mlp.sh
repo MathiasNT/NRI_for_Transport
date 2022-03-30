@@ -2,7 +2,7 @@
 # Script for running full NRI model on the NYC Yellow Taxi dataset. Note that prior is selected beneath
 ##
 
-EXP_NAME=final_models/taxi/short/
+EXP_NAME=final_models/taxi/short
 mkdir "../models/${EXP_NAME}"
 
 ENCODER_TYPE=mlp

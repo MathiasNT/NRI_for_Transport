@@ -13,3 +13,4 @@ torch==1.10.0+cu113
 tqdm==4.56.0
 geopandas==0.9.0
 meteostat==1.5.10
+tensorboard==2.4.1
