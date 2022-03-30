@@ -4,7 +4,7 @@
 
 
 EXP_NAME=mlp_pems
-mkdir "../models/${EXP_NAME}"
+mkdir -p "../models/${EXP_NAME}"
 
 
 EPOCHS=30

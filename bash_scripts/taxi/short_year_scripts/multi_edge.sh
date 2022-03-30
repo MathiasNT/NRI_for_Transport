@@ -3,7 +3,7 @@
 ##
 
 EXP_NAME=final_models/taxi/short/
-mkdir "../models/${EXP_NAME}"
+mkdir -p "../models/${EXP_NAME}"
 
 ENCODER_TYPE=mlp
 LOSS_TYPE=nll

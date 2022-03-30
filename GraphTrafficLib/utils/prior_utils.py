@@ -33,7 +33,8 @@ def get_simple_prior(n_edge_types, edge_rate):
 
 
 def get_prior_from_adj(adj_matrix, adj_prior, rel_send, rel_rec):
-    edge_prior = torch.ones(adj_matrix.shape[0] * adj_matrix[0] - 1, 2)
+    adj_matrix = adj_matrix != 0  # Binarize fix makes the function more genral
+    edge_prior = torch.ones(rel_send.shape[0], 2)
     edge_prior *= 1 - adj_prior
     for i in range(len(edge_prior)):
         send = rel_send[i].argmax().item()

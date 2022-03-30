@@ -2,7 +2,7 @@
 # Script for running fixed encoder model with a local graph for the PEMS dataset
 ##
 EXP_NAME=mlp_pems
-mkdir "../models/${EXP_NAME}"
+mkdir -p "../models/${EXP_NAME}"
 
 
 EPOCHS=30
