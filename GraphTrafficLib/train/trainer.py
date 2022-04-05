@@ -16,9 +16,11 @@ from ..models.latent_graph import (
     MLPEncoder,
     GRUDecoder,
     FixedEncoder,
+    LearnedAdjacancy,
     MLPEncoder_global,
     GRUDecoder_global,
     FixedEncoder_global,
+    LearnedAdjacancy_global,
 )
 from ..utils.dataloader_utils import (
     create_dataloaders_taxi,
@@ -79,7 +81,7 @@ class Trainer:
         gumbel_hard,
         gumbel_anneal,
         weight_decay,
-        use_weather,
+        use_global,
         nll_variance,
         prior_adj_path,
         checkpoint_path,
@@ -145,7 +147,7 @@ class Trainer:
         self.loss_type = loss_type
         self.edge_rate = edge_rate
         self.prior_adj_path = prior_adj_path
-        self.use_weather = use_weather
+        self.use_global = use_global
 
         # Net sizes
         self.encoder_type = encoder_type
@@ -153,11 +155,18 @@ class Trainer:
         # Encoder
         if self.encoder_type == "mlp":
             self.enc_n_in = self.encoder_steps * self.node_f_dim
-            self.enc_n_in_weather = self.split_len * 2
+            self.enc_n_in_global = self.split_len * 2
         elif self.encoder_type == "fixed":
             assert fixed_adj_matrix_path is not None, "fixed encoder need fixed adj matrix"
             self.fixed_adj_matrix = torch.Tensor(np.load(fixed_adj_matrix_path))
             self.enc_n_in = self.node_f_dim
+        elif self.encoder_type == "learned_adj":
+            assert (
+                fixed_adj_matrix_path is not None
+            ), "Learned encoder needs fixed adj to know number of nodes"
+            fixed_adj_matrix_matrix = torch.Tensor(np.load(fixed_adj_matrix_path))
+            self.n_nodes = fixed_adj_matrix_matrix.shape[0]
+            self.enc_n_in = None
         self.enc_n_hid = enc_n_hid
         self.n_edge_types = n_edge_types
         self.init_weights = init_weights
@@ -217,7 +226,7 @@ class Trainer:
             "gumbel_hard": self.gumbel_hard,
             "gumbel_anneal": self.gumbel_anneal,
             "weight_decay": self.weight_decay,
-            "use_weather": self.use_weather,
+            "use_global": self.use_global,
             "nll_vairance": self.nll_variance,
             "prior_adj_path": self.prior_adj_path,
             "subset_dim": self.subset_dim,
@@ -242,7 +251,7 @@ class Trainer:
         # Init best loss val
         self.best_rmse = None
 
-    def load_data(self, proc_folder, data_name, weather_data_name):
+    def load_data_taxi(self, proc_folder, data_name, weather_data_name):
 
         data_path = f"{proc_folder}/{data_name}"
         weather_data_path = f"{proc_folder}/{weather_data_name}"
@@ -392,10 +401,10 @@ class Trainer:
 
         # Init encoder
         if self.encoder_type == "mlp":
-            if self.use_weather:
+            if self.use_global:
                 self.encoder = MLPEncoder_global(
                     n_in=self.enc_n_in,
-                    n_in_global=self.enc_n_in_weather,
+                    n_in_global=self.enc_n_in_global,
                     n_hid=self.enc_n_hid,
                     n_out=self.n_edge_types,
                     do_prob=self.dropout_p,
@@ -412,13 +421,20 @@ class Trainer:
                     use_bn=self.use_bn,
                 ).cuda()
         elif self.encoder_type == "fixed":
-            if self.use_weather:
+            if self.use_global:
                 self.encoder = FixedEncoder_global(adj_matrix=self.fixed_adj_matrix)
             else:
                 self.encoder = FixedEncoder(adj_matrix=self.fixed_adj_matrix)
+        elif self.encoder_type == "learned_adj":
+            if self.use_global:
+                self.encoder = LearnedAdjacancy_global(
+                    n_nodes=self.n_nodes, n_edge_types=self.n_edge_types
+                )
+            else:
+                self.encoder = LearnedAdjacancy(n_nodes=self.n_nodes)
 
         # Init decoder
-        if self.use_weather:
+        if self.use_global:
             self.decoder = GRUDecoder_global(
                 n_hid=self.dec_n_hid,
                 f_in=self.decoder_f_dim,
@@ -478,7 +494,7 @@ class Trainer:
                 self.log_prior,
                 rel_rec=self.rel_rec,
                 rel_send=self.rel_send,
-                use_weather=self.use_weather,
+                use_global=self.use_global,
                 burn_in_steps=self.burn_in_steps,
             )
             print(f"Pretrain epoch {epoch}: KL {kl}")
@@ -532,7 +548,7 @@ class Trainer:
                 n_nodes=self.n_nodes,
                 gumbel_tau=self.gumbel_curr_tau,
                 gumbel_hard=self.gumbel_hard,
-                use_weather=self.use_weather,
+                use_global=self.use_global,
                 nll_variance=self.nll_variance,
                 subset_dim=self.subset_dim,
             )
@@ -566,7 +582,7 @@ class Trainer:
                     log_prior=self.log_prior,
                     pred_steps=self.pred_steps,
                     n_nodes=self.n_nodes,
-                    use_weather=self.use_weather,
+                    use_global=self.use_global,
                     nll_variance=self.nll_variance,
                     subset_dim=self.subset_dim,
                 )
@@ -599,7 +615,7 @@ class Trainer:
                     log_prior=self.log_prior,
                     pred_steps=self.pred_steps,
                     n_nodes=self.n_nodes,
-                    use_weather=self.use_weather,
+                    use_global=self.use_global,
                     nll_variance=self.nll_variance,
                     subset_dim=self.subset_dim,
                 )
@@ -662,13 +678,13 @@ class Trainer:
     def _save_graph_examples(self, epoch, figure_name="adj_examples_val"):
         with torch.no_grad():
             # Calc edge probs
-            _, (val_batch, weather, _) = next(enumerate(self.val_dataloader))
+            _, (val_batch, global_data, _) = next(enumerate(self.val_dataloader))
             batch_subset = val_batch[:10].cuda()
-            if self.use_weather:
-                weather_subset = weather[:10].cuda()
+            if self.use_global:
+                global_subset = global_data[:10].cuda()
                 logits = self.encoder(
                     batch_subset[:, :, : self.burn_in_steps, :],
-                    weather_subset,
+                    global_subset,
                     self.rel_rec,
                     self.rel_send,
                 )

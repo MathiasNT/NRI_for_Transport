@@ -17,7 +17,7 @@ def pretrain_encoder_epoch(
     log_prior,
     rel_rec,
     rel_send,
-    use_weather,
+    use_global,
     burn_in_steps,
 ):
     kl = 0
@@ -30,7 +30,7 @@ def pretrain_encoder_epoch(
 
         data = data.cuda()
 
-        if use_weather:
+        if use_global:
             weather = weather.cuda()
             logits = encoder(data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send)
         else:
@@ -75,7 +75,7 @@ def train(
     n_nodes,
     gumbel_tau,
     gumbel_hard,
-    use_weather,
+    use_global,
     nll_variance,
     subset_dim=None,
 ):
@@ -94,7 +94,7 @@ def train(
         steps += len(data)
         data = data.cuda()
 
-        if use_weather:
+        if use_global:
             weather = weather.cuda()
             logits = encoder(data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send)
         else:
@@ -105,7 +105,7 @@ def train(
         if subset_dim is not None:
             data = data[..., subset_dim].unsqueeze(-1)
 
-        if use_weather:
+        if use_global:
             pred_arr = decoder(
                 data.transpose(1, 2),
                 weather,
@@ -203,7 +203,7 @@ def val(
     log_prior,
     pred_steps,
     n_nodes,
-    use_weather,
+    use_global,
     nll_variance,
     subset_dim=None,
 ):
@@ -222,7 +222,7 @@ def val(
             data = data.cuda()
             steps += len(data)
 
-            if use_weather:
+            if use_global:
                 weather = weather.cuda()
                 logits = encoder(data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send)
             else:
@@ -235,7 +235,7 @@ def val(
             if subset_dim is not None:
                 data = data[..., subset_dim].unsqueeze(-1)
 
-            if use_weather:
+            if use_global:
                 pred_arr = decoder(
                     data.transpose(1, 2),
                     weather,

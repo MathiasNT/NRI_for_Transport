@@ -1,5 +1,12 @@
 from .decoders import MLPDecoder, GRUDecoder, GRUDecoder_global
-from .encoders import MLPEncoder, FixedEncoder, MLPEncoder_global, FixedEncoder_global
+from .encoders import (
+    MLPEncoder,
+    FixedEncoder,
+    MLPEncoder_global,
+    FixedEncoder_global,
+    LearnedAdjacancy,
+    LearnedAdjacancy_global,
+)
 from .modules import MLP
 
 
@@ -15,4 +22,6 @@ __all__ = [
     "GRUDecoder_global",
     "FixedEncoder_global",
     "CNNEncoder_weather",
+    "LearnedAdjacancy",
+    "LearnedAdjacancy_global",
 ]

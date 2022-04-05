@@ -107,7 +107,9 @@ if __name__ == "__main__":
 
     # Model args
     parser.add_argument(
-        "--encoder_type", help="which encoder type to use (cnn or mlp)", required=True
+        "--encoder_type",
+        help="which encoder type to use (mlp, fixed or learned_adj)",
+        required=True,
     )
     parser.add_argument(
         "--n_edge_types",
@@ -186,9 +188,10 @@ if __name__ == "__main__":
 
     if args.fixed_adj_matrix_path is not None:
         args.fixed_adj_matrix_path = f"{proc_folder}/{args.fixed_adj_matrix_path}"
-        assert (
-            args.encoder_type == "fixed"
-        ), "If fixed adjacancy matrix is passed the encoder should also be fixed"
+        assert args.encoder_type in [
+            "fixed",
+            "learned_adj",
+        ], "If fixed adjacancy matrix is passed the encoder should also be fixed or learned"
 
     if args.normalize not in ["z", "ha"]:
         raise NotImplementedError('Please choose "z" or "ha" normalization')
@@ -238,7 +241,7 @@ if __name__ == "__main__":
         gumbel_hard=args.gumbel_hard,
         gumbel_anneal=args.gumbel_anneal,
         weight_decay=args.weight_decay,
-        use_weather=args.use_weather,
+        use_global=args.use_weather,
         nll_variance=args.nll_variance,
         prior_adj_path=args.prior_adj_path,
         checkpoint_path=args.checkpoint_path,
@@ -247,7 +250,7 @@ if __name__ == "__main__":
 
     # Load data
     if args.pickup_data_name.split("_")[0] == "taxi":
-        trainer.load_data(
+        trainer.load_data_taxi(
             proc_folder=proc_folder,
             data_name=args.pickup_data_name,
             weather_data_name=args.weather_data_name,

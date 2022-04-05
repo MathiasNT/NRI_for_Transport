@@ -255,3 +255,31 @@ class FixedEncoder_global(nn.Module):
         temp = self.edge_types.unsqueeze(0).repeat(inputs.shape[0], 1, 1)
         logits = torch.log(temp.float())
         return logits
+
+
+class LearnedAdjacancy(nn.Module):
+    def __init__(self, n_nodes):
+        super().__init__()
+        self.logits = torch.nn.Parameter(
+            torch.log(torch.ones((1, n_nodes * (n_nodes - 1), n_edge_types)) * 0.5),
+            requires_grad=True,
+        )
+
+    def forward(self, inputs, rel_rec, rel_send):
+        batch_size = inputs.shape[0]
+        repeated_logits = self.logits.repeat(batch_size, 1, 1)
+        return repeated_logits.to(device=inputs.device)
+
+
+class LearnedAdjacancy_global(nn.Module):
+    def __init__(self, n_nodes, n_edge_types):
+        super().__init__()
+        self.logits = torch.nn.Parameter(
+            torch.log(torch.ones((1, n_nodes * (n_nodes - 1), n_edge_types)) * 0.5),
+            requires_grad=True,
+        )
+
+    def forward(self, inputs, global_inputs, rel_rec, rel_send):
+        batch_size = inputs.shape[0]
+        repeated_logits = self.logits.repeat(batch_size, 1, 1)
+        return repeated_logits.to(device=inputs.device)
