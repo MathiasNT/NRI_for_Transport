@@ -116,8 +116,24 @@ short_data_2019 = np.stack([pickup_short_2019, dropoff_short_2019], axis=-1)
 print("Saving short year data")
 np.save(f"{proc_data_folder}/short_year_full_manhattan_2d.npy", short_data_2019)
 
+
+# Only use 1 month for the low data volume experiment
+month_2019 = file_paths_2019[0:1]
+pickup_month_2019, month_time_list_2019 = preprocess_NYC_borough_pickup(
+    file_paths=month_2019, location_ids=manhattan_ids
+)
+dropoff_month_2019, month_time_list_2019 = preprocess_NYC_borough_dropoff(
+    file_paths=month_2019, location_ids=manhattan_ids
+)
+month_data_2019 = np.stack([pickup_month_2019, dropoff_month_2019], axis=-1)
+# Save the data
+np.save(f"{proc_data_folder}/month_full_manhattan_2d.npy", month_data_2019)
+
+
 ### Generate adjs ###
 # Make DTW adj for prior
+
+# Short year version
 print("Generate adj matrices")
 train_steps = int(0.8 * short_data_2019.shape[1])
 
@@ -135,6 +151,23 @@ pickle_path_full_manhattan_short_year_dtw_adj_bin = (
     f"{proc_data_folder}/short_year_train_full_manhattan_dtw_adj_bin.npy"
 )
 np.save(pickle_path_full_manhattan_short_year_dtw_adj_bin, dtw_adj_bin)
+print("Discrete DTW adj matrix done")
+
+# Month year version
+# Generating ADJ matrix
+month_dtw_adj = dtw_adj_generator(month_2019, train_steps)
+pickle_path_full_manhattan_month_dtw_adj = (
+    f"{proc_data_folder}/month_train_full_manhattan_dtw_adj.npy"
+)
+np.save(pickle_path_full_manhattan_month_dtw_adj, month_dtw_adj)
+print("DTW adj matrix done")
+
+# Discretize the DTW adj for fixed adj graph
+month_dtw_adj_bin = month_dtw_adj > np.quantile(month_dtw_adj, 0.9)
+pickle_path_full_manhattan_month_dtw_adj_bin = (
+    f"{proc_data_folder}/month_train_full_manhattan_dtw_adj_bin.npy"
+)
+np.save(pickle_path_full_manhattan_month_dtw_adj_bin, month_dtw_adj_bin)
 print("Discrete DTW adj matrix done")
 
 # Create local adj matrix based on shapefile
