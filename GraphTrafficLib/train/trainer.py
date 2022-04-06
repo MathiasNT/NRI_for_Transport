@@ -431,7 +431,9 @@ class Trainer:
                     n_nodes=self.n_nodes, n_edge_types=self.n_edge_types
                 )
             else:
-                self.encoder = LearnedAdjacancy(n_nodes=self.n_nodes)
+                self.encoder = LearnedAdjacancy(
+                    n_nodes=self.n_nodes, n_edge_types=self.n_edge_types
+                )
 
         # Init decoder
         if self.use_global:

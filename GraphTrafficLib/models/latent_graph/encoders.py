@@ -258,7 +258,7 @@ class FixedEncoder_global(nn.Module):
 
 
 class LearnedAdjacancy(nn.Module):
-    def __init__(self, n_nodes):
+    def __init__(self, n_nodes, n_edge_types):
         super().__init__()
         self.logits = torch.nn.Parameter(
             torch.log(torch.ones((1, n_nodes * (n_nodes - 1), n_edge_types)) * 0.5),
