@@ -48,8 +48,8 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
 
     # Init model
     if encoder_type == "mlp":
-        if (
-            model_settings["use_global"] or model_settings["use_weather"]
+        if model_settings["use_global"] or model_settings.get(
+            "use_weather", False
         ):  # use_weather here for legacy reasons
             encoder = MLPEncoder_global(
                 n_in=model_settings["enc_n_in"],
@@ -70,11 +70,11 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
                 use_bn=model_settings["use_bn"],
             ).to(device)
     elif encoder_type == "fixed":
-        if model_settings["use_global"] or model_settings["use_weather"]:
+        if model_settings["use_global"] or model_settings.get("use_weather", False):
             encoder = FixedEncoder_global(adj_matrix=model_dict["encoder"]["adj_matrix"]).to(device)
         else:
             encoder = FixedEncoder(adj_matrix=model_dict["encoder"]["adj_matrix"]).to(device)
-    if model_settings["use_global"] or model_settings["use_weather"]:
+    if model_settings["use_global"] or model_settings.get("use_weather", False):
         decoder = GRUDecoder_global(
             n_hid=model_settings["dec_n_hid"],
             f_in=model_settings["decoder_f_dim"],
