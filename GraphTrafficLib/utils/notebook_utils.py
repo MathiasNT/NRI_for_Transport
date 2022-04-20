@@ -11,9 +11,11 @@ from GraphTrafficLib.models.latent_graph import (
     MLPEncoder,
     GRUDecoder,
     FixedEncoder,
+    LearnedAdjacancy,
     MLPEncoder_global,
     GRUDecoder_global,
     FixedEncoder_global,
+    LearnedAdjacancy_global,
 )
 from GraphTrafficLib.utils.general_utils import encode_onehot
 from GraphTrafficLib.utils.dataloader_utils import (
@@ -74,6 +76,19 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
             encoder = FixedEncoder_global(adj_matrix=model_dict["encoder"]["adj_matrix"]).to(device)
         else:
             encoder = FixedEncoder(adj_matrix=model_dict["encoder"]["adj_matrix"]).to(device)
+    elif encoder_type == "learned_adj":
+        # hacky way to calc number of nodes - done for legacy reasons
+        n_edges = model_dict["encoder"]["logits"].shape[1]
+        n_nodes = int(max(np.roots([1, -1, -n_edges])))
+        if model_settings["use_global"] or model_settings.get("use_weather", False):
+            encoder = LearnedAdjacancy_global(
+                n_nodes=n_nodes, n_edge_types=model_settings["dec_edge_types"]
+            )
+        else:
+            encoder = LearnedAdjacancy(
+                n_nodes=n_nodes, n_edge_types=model_settings["dec_edge_types"]
+            )
+
     if model_settings["use_global"] or model_settings.get("use_weather", False):
         decoder = GRUDecoder_global(
             n_hid=model_settings["dec_n_hid"],
