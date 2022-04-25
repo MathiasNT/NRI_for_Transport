@@ -50,7 +50,7 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
 
     # Init model
     if encoder_type == "mlp":
-        if model_settings["use_global"] or model_settings.get(
+        if model_settings.get("use_global", False) or model_settings.get(
             "use_weather", False
         ):  # use_weather here for legacy reasons
             encoder = MLPEncoder_global(
@@ -72,7 +72,7 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
                 use_bn=model_settings["use_bn"],
             ).to(device)
     elif encoder_type == "fixed":
-        if model_settings["use_global"] or model_settings.get("use_weather", False):
+        if model_settings.get("use_global", False) or model_settings.get("use_weather", False):
             encoder = FixedEncoder_global(adj_matrix=model_dict["encoder"]["adj_matrix"]).to(device)
         else:
             encoder = FixedEncoder(adj_matrix=model_dict["encoder"]["adj_matrix"]).to(device)
@@ -80,7 +80,7 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
         # hacky way to calc number of nodes - done for legacy reasons
         n_edges = model_dict["encoder"]["logits"].shape[1]
         n_nodes = int(max(np.roots([1, -1, -n_edges])))
-        if model_settings["use_global"] or model_settings.get("use_weather", False):
+        if model_settings.get("use_global", False) or model_settings.get("use_weather", False):
             encoder = LearnedAdjacancy_global(
                 n_nodes=n_nodes, n_edge_types=model_settings["dec_edge_types"]
             )
@@ -89,7 +89,7 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
                 n_nodes=n_nodes, n_edge_types=model_settings["dec_edge_types"]
             )
 
-    if model_settings["use_global"] or model_settings.get("use_weather", False):
+    if model_settings.get("use_global", False) or model_settings.get("use_weather", False):
         decoder = GRUDecoder_global(
             n_hid=model_settings["dec_n_hid"],
             f_in=model_settings["decoder_f_dim"],
