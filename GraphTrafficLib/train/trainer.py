@@ -86,6 +86,7 @@ class Trainer:
         prior_adj_path,
         checkpoint_path,
         pretrain_n_epochs,
+        scheduler_patience,
     ):
         # Pretrain settings
         self.pretrain_n_epochs = pretrain_n_epochs
@@ -107,6 +108,7 @@ class Trainer:
         self.weight_decay = weight_decay
         self.nll_variance = nll_variance
         self.checkpoint_path = checkpoint_path
+        self.scheduler_patience = scheduler_patience
 
         # Saving settings
         # Set up results folder
@@ -231,6 +233,7 @@ class Trainer:
             "prior_adj_path": self.prior_adj_path,
             "subset_dim": self.subset_dim,
             "pretrain_n_epochs": self.pretrain_n_epochs,
+            "scheduler_patience": self.scheduler_patience,
         }
 
         # Save all parameters to txt file and add to tensorboard
@@ -469,7 +472,7 @@ class Trainer:
         self.lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer=self.optimizer,
             factor=0.2,
-            patience=50,
+            patience=self.scheduler_patience,
             threshold=0.001,
             min_lr=0.0000001,
             verbose=True,

@@ -62,6 +62,9 @@ if __name__ == "__main__":
     parser.add_argument("--lr_decay_step", help="How often to do lr decay", default=100)
     parser.add_argument("--lr_decay_gamma", help="Factor to decay lr with", default=0.5)
     parser.add_argument(
+        "--lr_decay_patience", help="How patient to be before LR decay", type=int, default=50
+    )
+    parser.add_argument(
         "--no_bn",
         dest="use_bn",
         help="Whether or not to use bn in MLP modules",
@@ -246,6 +249,7 @@ if __name__ == "__main__":
         prior_adj_path=args.prior_adj_path,
         checkpoint_path=args.checkpoint_path,
         pretrain_n_epochs=pretrain_n_epochs,
+        scheduler_patience=args.lr_decay_patience,
     )
 
     # Load data
