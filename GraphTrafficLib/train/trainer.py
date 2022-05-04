@@ -255,7 +255,7 @@ class Trainer:
         # Init best loss val
         self.best_rmse = None
 
-    def load_data_taxi(self, proc_folder, data_name, weather_data_name, prior_edge_weight):
+    def load_data_taxi(self, proc_folder, data_name, weather_data_name, edge_rate):
 
         data_path = f"{proc_folder}/{data_name}"
         weather_data_path = f"{proc_folder}/{weather_data_name}"
@@ -315,10 +315,10 @@ class Trainer:
             log_prior = get_simple_prior(self.n_edge_types, self.edge_rate)
         else:
             adj_prior_matrix = np.load(f"{proc_folder}/{self.prior_adj_path}")
-            log_prior = get_prior_from_adj(adj_prior_matrix, prior_edge_weight, rel_send, rel_rec)
+            log_prior = get_prior_from_adj(adj_prior_matrix, edge_rate, rel_send, rel_rec)
         self.log_prior = Variable(log_prior).cuda()
 
-    def load_data_bike(self, proc_folder, bike_folder, weather_data_path, prior_edge_weight):
+    def load_data_bike(self, proc_folder, bike_folder, weather_data_path, edge_rate):
         x_data = torch.load(f"{proc_folder}/{bike_folder}/nyc_bike_cgc_x_standardised")
         y_data = torch.load(f"{proc_folder}/{bike_folder}/nyc_bike_cgc_y_standardised")
 
@@ -361,10 +361,10 @@ class Trainer:
             log_prior = get_simple_prior(self.n_edge_types, self.edge_rate)
         else:
             adj_prior_matrix = np.load(f"{proc_folder}/{self.prior_adj_path}")
-            log_prior = get_prior_from_adj(adj_prior_matrix, prior_edge_weight, rel_send, rel_rec)
+            log_prior = get_prior_from_adj(adj_prior_matrix, edge_rate, rel_send, rel_rec)
         self.log_prior = Variable(log_prior).cuda()
 
-    def load_data_road(self, proc_folder, road_folder, prior_edge_weight):
+    def load_data_road(self, proc_folder, road_folder, edge_rate):
         train_data = np.load(f"{proc_folder}/{road_folder}/train_data.npy")
         val_data = np.load(f"{proc_folder}/{road_folder}/val_data.npy")
         test_data = np.load(f"{proc_folder}/{road_folder}/test_data.npy")
@@ -398,7 +398,7 @@ class Trainer:
             log_prior = get_simple_prior(self.n_edge_types, self.edge_rate)
         else:
             adj_prior_matrix = np.load(f"{proc_folder}/{self.prior_adj_path}")
-            log_prior = get_prior_from_adj(adj_prior_matrix, prior_edge_weight, rel_send, rel_rec)
+            log_prior = get_prior_from_adj(adj_prior_matrix, edge_rate, rel_send, rel_rec)
         self.log_prior = Variable(log_prior).cuda()
 
     def _init_model(self):

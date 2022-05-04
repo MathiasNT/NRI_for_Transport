@@ -40,4 +40,4 @@ def get_prior_from_adj(adj_matrix, adj_prior, rel_send, rel_rec):
         send = rel_send[i].argmax().item()
         rec = rel_rec[i].argmax().item()
         edge_prior[i, adj_matrix[send, rec]] = adj_prior
-    return edge_prior
+    return np.log(edge_prior)
