@@ -467,3 +467,41 @@ def create_lag1_and_ha_predictions(test_dataloader, burn_in, burn_in_steps, spli
     y_lag1 = torch.cat(y_lag1).squeeze().cpu().detach()
 
     return y_lag1, y_true
+
+
+def congested_hypothesis_check(cut_off_prob_in, adj_stack, yn_true, lower_mean_time):
+    test_sparse_adj_stack = torch.clone(adj_stack)
+    test_sparse_adj_stack[adj_stack < cut_off_prob_in] = 0
+
+    n_edges = 0
+    n_congested_senders = 0
+
+    for ts in range(yn_true.shape[0]):
+        congested_areas = np.where(lower_mean_time[ts])[0]
+
+        for zone in congested_areas:
+            zone_msg_senders = np.where(test_sparse_adj_stack[ts][zone] > 0)[0]
+            senders_is_congested = np.isin(zone_msg_senders, congested_areas)
+
+            n_edges += len(zone_msg_senders)
+            n_congested_senders += senders_is_congested.sum()
+
+    return n_edges, n_congested_senders, n_congested_senders / n_edges
+
+
+def pems_hypothesis_check2(yn_true, hypothesis_bool, adj_stack):
+    congested_probs = []
+    uncongested_probs = []
+
+    for ts in tqdm(range(yn_true.shape[0])):
+        congested_areas = np.where(hypothesis_bool[ts])[0]
+        for zone in congested_areas:
+            zone_edge_probs_true = adj_stack[ts, zone, hypothesis_bool[ts]]
+            zone_edge_probs_true = zone_edge_probs_true[zone_edge_probs_true.nonzero()]
+            congested_probs.append(zone_edge_probs_true)
+
+            zone_edge_probs_false = adj_stack[ts, zone, ~hypothesis_bool[ts]]
+            zone_edge_probs_false = zone_edge_probs_false[zone_edge_probs_false.nonzero()]
+            uncongested_probs.append(zone_edge_probs_false)
+
+    return torch.cat(congested_probs), torch.cat(uncongested_probs)

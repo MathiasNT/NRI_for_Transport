@@ -154,6 +154,9 @@ if __name__ == "__main__":
         "--prior_adj_path", help="path to adj matrix of prior", default=None, type=str
     )
     parser.add_argument(
+        "--prior_edge_weight", help="The prob of edges in the prior", default=0.75, type=float
+    )
+    parser.add_argument(
         "--use_weather",
         action="store_true",
         default=False,
@@ -258,6 +261,7 @@ if __name__ == "__main__":
             proc_folder=proc_folder,
             data_name=args.pickup_data_name,
             weather_data_name=args.weather_data_name,
+            prior_edge_weight=args.prior_edge_weight,
         )
     elif args.pickup_data_name.split("_")[0] == "bike":
         if args.normalize == "ha":
@@ -266,6 +270,7 @@ if __name__ == "__main__":
             proc_folder=proc_folder,
             bike_folder=args.pickup_data_name,
             weather_data_path=args.weather_data_name,
+            prior_edge_weight=args.prior_edge_weight,
         )
     elif args.pickup_data_name.split("_")[0] == "pems":
         if args.normalize == "ha":
@@ -273,6 +278,7 @@ if __name__ == "__main__":
         trainer.load_data_road(
             proc_folder=proc_folder,
             road_folder=args.pickup_data_name,
+            prior_edge_weight=args.prior_edge_weight,
         )
     else:
         raise NameError("data path is neither bike, taxi or road")

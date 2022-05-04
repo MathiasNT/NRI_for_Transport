@@ -39,5 +39,5 @@ def get_prior_from_adj(adj_matrix, adj_prior, rel_send, rel_rec):
     for i in range(len(edge_prior)):
         send = rel_send[i].argmax().item()
         rec = rel_rec[i].argmax().item()
-        edge_prior[i, adj_matrix[send, rec]] += adj_prior
+        edge_prior[i, adj_matrix[send, rec]] = adj_prior
     return edge_prior
