@@ -29,6 +29,12 @@ if __name__ == "__main__":
         help='"ha"=historical normalize, "z"=z-score',
         default="z",
     )
+    parser.add_argument(
+        "--train_frac",
+        help="Fraction of data used for training. The remaining data is used 50/50 for val and test. Only for taxi dataset",
+        type=float,
+        default=0.8,
+    )
 
     # General args
     parser.add_argument("--experiment_name", help="Name used for saving", required=True)
@@ -171,7 +177,6 @@ if __name__ == "__main__":
     shuffle_train = True
     shuffle_val = False
     encoder_factor = True
-    train_frac = 0.8
     burn_in = True
     kl_frac = 1
     pretrain_n_epochs = 30
@@ -219,7 +224,7 @@ if __name__ == "__main__":
         skip_first=skip_first,
         experiment_name=args.experiment_name,
         normalize=args.normalize,
-        train_frac=train_frac,
+        train_frac=args.train_frac,
         burn_in_steps=args.burn_in_steps,
         split_len=args.split_len,
         pred_steps=args.pred_steps,
