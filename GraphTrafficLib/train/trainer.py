@@ -34,6 +34,7 @@ from ..utils.training_utils import (
     gumbel_tau_scheduler,
     pretrain_encoder_epoch,
     cyc_anneal,
+    cyc_anneal_delayed,
 )
 from ..utils.prior_utils import get_prior_from_adj, get_simple_prior
 from ..utils.visual_utils import visualize_prob_adj
@@ -59,6 +60,7 @@ class Trainer:
         burn_in,
         kl_frac,
         kl_cyc,
+        kl_cyc_delay,
         loss_type,
         edge_rate,
         encoder_type,
@@ -146,6 +148,7 @@ class Trainer:
         self.burn_in = burn_in
         self.kl_frac = kl_frac
         self.kl_cyc = kl_cyc
+        self.kl_cyc_delay = kl_cyc_delay
         self.loss_type = loss_type
         self.edge_rate = edge_rate
         self.prior_adj_path = prior_adj_path
@@ -235,6 +238,7 @@ class Trainer:
             "pretrain_n_epochs": self.pretrain_n_epochs,
             "scheduler_patience": self.scheduler_patience,
             "checkpoint_path": self.checkpoint_path,
+            "kl_cyc_delay": self.kl_cyc_delay,
         }
 
         # Save all parameters to txt file and add to tensorboard
@@ -523,7 +527,7 @@ class Trainer:
         for epoch in range(self.n_epochs):
 
             if self.kl_cyc is not None:
-                self.kl_frac = cyc_anneal(epoch, self.kl_cyc)
+                self.kl_frac = cyc_anneal_delayed(epoch, self.kl_cyc, self.kl_cyc_delay)
 
             if self.gumbel_anneal:
                 self.gumbel_curr_tau = gumbel_tau_scheduler(

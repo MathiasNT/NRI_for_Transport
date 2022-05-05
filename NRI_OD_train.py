@@ -57,6 +57,12 @@ if __name__ == "__main__":
     # Training args
     parser.add_argument("--epochs", type=int, default=1, help="The number of epochs")
     parser.add_argument("--kl_cyc", type=int, help="The period for the cyclical annealing")
+    parser.add_argument(
+        "--kl_cyc_delay",
+        type=int,
+        help="How many epochs to wait before starting cyclical annealing",
+        default=0,
+    )
     parser.add_argument("--batch_size", type=int, help="The batch size, default 25")
     parser.add_argument("--lr", type=float, help="Learning rate", default=0.001)
     parser.add_argument(
@@ -231,6 +237,7 @@ if __name__ == "__main__":
         burn_in=burn_in,
         kl_frac=kl_frac,
         kl_cyc=args.kl_cyc,
+        kl_cyc_delay=args.kl_cyc_delay,
         loss_type=args.loss_type,
         edge_rate=args.edge_rate,
         encoder_type=args.encoder_type,

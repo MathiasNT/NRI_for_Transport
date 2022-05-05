@@ -332,7 +332,7 @@ def cyc_anneal_delayed(epoch, cyclic, delay):
     if epoch < delay:
         return 1
 
-    cycle = (epoch) % cyclic
+    cycle = (epoch - delay) % cyclic
     anneal = min(1, 2 / cyclic * cycle + 0.1)
 
     return anneal
