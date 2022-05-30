@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from datetime import timedelta
+from collections import OrderedDict
+import time
 
 from GraphTrafficLib.models.latent_graph import (
     MLPEncoder,
@@ -27,7 +29,7 @@ from GraphTrafficLib.utils.dataloader_utils import (
 # TODO: Go through notebook creation and remove unnecessary code.
 
 
-def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
+def load_model(experiment_path, device, encoder_type, load_checkpoint=False, fix_state_dict=False):
     # Load the model settings and weights
     if load_checkpoint:
         model_dict = torch.load(
@@ -109,6 +111,14 @@ def load_model(experiment_path, device, encoder_type, load_checkpoint=False):
             skip_first=model_settings["skip_first"],
             do_prob=model_settings["dropout_p"],
         ).to(device)
+
+    # Update state_dict if necessary
+    if fix_state_dict:
+        new_state_dict = OrderedDict()
+        for key, value in model_dict["encoder"].items():
+            new_key = key.replace("weather", "global")
+            new_state_dict[new_key] = value
+        model_dict["encoder"] = new_state_dict
 
     # Load trained weights
     encoder.load_state_dict(model_dict["encoder"])
@@ -270,6 +280,98 @@ def load_data_road(road_folder, batch_size, normalize, test_subset_size=None):
         mean,
         std,
     )
+
+
+def create_predictions_timed(
+    encoder,
+    decoder,
+    test_dataloader,
+    rel_rec,
+    rel_send,
+    burn_in,
+    burn_in_steps,
+    split_len,
+    use_weather,
+    sample_graph,
+    device,
+    tau,
+    subset_dim=None,
+):
+    y_true = []
+    y_pred = []
+    graph_list = []
+    graph_probs = []
+    mse = 0
+    pred_steps = split_len - burn_in_steps
+    steps = 0
+    encoder.eval()
+    decoder.eval()
+    times = []
+    for _, (data, weather, idxs) in tqdm(enumerate(test_dataloader)):
+
+        with torch.no_grad():
+            t1 = time.time()
+            steps += len(data)
+            data = data.to(device)
+
+            if use_weather:
+                weather = weather.cuda()
+                logits = encoder(data[:, :, :burn_in_steps, :], weather, rel_rec, rel_send)
+            else:
+                logits = encoder(data[:, :, :burn_in_steps, :], rel_rec, rel_send)
+
+            edge_probs = F.softmax(logits, dim=-1)
+            if sample_graph:
+                edges = F.gumbel_softmax(logits, tau=tau, hard=True)
+                graph_probs.append(edge_probs.cpu())
+            else:
+                edges = edge_probs == edge_probs.max(dim=2, keepdims=True).values
+
+            graph_list.append(edges.cpu())
+
+            if subset_dim is not None:
+                data = data[..., subset_dim].unsqueeze(-1)
+
+            if use_weather:
+                pred_arr = decoder(
+                    data.transpose(1, 2),
+                    weather,
+                    rel_rec,
+                    rel_send,
+                    edges,
+                    burn_in=burn_in,
+                    burn_in_steps=burn_in_steps,
+                    split_len=split_len,
+                )
+            else:
+                pred_arr = decoder(
+                    data.transpose(1, 2),
+                    rel_rec,
+                    rel_send,
+                    edges,
+                    burn_in=burn_in,
+                    burn_in_steps=burn_in_steps,
+                    split_len=split_len,
+                )
+            pred = pred_arr.transpose(1, 2).contiguous()
+            target = data[:, :, 1:, :]
+            target_idxs = idxs[
+                :,
+            ]
+            t2 = time.time() - t1
+            times.append(t2)
+            y_true.append(target)
+            y_pred.append(pred)
+
+            rmse_pred = pred[:, :, -pred_steps:, :]
+            rmse_target = data[:, :, -pred_steps:, :]
+            mse += F.mse_loss(rmse_pred, rmse_target).item() * len(data)
+    print(f"average time {np.array(times).mean()}")
+    y_true = torch.cat(y_true).cpu().detach()
+    y_pred = torch.cat(y_pred).squeeze().cpu().detach()
+    mse = mse / steps
+    rmse = mse ** 0.5
+    return y_pred, y_true, mse, rmse
 
 
 def create_predictions(

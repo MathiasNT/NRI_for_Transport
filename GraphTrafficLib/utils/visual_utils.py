@@ -881,3 +881,78 @@ def plot_pems_timeseries_and_map_old(
         ax[i, 1].set_yticks([])
 
     fig.tight_layout(h_pad=3)
+
+
+def plot_nyc_timeseries(
+    zone_idxs,
+    test_dates,
+    in_sum_ts,
+    out_sum_ts,
+    yn_true,
+    first_pred_step,
+    shp_df,
+    xtick_hour_interval=6,
+    time_slice=None,
+    time_emp=None,
+    fontsize=18,
+):
+
+    matplotlib.rcParams.update({"font.size": fontsize})
+
+    if time_slice is None:
+        time_slice = slice(0, len(test_dates))
+
+    myFmt = mdates.DateFormatter("%A \n %H:%M")
+    n_rows = len(zone_idxs)
+
+    fig, ax = plt.subplots(n_rows, 1, figsize=(15 * 2, 5 * n_rows))
+    for i, zone_idx in enumerate(zone_idxs):
+        row = i
+        ax[row].set_title(f"Sensor ID: {shp_df.iloc[i].zone}", fontsize=fontsize + 1)
+        lns1 = ax[row].plot(
+            test_dates[time_slice],
+            in_sum_ts[zone_idx, time_slice],
+            color="tab:blue",
+            label="Mean ingoing edge probability",
+        )
+        lns2 = ax[row].plot(
+            test_dates[time_slice],
+            out_sum_ts[zone_idx, time_slice],
+            color="tab:red",
+            label="Mean outgoing edge probability",
+        )
+        ax2 = ax[row].twinx()
+        lns3 = ax2.plot(
+            test_dates[time_slice],
+            yn_true[time_slice, zone_idx, first_pred_step - 1, 0],
+            color="tab:green",
+            alpha=1,
+            label="Pickups",
+        )
+        lns4 = ax2.plot(
+            test_dates[time_slice],
+            yn_true[time_slice, zone_idx, first_pred_step - 1, 1],
+            color="tab:green",
+            alpha=0.5,
+            linestyle="--",
+            label="Dropoffs",
+        )
+
+        if time_emp is not None:
+            ax[row].axvline(time_emp, linestyle="--", color="black")
+
+        #ax[row, col].set_ylim(0, 1)
+        ax[row].xaxis.set_major_locator(mdates.HourLocator(interval=xtick_hour_interval))
+        ax[row].xaxis.set_major_formatter(myFmt)
+        ax[row].set_ylabel("Mean edge probability")
+        #ax2.set_ylim(0, 80)
+        ax2.set_ylabel("Traffic speed (mph)")
+
+        lns = lns1 + lns2 + lns3 + lns4
+        labs = [l.get_label() for l in lns]
+        # ax[i].legend(lns, labs, loc="upper center", bbox_to_anchor=(0.5, -0.05), ncol=3)
+
+    handles, labels = ax[0].get_legend_handles_labels()
+    fig.legend(lns, labs, loc="upper center", ncol=4, bbox_to_anchor=(0.5, 0.005))
+
+    fig.tight_layout(h_pad=1)
