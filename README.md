@@ -73,6 +73,7 @@ datafolder
    1. ``NYC_taxi_preprocess_script.py``
    2. ``PEMS_data_preprocess_script.py``
 5. Train models using the bash scripts in `bash_scripts`
+   1. All bash scripts are set up with the hyperparameters from the paper 
 
 Any inquiries feel free to contact mnity@dtu.dk.
 
